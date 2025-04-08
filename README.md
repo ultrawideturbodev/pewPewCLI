@@ -58,7 +58,7 @@ Now you can use the `pew` command anywhere in your terminal.
 Once published to npm, you will be able to install it globally:
 
 ```bash
-npm install -g pew
+npm install -g pew-pew-cli
 ```
 
 ## Usage
