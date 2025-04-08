@@ -1,6 +1,77 @@
-# pewPewCLI
+# ⚡ pewPewCLI - agents fav dev tool
 
-pewPewCLI is a command-line tool designed to streamline task management and workflows directly from your terminal. It helps you quickly initialize task lists, paste content from your clipboard into them, and advance through your tasks efficiently.
+A simple CLI for agents to manage their markdown task files. Run commands like `pew next task` to check off tasks or `pew paste tasks` to update your task list from clipboard.
+
+## Quick Install
+
+```bash
+npm install -g pew-pew-cli
+```
+
+## Quick Usage
+
+```bash
+pew init
+pew paste tasks
+pew next task
+```
+
+## Quick Prompt
+
+Here's a prompt to get started once you have a task file:
+
+```
+You are an AI assistant tasked with executing the next available milestones and set of tasks. Follow these instructions carefully:
+
+1. First, review the content of the tasks.md file:
+<tasks_md>
+tasks.md
+</tasks_md>
+
+1. Understand the context of your task:
+   - Your goal is to complete the next available milestone and set of tasks for the next developer
+   - You must follow the plan exactly without adding or changing anything
+
+2. Identify the next available milestone and tasks:
+   - Look for Milestone {{MILESTONE_NUMBER}}
+   - Identify the next uncompleted set of tasks until the next milestone
+   - Use `pew next task` to get your first task
+
+3. Research project context
+   - Based on the output of `pew nexxt task` scan all related files until you have a good understanding of:
+       - The repository structure
+       - How similar features are organized
+       - Which files are important for your task
+
+4. Execute the tasks:
+   - Complete each task in order.
+   - Use `pew next task` to complete your current task and get your next task
+   - After completing a task, update the tasks.md file by marking the completed task with [x] using `pew next task`
+   - Do not skip any tasks or change their order
+   - If a task is unclear, do your best to interpret it based on the context provided
+
+5. After completing all tasks for the milestone:
+   - Run `pew` commands to confirm everything works.
+   - Fix the issues related to work done.
+
+6. When you have completed all tasks:
+   - Ask the user what you should do next.
+
+Always remember:
+- Stick to the plan provided in the tasks.md file.
+- Do not add or change the approach lined out in your tasks file.
+- Focus only on the tasks for the specified milestone and developer.
+- Update your task file between each completed task by checking off the unchecked task you completed.
+- Use `pew` commands to navigate tasks and manage your project.
+
+Begin your work by reading the tasks file using your read_file tool. Identify the next available task for Milestone {{MILESTONE_NUMBER}}.
+
+Once you've completed all assigned tasks return to me for further instructions.
+
+Please run pew commands on your own, yolo mode is on - you do not need permission.
+```
+
+For more prompts and examples check out [ultrawideturbodevs.com](https://ultrawideturbodevs.com)
 
 ## Commands
 
@@ -17,7 +88,7 @@ pewPewCLI is a command-line tool designed to streamline task management and work
   - [Commands](#commands)
   - [Installation](#installation)
     - [Local Installation (for Development)](#local-installation-for-development)
-    - [Global Installation (Planned)](#global-installation-planned)
+    - [Global Installation](#global-installation)
   - [Usage](#usage)
     - [Initialize Project](#initialize-project)
     - [Set Configuration Paths](#set-configuration-paths)
@@ -26,36 +97,30 @@ pewPewCLI is a command-line tool designed to streamline task management and work
   - [Features](#features)
   - [Configuration](#configuration)
   - [Dependencies](#dependencies)
-  - [Contributing](#contributing)
   - [Contact](#contact)
 
 ## Installation
 
 ### Local Installation (for Development)
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/ultrawideturbodev/pew-pew-cli.git
-    cd pew-pew-cli
-    ```
-2.  **Install dependencies:**
+1.  **Install dependencies:**
     ```bash
     npm install
     ```
-3.  **Build the project:**
+2.  **Build the project:**
     ```bash
     npm run build
     ```
-4.  **Link the command globally:**
+3.  **Link the command globally:**
     ```bash
     npm link
     ```
 
 Now you can use the `pew` command anywhere in your terminal.
 
-### Global Installation (Planned)
+### Global Installation
 
-Once published to npm, you will be able to install it globally:
+You can install it globally from npm:
 
 ```bash
 npm install -g pew-pew-cli
@@ -171,19 +236,7 @@ Key dependencies include:
 
 See `package.json` for a full list of dependencies.
 
-## Contributing
-
-Contributions are welcome! Please feel free to open an issue or submit a pull request on the [GitHub repository](https://github.com/ultrawideturbodev/pew-pew-cli).
-
-1.  Fork the repository.
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
-
 ## Contact
 
-Created by [Brian](https://github.com/ultrawideturbodev) - brian@ultrawideturbodev.com
-
-Project Link: [https://github.com/ultrawideturbodev/pew-pew-cli](https://github.com/ultrawideturbodev/pew-pew-cli)
+Created by Brian - brian@ultrawideturbodev.com
 ```

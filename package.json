@@ -1,6 +1,6 @@
 {
   "name": "pew-pew-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -15,8 +15,8 @@
   "keywords": ["cli", "tasks", "workflow", "automation"],
   "author": "ultrawideturbodev <brian@ultrawideturbodev.com>",
   "license": "UNLICENSED",
-  "description": "pewPewCLI - agents fav cli tool",
-  "files": ["dist", "bin", "README.md"],
+  "description": "pewPewCLI - agents fav dev tool",
+  "files": ["dist", "bin", "README.md", "CHANGELOG.md"],
   "private": false,
   "dependencies": {
     "clipboardy": "^4.0.0",

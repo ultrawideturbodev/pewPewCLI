@@ -10,7 +10,7 @@ const cliService = CliService.getInstance();
 program
   .name('pew')
   .description('Command Line Interface for managing tasks and configurations.')
-  .version('0.1.1');
+  .version('0.1.2');
 
 // Initialize command
 program
