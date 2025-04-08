@@ -176,6 +176,117 @@ export class CliService {
    * Handle next task command logic
    */
   async handleNextTask(): Promise<void> {
-    // Implementation stub
+    try {
+      // Get the primary tasks file path
+      const filePath = await this.taskService.getPrimaryTasksFilePath();
+      
+      // Check if file exists
+      const fileExists = await this.fileSystemService.pathExists(filePath);
+      if (!fileExists) {
+        console.error(`Task file not found: ${filePath}`);
+        return;
+      }
+      
+      // Read the task file content
+      let lines = await this.taskService.readTaskLines();
+      
+      // Find the first unchecked task
+      const currentTaskIndex = TaskService.findFirstUncheckedTask(lines);
+      
+      // If there is an unchecked task, mark it complete
+      if (currentTaskIndex !== -1) {
+        // Get the original line
+        const originalLine = lines[currentTaskIndex];
+        
+        // Mark it as complete
+        const modifiedLine = TaskService.markTaskComplete(originalLine);
+        
+        // Update the array
+        lines[currentTaskIndex] = modifiedLine;
+        
+        // Write the updated lines back to the file
+        await this.taskService.writeTaskLines(lines);
+        
+        // Confirmation message
+        console.log("\n✅ Task marked as complete");
+      } else {
+        // Get task statistics
+        const stats = TaskService.getTaskStatsFromLines(lines);
+        
+        // Determine the appropriate message
+        if (stats.total === 0) {
+          console.log("\n✅ No tasks found.");
+        } else {
+          console.log("\n✅ All tasks complete.");
+        }
+        
+        // Get and display the summary
+        const summary = TaskService.getSummary(stats);
+        console.log(`\n${summary}`);
+        
+        // No next task to display, return early
+        return;
+      }
+      
+      // Read the file again to get fresh state
+      const updatedLines = await this.taskService.readTaskLines();
+      
+      // Find the next unchecked task
+      const nextTaskIndex = TaskService.findFirstUncheckedTask(updatedLines);
+      
+      // If there is a next task, display it
+      if (nextTaskIndex !== -1) {
+        // Get task statistics
+        const stats = TaskService.getTaskStatsFromLines(updatedLines);
+        
+        // Get summary
+        const summary = TaskService.getSummary(stats);
+        
+        // Get context headers
+        const contextHeaders = TaskService.getContextHeaders(updatedLines, nextTaskIndex);
+        
+        // Get task output range
+        const range = TaskService.getTaskOutputRange(updatedLines, nextTaskIndex);
+        
+        // Determine if this is the first task
+        const firstTaskIndex = TaskService.findFirstTask(updatedLines);
+        const isFirstDisplayedTask = (firstTaskIndex === nextTaskIndex);
+        
+        // Format header string
+        const taskHeader = isFirstDisplayedTask ? "📋 First Task" : "⭕ Current Task";
+        
+        // Add context to header
+        const fullHeader = contextHeaders ? `${taskHeader} (${contextHeaders})` : taskHeader;
+        
+        // Print header
+        console.log(`\n${fullHeader}`);
+        
+        // Print separator
+        console.log("═".repeat(fullHeader.length) + "\n");
+        
+        // Extract lines to print
+        let linesToPrint = updatedLines.slice(range.startIndex, range.endIndex);
+        
+        // Trim trailing empty lines
+        while (linesToPrint.length > 0 && linesToPrint[linesToPrint.length - 1].trim() === '') {
+          linesToPrint.pop();
+        }
+        
+        // Print the lines
+        linesToPrint.forEach(line => console.log(line));
+        
+        // Print summary
+        console.log(`\n${summary}`);
+      } else {
+        // No more unchecked tasks
+        const stats = TaskService.getTaskStatsFromLines(updatedLines);
+        const summary = TaskService.getSummary(stats);
+        
+        console.log("\n✅ All tasks complete.");
+        console.log(`\n${summary}`);
+      }
+    } catch (error) {
+      console.error('Error processing next task:', error);
+    }
   }
 } 
