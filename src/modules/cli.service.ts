@@ -110,7 +110,7 @@ export class CliService {
       await this.fileSystemService.writeFile(taskFilePath, '');
     }
     
-    console.log('PewPew CLI initialized successfully.');
+    console.log('pewPewCLI initialized successfully.');
   }
 
   /**

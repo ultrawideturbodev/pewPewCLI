@@ -9,7 +9,7 @@ const cliService = CliService.getInstance();
 
 program
   .name('pew')
-  .description('TypeScript pewPewCLI')
+  .description('Command Line Interface for managing tasks and configurations.')
   .version('0.0.1'); // Placeholder version
 
 // Initialize command
