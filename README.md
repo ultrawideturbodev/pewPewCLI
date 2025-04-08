@@ -2,13 +2,13 @@
 
 A simple CLI for agents to manage their markdown task files. Run commands like `pew next task` to check off tasks or `pew paste tasks` to update your task list from clipboard.
 
-## Quick Install
+## 💻 Install
 
 ```bash
 npm install -g pew-pew-cli
 ```
 
-## Quick Usage
+## 🏗️ Usage
 
 ```bash
 pew init
@@ -16,7 +16,7 @@ pew paste tasks
 pew next task
 ```
 
-## Quick Prompt
+## 💬 Prompt
 
 Here's a prompt to get started once you have a task file:
 
@@ -73,7 +73,7 @@ Please run pew commands on your own, yolo mode is on - you do not need permissio
 
 For more prompts and examples check out [ultrawideturbodevs.com](https://ultrawideturbodevs.com)
 
-## Commands
+## 📝 Commands
 
 | Command                 | Description                                                           | Arguments          | Options                                                                                                |
 | :---------------------- | :-------------------------------------------------------------------- | :----------------- | :----------------------------------------------------------------------------------------------------- |
@@ -82,53 +82,9 @@ For more prompts and examples check out [ultrawideturbodevs.com](https://ultrawi
 | `pew paste tasks`       | Paste clipboard content into the configured primary tasks file.         | `tasks` (required) | `--overwrite`: Overwrite the entire tasks file.<br>`--append`: Append content to the end.<br>`--insert`: Insert content at the beginning.<br>`--force`: Alias for `--overwrite`. |
 | `pew next task`         | Mark the current task as complete and display the next task.          | `task` (required)  | _None_                                                                                                 |
 
-## Table of Contents
+## 📦 Configuration
 
-- [pewPewCLI](#pewpewcli)
-  - [Commands](#commands)
-  - [Installation](#installation)
-    - [Local Installation (for Development)](#local-installation-for-development)
-    - [Global Installation](#global-installation)
-  - [Usage](#usage)
-    - [Initialize Project](#initialize-project)
-    - [Set Configuration Paths](#set-configuration-paths)
-    - [Paste from Clipboard](#paste-from-clipboard)
-    - [Advance to Next Task](#advance-to-next-task)
-  - [Features](#features)
-  - [Configuration](#configuration)
-  - [Dependencies](#dependencies)
-  - [Contact](#contact)
-
-## Installation
-
-### Local Installation (for Development)
-
-1.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-2.  **Build the project:**
-    ```bash
-    npm run build
-    ```
-3.  **Link the command globally:**
-    ```bash
-    npm link
-    ```
-
-Now you can use the `pew` command anywhere in your terminal.
-
-### Global Installation
-
-You can install it globally from npm:
-
-```bash
-npm install -g pew-pew-cli
-```
-
-## Usage
-
-### Initialize Project
+### 📂 Initialize Project
 
 Creates the `.pew` directory and default configuration files (`.pew/config/paths.yaml`, `.pew/tasks.md`) in the current directory. It will prompt for the primary tasks file path unless `--force` is used.
 
@@ -142,23 +98,15 @@ Force initialization without prompts:
 pew init --force
 ```
 
-### Set Configuration Paths
+**`paths.yaml` structure:**
 
-Set the path for the primary tasks file. Currently, only the `tasks` field is supported.
-
-Set the path locally (relative to the project root):
-
-```bash
-pew set path --field tasks --value ./docs/my_tasks.md
+```yaml
+tasks:
+  - path/to/your/tasks.md # Can be relative
+  # - /absolute/path/to/another/tasks.md # Absolute paths also work
 ```
 
-Set the path globally (relative to `~/.pew/`):
-
-```bash
-pew set path --field tasks --value global_tasks.md --global
-```
-
-### Paste from Clipboard
+### 📋 Paste from Clipboard
 
 Paste clipboard content into the configured primary tasks file. If no mode flag is provided, you will be prompted to choose.
 
@@ -192,7 +140,7 @@ pew paste tasks
 #   insert
 ```
 
-### Advance to Next Task
+### 🎯 Advance to Next Task
 
 Marks the first uncompleted task (`- [ ]`) in the primary tasks file as complete (`- [x]`) and displays the next uncompleted task along with context (headers) and summary statistics.
 
@@ -200,32 +148,7 @@ Marks the first uncompleted task (`- [ ]`) in the primary tasks file as complete
 pew next task
 ```
 
-## Features
-
--   **Task Management:** Simple Markdown-based task list management (`- [ ]`, `- [x]`).
--   **CLI Workflow:** Manage tasks directly from the command line.
--   **Clipboard Integration:** Easily paste content (e.g., notes, code snippets) into your task list.
--   **Configuration:** Supports local (`./.pew`) and global (`~/.pew`) configurations for task file paths.
--   **Task Navigation:** `pew next task` command streamlines moving through your task list.
-
-## Configuration
-
-pewPewCLI uses YAML files for configuration.
-
--   **Local Configuration:** Located at `./.pew/config/paths.yaml` within your project directory. Paths defined here are relative to the project root (the directory containing `.pew`). Local configuration takes precedence over global configuration.
--   **Global Configuration:** Located at `~/.pew/config/paths.yaml` in your home directory. Paths defined here are relative to the global `.pew` directory (`~/.pew/`).
-
-**`paths.yaml` structure:**
-
-```yaml
-tasks:
-  - path/to/your/tasks.md # Can be relative
-  # - /absolute/path/to/another/tasks.md # Absolute paths also work
-```
-
-Currently, only the first path listed under `tasks` is used as the primary task file.
-
-## Dependencies
+## 📦 Dependencies
 
 Key dependencies include:
 
@@ -234,9 +157,6 @@ Key dependencies include:
 -   [clipboardy](https://github.com/sindresorhus/clipboardy): For clipboard access.
 -   [js-yaml](https://github.com/nodeca/js-yaml): For YAML parsing and serialization.
 
-See `package.json` for a full list of dependencies.
+## 👋 Contact
 
-## Contact
-
-Created by Brian - brian@ultrawideturbodev.com
-```
+[ultrawideturbodevs.com](https://ultrawideturbodevs.com)
