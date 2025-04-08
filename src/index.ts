@@ -41,9 +41,39 @@ program
   .command('paste')
   .argument('<target>', 'Target to paste to (e.g., "tasks")')
   .description('Paste clipboard content to a target file')
-  .action(async (target) => {
+  .option('--overwrite', 'Overwrite the entire tasks file')
+  .option('--append', 'Append content to the end of the tasks file')
+  .option('--insert', 'Insert content at the beginning of the tasks file')
+  .option('--force', 'Force overwrite (alias for --overwrite)')
+  .action(async (target, options) => {
     if (target === 'tasks') {
-      await cliService.handlePasteTasks();
+      // Initialize mode
+      let mode: 'overwrite' | 'append' | 'insert' | null = null;
+      
+      // Collect active mode flags
+      const modeFlags: string[] = [];
+      if (options.overwrite) modeFlags.push('--overwrite');
+      if (options.append) modeFlags.push('--append');
+      if (options.insert) modeFlags.push('--insert');
+      if (options.force) modeFlags.push('--force');
+      
+      // Check for mutually exclusive flags
+      if (modeFlags.length > 1) {
+        console.error(`Error: Options ${modeFlags.join(' and ')} are mutually exclusive.`);
+        return;
+      }
+      
+      // Determine mode based on flags
+      if (options.overwrite || options.force) {
+        mode = 'overwrite';
+      } else if (options.append) {
+        mode = 'append';
+      } else if (options.insert) {
+        mode = 'insert';
+      }
+      
+      // Call the service method with the determined mode
+      await cliService.handlePasteTasks(mode);
     } else {
       console.error(`Invalid target '${target}' for paste. Valid targets: tasks`);
     }
