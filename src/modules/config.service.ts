@@ -4,23 +4,174 @@
  * Manages loading and saving YAML configurations.
  * Handles configuration keys, values, and scopes (local vs global).
  */
-export class ConfigService {
-  // Properties
-  private localConfigDir: string;
-  private globalConfigDir: string;
-  private settings: Record<string, any>;
-  private paths: Record<string, any>;
-  private secrets: Record<string, any>;
-  private aliases: Record<string, any>;
-  private prompts: Record<string, any>;
+import * as path from 'path';
+import { FileSystemService } from './file-system.service';
+import { YamlService } from './yaml.service';
 
-  constructor() {
-    this.localConfigDir = '';
-    this.globalConfigDir = '';
-    this.settings = {};
-    this.paths = {};
-    this.secrets = {};
-    this.aliases = {};
-    this.prompts = {};
+export class ConfigService {
+  // Singleton instance
+  private static instance: ConfigService | null = null;
+
+  // Properties
+  private localConfigDir: string | null = null;
+  private globalConfigDir: string;
+  private localPathsFile: string | null = null;
+  private globalPathsFile: string;
+  private localPathsData: Record<string, any> = {};
+  private globalPathsData: Record<string, any> = {};
+  private fileSystemService: FileSystemService;
+  private yamlService: YamlService;
+  private isInitialized: boolean = false;
+
+  /**
+   * Private constructor to enforce singleton pattern
+   */
+  private constructor() {
+    this.fileSystemService = new FileSystemService();
+    this.yamlService = new YamlService();
+    
+    // Set global config paths
+    const homeDir = this.fileSystemService.getHomeDirectory();
+    this.globalConfigDir = this.fileSystemService.joinPath(homeDir, '.pew');
+    this.globalPathsFile = this.fileSystemService.joinPath(this.globalConfigDir, 'config', 'paths.yaml');
+  }
+
+  /**
+   * Get singleton instance
+   */
+  public static getInstance(): ConfigService {
+    if (!ConfigService.instance) {
+      ConfigService.instance = new ConfigService();
+    }
+    return ConfigService.instance;
+  }
+
+  /**
+   * Initialize the service
+   */
+  public async initialize(): Promise<void> {
+    if (this.isInitialized) return;
+    
+    // Find local .pew directory
+    const localPewDir = await this._findLocalPewDir(process.cwd());
+    
+    // Set local config paths if found
+    if (localPewDir) {
+      this.localConfigDir = localPewDir;
+      this.localPathsFile = this.fileSystemService.joinPath(localPewDir, 'config', 'paths.yaml');
+    }
+    
+    // Load configs
+    await this._loadPathsConfig();
+    
+    this.isInitialized = true;
+  }
+
+  /**
+   * Find local .pew directory by searching upwards from current directory
+   */
+  private async _findLocalPewDir(startPath: string): Promise<string | null> {
+    let currentPath = startPath;
+    
+    // Limit the search to avoid infinite loops
+    const maxDepth = 10;
+    let depth = 0;
+    
+    while (depth < maxDepth) {
+      const pewPath = this.fileSystemService.joinPath(currentPath, '.pew');
+      
+      if (await this.fileSystemService.pathExists(pewPath)) {
+        return pewPath;
+      }
+      
+      // Move up one directory
+      const parentPath = path.dirname(currentPath);
+      
+      // If we've reached the root, stop searching
+      if (parentPath === currentPath) {
+        break;
+      }
+      
+      currentPath = parentPath;
+      depth++;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Load paths configuration from YAML files
+   */
+  private async _loadPathsConfig(): Promise<void> {
+    // Load global paths config
+    if (await this.fileSystemService.pathExists(this.globalPathsFile)) {
+      this.globalPathsData = await this.yamlService.readYamlFile(this.globalPathsFile);
+    }
+    
+    // Load local paths config if available
+    if (this.localPathsFile && await this.fileSystemService.pathExists(this.localPathsFile)) {
+      this.localPathsData = await this.yamlService.readYamlFile(this.localPathsFile);
+    }
+  }
+
+  /**
+   * Get tasks paths from config
+   */
+  public async getTasksPaths(global: boolean = false): Promise<string[]> {
+    await this.initialize();
+    
+    // Determine which config to use
+    const config = global ? this.globalPathsData : (this.localPathsFile ? this.localPathsData : this.globalPathsData);
+    
+    // Return tasks list or default
+    return config.tasks && Array.isArray(config.tasks) ? config.tasks : ['.pew/tasks.md'];
+  }
+
+  /**
+   * Set tasks paths in config
+   */
+  public async setTasksPaths(paths: string[], global: boolean = false): Promise<void> {
+    await this.initialize();
+    
+    // Determine target file and config data
+    const targetFile = global ? this.globalPathsFile : this.localPathsFile;
+    let configData = global ? this.globalPathsData : this.localPathsData;
+    
+    // Create config dirs if needed
+    if (!targetFile) {
+      throw new Error('No config file available');
+    }
+    
+    // Ensure target directory exists
+    const configDir = path.dirname(targetFile);
+    await this.fileSystemService.ensureDirectoryExists(configDir);
+    
+    // Update config data
+    configData = { ...configData };
+    configData.tasks = paths;
+    
+    // Save config
+    await this.yamlService.writeYamlFile(targetFile, configData);
+    
+    // Update in-memory data
+    if (global) {
+      this.globalPathsData = configData;
+    } else {
+      this.localPathsData = configData;
+    }
+  }
+
+  /**
+   * Get local config directory
+   */
+  public getLocalConfigDir(): string | null {
+    return this.localConfigDir;
+  }
+
+  /**
+   * Get global config directory
+   */
+  public getGlobalConfigDir(): string {
+    return this.globalConfigDir;
   }
 } 
