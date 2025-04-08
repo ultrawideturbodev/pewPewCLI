@@ -10,8 +10,8 @@
     "strict": true,                          /* Enable all strict type-checking options. */
     "skipLibCheck": true,                    /* Skip type checking all .d.ts files. */
     "resolveJsonModule": true,             /* Enable importing .json files */
-    "sourceMap": true,                       /* Create source map files for emitted JavaScript files. */
-    "declaration": true,                      /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
+    "sourceMap": false,                       /* Create source map files for emitted JavaScript files. */
+    "declaration": false,                      /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
     "isolatedModules": true
   },
   "include": ["src/**/*"],                   /* Specifies an array of filenames or patterns to include in the program */

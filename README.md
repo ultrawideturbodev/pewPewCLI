@@ -1,7 +1,5 @@
 # pewPewCLI
 
-[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
-
 pewPewCLI is a command-line tool designed to streamline task management and workflows directly from your terminal. It helps you quickly initialize task lists, paste content from your clipboard into them, and advance through your tasks efficiently.
 
 ## Commands
@@ -29,7 +27,6 @@ pewPewCLI is a command-line tool designed to streamline task management and work
   - [Configuration](#configuration)
   - [Dependencies](#dependencies)
   - [Contributing](#contributing)
-  - [License](#license)
   - [Contact](#contact)
 
 ## Installation
@@ -61,7 +58,7 @@ Now you can use the `pew` command anywhere in your terminal.
 Once published to npm, you will be able to install it globally:
 
 ```bash
-# npm install -g pew-pew-cli # (Coming soon)
+npm install -g pew
 ```
 
 ## Usage
@@ -183,24 +180,6 @@ Contributions are welcome! Please feel free to open an issue or submit a pull re
 3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
 4.  Push to the branch (`git push origin feature/AmazingFeature`).
 5.  Open a Pull Request.
-
-## License
-
-This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
-
-You are free to:
-
--   **Share** — copy and redistribute the material in any medium or format
--   **Adapt** — remix, transform, and build upon the material
-
-Under the following terms:
-
--   **Attribution** — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
--   **NonCommercial** — You may not use the material for commercial purposes.
-
-See the [LICENSE](LICENSE) file for more details.
-
-*(Note: Consider updating the `license` field in `package.json` to `"CC-BY-NC-4.0"`)*
 
 ## Contact
 

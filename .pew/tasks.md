@@ -1,419 +1,360 @@
+<chatName="npm-private-cli-release-plan"/>
 ```markdown
-<chatName="pew-next-task-logic-update"/>
-# Project Plan: Update `pew next task` Logic with `[pew]` Prefix
+# Project Plan: Prepare pewPewCLI for Private npm Release
 
 ## 1. Project Overview
-This project aims to refactor the `pew next task` command logic within the `pew-pew-cli` application. The update introduces a `[pew]` prefix to explicitly mark the task currently in focus. The command will now manage this prefix, update task completion status, and present relevant task context based on the presence and location of the `[pew]` prefix and task completion states.
+This plan outlines the steps required to prepare the `pew-pew-cli` TypeScript project for release as a private package on the npm registry. The goal is to make the tool installable via `npm install pew` and executable as `pew`, while keeping the source code private and unpublished. The package name on npm will be `pew`. Documentation and description fields can still refer to the tool as `pewPewCLI`.
 - [x] Read the project overview:
-    - The goal is to modify `TaskService` and `CliService` to handle the `[pew]` prefix for identifying the next task, completing tasks, and displaying context according to the new rules specified in the user request.
+    - Prepare the existing TypeScript CLI tool for publishing to npm.
+    - The package should be private (not open source).
+    - Users should install it using `npm install pew`.
+    - The command executed by users should be `pew`.
+    - The package name on npm will be `pew`.
+    - Source maps and type declarations should *not* be included in the published package.
+    - The initial version will be `0.1.0`.
+    - The plan includes instructions for setting up an npm account.
 
 ## 2. Requirements
 Overview of all requirements based on user request and codebase analysis.
 - [x] Read the requirements:
     - 👤 **Actors & 🧩 Components:**
         - **Actors:**
-            - User (executing `pew next task`)
-            - Developer (implementing the changes)
+            - Developer (Configuring the package, building, publishing)
+            - User (Installing and running the CLI via npm/npx)
+            - npm Registry (Hosts the package)
+            - npm CLI (Tool used for publishing and installation)
         - **Components:**
-            - CLI Application (`pewPewCLI`)
-            - `CliService` (handles command logic)
-            - `TaskService` (handles task file parsing, manipulation, `[pew]` prefix logic)
-            - `FileSystemService` (reads/writes task file)
-            - Tasks File (e.g., `.pew/tasks.md`, Markdown format)
-            - Console Output (displays messages, task context, summary)
-            - `[pew]` Prefix (string marker `"[pew] "`)
-            - Task Line (string representing a task, e.g., `- [ ] Task`)
-            - Header Line (string representing a markdown header, e.g., `# Header`)
-            - Task Statistics (total, completed, remaining, percentage)
-            - Commander Instance (`program` in `src/index.ts`)
+            - `package.json` (Metadata, dependencies, scripts, publish config)
+            - `tsconfig.json` (TypeScript compiler options)
+            - `README.md` (Package description and usage instructions)
+            - `LICENSE` (License file - to be excluded from publish)
+            - `src/` (TypeScript source code directory)
+            - `dist/` (Compiled JavaScript output directory)
+            - `bin/` (Executable scripts directory)
+                - `bin/pew.js` (Primary executable script)
+            - Node.js Runtime (Executes the CLI)
+            - TypeScript Compiler (`tsc`) (Builds the project)
 
     - 🎬 **Activities:** Specify what actions need to be performed.
+        - [Developer]
+            - Modify `package.json` configuration
+            - Modify `tsconfig.json` configuration
+            - Update `README.md` content
+            - Verify `bin/pew.js` shebang
+            - Run build script (`npm run build`)
+            - Create npm account (if needed)
+            - Log in to npm via CLI (`npm login`)
+            - Publish package to npm (`npm publish`)
+        - [`package.json`]
+            - Store package name (`pew`)
+            - Store version (`0.1.0`)
+            - Store license type (`UNLICENSED`)
+            - Define executable command (`pew` -> `bin/pew.js`)
+            - List runtime dependencies (`dependencies`)
+            - List development dependencies (`devDependencies`)
+            - Specify files to include in package (`files`)
+            - Ensure package is not private (`private: false`)
+            - Remove repository URL
+        - [`tsconfig.json`]
+            - Disable source map generation (`sourceMap: false`)
+            - Disable type declaration generation (`declaration: false`)
+            - Define output directory (`outDir: "./dist"`)
+        - [`README.md`]
+            - Remove conflicting license information (CC BY-NC 4.0 badge/mentions)
+            - Refer to the package as `pewPewCLI` in descriptions
+            - Update installation instructions (use `npm install pew`)
+        - [`bin/pew.js`]
+            - Contain correct shebang (`#!/usr/bin/env node`)
+            - Import and run compiled code from `dist/`
+        - [TypeScript Compiler (`tsc`)]
+            - Compile TypeScript code from `src/` to JavaScript in `dist/` based on `tsconfig.json`
+        - [npm CLI]
+            - Read `package.json` for publishing details
+            - Package specified files into a `.tgz` archive
+            - Upload package archive to npm Registry
+            - Authenticate Developer with npm Registry
+            - Install package dependencies
+            - Link binary command (`pew`) during global install
+        - [npm Registry]
+            - Store published package versions
+            - Serve package files for installation
         - [User]
-            - Execute `pew next task` command
-        - [CLI Application]
-            - Parse `next task` command
-            - Invoke `CliService.handleNextTask`
-        - [`CliService`]
-            - Coordinate task processing using `TaskService`
-            - Read task file content via `TaskService`
-            - Determine current state (empty, all complete, task needs prefix, task ready for completion)
-            - Instruct `TaskService` to add/remove `[pew]` prefix
-            - Instruct `TaskService` to mark task complete
-            - Instruct `TaskService` to get presentation context
-            - Instruct `FileSystemService` (via `TaskService`) to write updated file content
-            - Format and display output (messages, task context, summary) to Console Output
-        - [`TaskService`]
-            - Read task lines from file via `FileSystemService`
-            - Write task lines to file via `FileSystemService`
-            - Find first incomplete task index
-            - Find index of task with `[pew]` prefix
-            - Add `[pew]` prefix to a specific line
-            - Remove `[pew]` prefix from a specific line
-            - Mark task line as complete (`- [ ]` -> `- [x]`)
-            - Calculate task statistics from lines
-            - Identify headers and task lines using regex
-            - Determine presentation range (start/end lines) for a given task index
-            - Extract context headers for a given task index
-            - Generate summary string
-        - [`FileSystemService`]
-            - Read file content
-            - Write file content
-            - Check file existence
-        - [Tasks File]
-            - Store task lines and headers
-            - Persist `[pew]` prefix location
-            - Persist task completion status
-        - [Console Output]
-            - Display feedback messages (e.g., "No tasks found", "Task marked complete", "All tasks complete")
-            - Display task content/context
-            - Display task summary
+            - Run `npm install [-g] pew`
+            - Run `pew <command>` or `npx pew <command>`
 
     - 🌊 **Activity Flows & Scenarios:** Break down complex activities into step-by-step processes.
-        - [`pew next task` Execution Flow]
-            - GIVEN User executes `pew next task`
-            - WHEN `CliService.handleNextTask` is called
-            - THEN `TaskService` reads task lines
-            - AND `TaskService` finds first incomplete task index (`firstUncheckedIndex`)
-            - AND `TaskService` finds `[pew]` prefix index (`pewIndex`)
-            - AND `TaskService` calculates initial stats (`statsBefore`)
-            - [Scenario: Empty/No Tasks]
-                - GIVEN `lines` is empty OR no task lines found
-                - THEN `CliService` prints "No tasks found."
-                - AND `CliService` prints summary (0/0/0)
-                - AND `CliService` exits
-            - [Scenario: All Tasks Complete]
-                - GIVEN `firstUncheckedIndex` is -1
-                - THEN IF `pewIndex` is not -1
-                    - THEN `TaskService` removes `[pew]` from `lines[pewIndex]`
-                    - AND `TaskService` writes updated lines
-                - THEN `CliService` prints "✅ All tasks complete."
-                - AND `CliService` prints summary (`statsBefore`)
-                - AND `CliService` exits
-            - [Scenario: `[pew]` on Wrong Task]
-                - GIVEN `pewIndex` is not -1 AND `pewIndex` != `firstUncheckedIndex`
-                - THEN `TaskService` removes `[pew]` from `lines[pewIndex]`
-                - AND `pewIndex` is treated as -1 for subsequent steps in this run
-                - *(Continues to 'Needs Prefix' Scenario)*
-            - [Scenario: Needs `[pew]` Prefix]
-                - GIVEN `pewIndex` is -1 (or was reset in previous step)
-                - THEN `TaskService` adds `[pew]` prefix to `lines[firstUncheckedIndex]`
-                - AND `TaskService` writes updated lines
-                - AND `TaskService` determines presentation range for `firstUncheckedIndex`
-                - AND `TaskService` gets context headers for `firstUncheckedIndex`
-                - AND `CliService` prints context headers
-                - AND `CliService` prints task presentation range content
-                - AND `CliService` prints summary (`statsBefore`)
-                - AND `CliService` exits
-            - [Scenario: Complete Task with `[pew]`]
-                - GIVEN `pewIndex` == `firstUncheckedIndex`
-                - THEN `TaskService` removes `[pew]` prefix from `lines[firstUncheckedIndex]`
-                - AND `TaskService` marks task complete (`- [ ]` -> `- [x]`) on `lines[firstUncheckedIndex]`
-                - AND `TaskService` writes updated lines
-                - AND `CliService` prints "✅ Task marked as complete"
-                - AND `TaskService` calculates `statsAfter`
-                - AND `TaskService` finds *new* first incomplete task index (`nextUncheckedIndex`)
-                - THEN IF `nextUncheckedIndex` is not -1
-                    - THEN `TaskService` adds `[pew]` prefix to `lines[nextUncheckedIndex]`
-                    - AND `TaskService` writes updated lines *again*
-                    - AND `TaskService` determines presentation range for `nextUncheckedIndex`
-                    - AND `TaskService` gets context headers for `nextUncheckedIndex`
-                    - AND `CliService` prints context headers
-                    - AND `CliService` prints task presentation range content
-                    - AND `CliService` prints summary (`statsAfter`)
-                - ELSE (`nextUncheckedIndex` is -1)
-                    - THEN `CliService` prints "✅ All tasks complete."
-                    - THEN `CliService` prints summary (`statsAfter`)
-                - AND `CliService` exits
+        - [Configuration Flow]
+            - GIVEN Developer has the project codebase
+            - WHEN Developer edits `package.json`
+            - THEN `name` is set to `"pew"`
+            - AND `version` is set to `"0.1.0"`
+            - AND `license` is set to `"UNLICENSED"`
+            - AND `private` is set to `false`
+            - AND `repository` field is removed
+            - AND `files` array includes `"dist"`, `"bin"`, `"README.md"` and excludes `"LICENSE"`
+            - AND runtime dependencies (`commander`, `inquirer`, `clipboardy`, `js-yaml`) are moved from `devDependencies` to `dependencies`
+            - WHEN Developer edits `tsconfig.json`
+            - THEN `sourceMap` is set to `false`
+            - AND `declaration` is set to `false`
+            - WHEN Developer edits `README.md`
+            - THEN CC BY-NC 4.0 license badge and text are removed
+            - THEN Installation instructions are updated to `npm install pew`
+            - WHEN Developer checks `bin/pew.js`
+            - THEN The first line is `#!/usr/bin/env node`
+        - [Build Flow]
+            - GIVEN Configuration is complete
+            - WHEN Developer runs `npm run build`
+            - THEN `tsc` compiles files from `src/`
+            - AND JavaScript output is placed in `dist/`
+            - AND No `.js.map` or `.d.ts` files are generated in `dist/`
+        - [Publishing Flow]
+            - GIVEN Build is successful
+            - AND Developer has an npm account
+            - WHEN Developer runs `npm login`
+            - THEN npm CLI prompts for username, password, OTP
+            - AND npm CLI authenticates the Developer
+            - WHEN Developer runs `npm publish`
+            - THEN npm CLI reads `package.json`
+            - THEN npm CLI packages files listed in `files` array into an archive
+            - THEN npm CLI uploads the archive to the npm Registry under the name `pew` and version `0.1.0`
+            - [Error Scenario: Name Taken]
+                - GIVEN Package name `pew` is already taken on npm
+                - WHEN Developer runs `npm publish`
+                - THEN npm Registry rejects the upload
+                - AND npm CLI shows an error message (e.g., E403 or similar name conflict error)
+            - [Error Scenario: Not Logged In]
+                - GIVEN Developer is not logged in
+                - WHEN Developer runs `npm publish`
+                - THEN npm CLI shows an error message requiring login
 
     - 📝 **Properties:** Define any values or configurations associated with components or activities.
-        - [`TaskService`]
-            - [PEW_PREFIX : string] = `"[pew] "` (Constant)
-            - [PEW_PREFIX_REGEX : RegExp] = `/^\[pew\]\s+/` (Constant)
-            - [TASK_PATTERN : RegExp] (Updated to handle optional prefix)
-            - [UNCHECKED_PATTERN : RegExp] (Updated to handle optional prefix)
-            - [CHECKED_PATTERN : RegExp] (Updated to handle optional prefix)
-            - [HEADER_PATTERN : RegExp] (Existing)
-        - [`CliService.handleNextTask`]
-            - [lines : string[]] (Current content of task file)
-            - [firstUncheckedIndex : number] (Index of first `- [ ]` task)
-            - [pewIndex : number] (Index of task starting with `[pew] `)
-            - [statsBefore : object] ({ total, completed, remaining })
-            - [statsAfter : object] ({ total, completed, remaining })
-            - [nextUncheckedIndex : number] (Index of next `- [ ]` task after completion)
-        - [Task Presentation Range]
-            - [startIndex : number]
-            - [endIndex : number]
-        - [Task Statistics]
-            - [total : number]
-            - [completed : number]
-            - [remaining : number]
-            - [percentComplete : number]
+        - [`package.json`]
+            - [name : string] = `"pew"`
+            - [version : string] = `"0.1.0"`
+            - [license : string] = `"UNLICENSED"`
+            - [private : boolean] = `false`
+            - [bin : object] = `{ "pew": "bin/pew.js" }`
+            - [files : string[]] = `["dist", "bin", "README.md"]`
+            - [dependencies : object] = (Contains runtime deps like `commander`, `inquirer`, etc.)
+            - [devDependencies : object] = (Contains build/test deps like `typescript`, `@types/*`, `jest`, etc.)
+            - [main : string] = `"dist/index.js"` (Entry point for module usage, less relevant for pure CLI but good practice)
+            - [type : string] = `"module"` (Already set, important for ES module resolution)
+        - [`tsconfig.json`]
+            - [compilerOptions.sourceMap : boolean] = `false`
+            - [compilerOptions.declaration : boolean] = `false`
+            - [compilerOptions.outDir : string] = `"./dist"`
+            - [compilerOptions.rootDir : string] = `"./src"`
+        - [`bin/pew.js`]
+            - [shebang : string] = `"#!/usr/bin/env node"`
 
     - 🛠️ **Behaviours:** Describe how actors, components, properties, and activities should act or respond in different situations.
-        - [`TaskService`]
-            - [Should correctly identify task lines regardless of `[pew]` prefix presence]
-            - [Should correctly find the first incomplete task index]
-            - [Should correctly find the index of the task with the `[pew]` prefix, if any]
-            - [Should add `[pew]` prefix idempotently (or ensure only one exists)]
-            - [Should remove `[pew]` prefix correctly]
-            - [Should mark task complete without corrupting the line or prefix]
-            - [Should calculate presentation range based on surrounding headers and tasks]
-            - [Should calculate statistics accurately, ignoring `[pew]` for counting]
-        - [`CliService`]
-            - [Should follow the state machine logic defined in Activity Flows]
-            - [Should handle file I/O via `TaskService`]
-            - [Should provide clear console output for each scenario]
-            - [Should always display the summary at the end of execution]
-        - [Console Output]
-            - [Should clearly indicate which task is being presented]
-            - [Should show context headers when available]
-            - [Should display the correct summary statistics]
+        - [`package.json`]
+            - [Should define the public interface for npm]
+            - [Should correctly list dependencies needed at runtime]
+            - [Should specify exactly which files are included in the published package]
+            - [Should map the desired command (`pew`) to the correct executable script]
+        - [`tsconfig.json`]
+            - [Should configure the TypeScript compiler to exclude source maps and declaration files]
+            - [Should ensure output goes to the correct directory (`dist/`)]
+        - [npm CLI]
+            - [Should respect the `files` array during `npm publish`]
+            - [Should correctly handle authentication via `npm login`]
+            - [Should install runtime dependencies listed in `dependencies` when a user runs `npm install pew`]
+            - [Should *not* install `devDependencies` when a user runs `npm install pew`]
+            - [Should link the `pew` command specified in `bin` when installed globally]
+        - [Build Process (`npm run build`)]
+            - [Should produce a clean `dist` directory containing only compiled JavaScript]
+            - [Should fail if TypeScript compilation errors occur]
 
 ## 3. Milestones and Tasks
-The project is broken down into two milestones: enhancing the `TaskService` with prefix and presentation logic, and then refactoring the `CliService` to use the enhanced service.
 
-*Assumption*: The refined presentation logic (using preceding/subsequent headers/tasks to define the block) and the state machine flow (including handling misplaced `[pew]` prefixes and the two-step process for completing tasks without a prefix) are accepted based on the thought process and proposed flow.
+### Milestone 1: Prepare Package Configuration
+Update configuration files (`package.json`, `tsconfig.json`, `README.md`) and verify the executable script to align with publishing requirements.
 
-### Milestone 1: Enhance Task Service Logic
-Update `TaskService` to handle the `[pew]` prefix, refine task identification, and implement the new presentation range calculation.
-
-#### Task 1.1: Implement `[pew]` Prefix Management
-- [x] 1. Add methods to `TaskService` for finding, adding, and removing the `[pew]` prefix from task lines.
+#### Task 1.1: Update `package.json` for Publishing
+- [x] 1. Modify `package.json` to set the correct package name, version, license, dependencies, included files, and remove private/repository fields for publishing.
     - Sequence diagram:
         ```mermaid
         sequenceDiagram
-            CliService->>TaskService: findTaskWithPewPrefix(lines)
-            TaskService-->>CliService: pewIndex
-            CliService->>TaskService: addPewPrefix(lines, index)
-            TaskService-->>TaskService: Modify lines[index]
-            TaskService-->>CliService: updatedLines
-            CliService->>TaskService: removePewPrefix(lines, index)
-            TaskService-->>TaskService: Modify lines[index]
-            TaskService-->>CliService: updatedLines
+            Developer->>package.json: Edit file
+            package.json-->>Developer: Apply changes (name, version, license, private, files, dependencies, devDependencies, bin, repository removal)
         ```
     - Files:
-        - Update: `src/modules/task.service.ts`
-    - Classes:
-        - Update: `TaskService`
-    - Variables:
-        - Add (Constants): `TaskService.PEW_PREFIX = "[pew] "`
-        - Add (Constants): `TaskService.PEW_PREFIX_REGEX = /^\[pew\]\s+/`
-    - Methods:
-        - Add: `TaskService.findTaskWithPewPrefix(lines: string[]): number` (Returns index or -1)
-        - Add: `TaskService.addPewPrefix(lines: string[], index: number): string[]` (Returns modified lines array)
-        - Add: `TaskService.removePewPrefix(lines: string[], index: number): string[]` (Returns modified lines array)
-        - Add Helper (Private Static): `TaskService.getLineWithoutPewPrefix(line: string): string` (Returns line content after prefix, or original line if no prefix)
-        - Add Helper (Private Static): `TaskService.lineHasPewPrefix(line: string): boolean`
+        - Update: `package.json`
+    - Properties:
+        - Update: `name`: `"pew-pew-cli"` -> `"pew"`
+        - Update: `version`: `"1.0.0"` -> `"0.1.0"`
+        - Update: `license`: `"UNLICENSED"` (Keep as is, but ensure LICENSE file is excluded later)
+        - Update: `private`: `true` -> `false`
+        - Update: `repository`: Remove this entire field.
+        - Update: `files`: `["dist", "bin", "README.md", "LICENSE"]` -> `["dist", "bin", "README.md"]`
+        - Update: `dependencies`: Add `commander`, `inquirer`, `clipboardy`, `js-yaml` (move from `devDependencies`). Ensure versions are appropriate (e.g., `^13.1.0` for commander, `^8.2.5` for inquirer, `^4.0.0` for clipboardy, `^4.1.0` for js-yaml).
+        - Update: `devDependencies`: Remove `commander`, `inquirer`, `clipboardy`, `js-yaml`. Keep `@types/*`, `jest`, `ts-jest`, `ts-node`, `typescript`.
+        - Verify: `bin`: `{ "pew": "bin/pew.js" }` (Ensure it remains correct).
+        - Verify: `main`: `"dist/index.js"` (Ensure it remains correct).
+        - Verify: `type`: `"module"` (Ensure it remains correct).
     - Process:
-        - Implement `findTaskWithPewPrefix` to iterate through lines and use `PEW_PREFIX_REGEX.test()`.
-        - Implement `addPewPrefix` to check if the prefix exists using `lineHasPewPrefix` before prepending `PEW_PREFIX` to `lines[index]`. Return a *new* array or modify in place depending on preference (returning new is safer).
-        - Implement `removePewPrefix` to use `line.replace(PEW_PREFIX_REGEX, '')` on `lines[index]` if the prefix exists. Return a *new* array or modify in place.
-        - Implement helper methods.
+        - Open `package.json`.
+        - Change the value of the `name` field to `"pew"`.
+        - Change the value of the `version` field to `"0.1.0"`.
+        - Change the value of the `private` field to `false`.
+        - Delete the entire `repository` field (key and value).
+        - Modify the `files` array to contain only `"dist"`, `"bin"`, and `"README.md"`.
+        - Identify `commander`, `inquirer`, `clipboardy`, `js-yaml` within the `devDependencies` object. Note their versions.
+        - Cut these entries from `devDependencies`.
+        - Create a new `dependencies` object (if it doesn't exist).
+        - Paste the cut entries into the `dependencies` object, preserving their version numbers (e.g., `"commander": "^13.1.0"`).
+        - Verify the `bin`, `main`, and `type` fields are correct.
+        - Save the `package.json` file.
 
-#### Task 1.2: Refine Task Identification and Completion
-- [x] 1. Update existing `TaskService` static methods (`isTask`, `isUncheckedTask`, `isCheckedTask`, `findFirstUncheckedTask`, `markTaskComplete`, `getTaskStatsFromLines`) to correctly handle lines that may or may not have the `[pew]` prefix.
+#### Task 1.2: Update `tsconfig.json` to Exclude Maps and Declarations
+- [x] 1. Modify `tsconfig.json` to ensure the generation of source maps (`.js.map`) and type declaration files (`.d.ts`) is disabled during the build process.
     - Sequence diagram:
         ```mermaid
         sequenceDiagram
-            participant C as CliService
-            participant T as TaskService
-            C->>T: findFirstUncheckedTask(lines)
-            T->>T: Loop lines
-            T->>T: isUncheckedTask(line) // Ignores prefix
-            T-->>C: index
-            C->>T: markTaskComplete(line)
-            T->>T: Check if line has prefix
-            T->>T: Modify line (replace `- [ ]` with `- [x]`)
-            T-->>C: modifiedLine // Prefix preserved if present
-            C->>T: getTaskStatsFromLines(lines)
-            T->>T: Loop lines
-            T->>T: isTask(line) // Ignores prefix
-            T->>T: isCheckedTask(line) // Ignores prefix
-            T-->>C: stats
+            Developer->>tsconfig.json: Edit file
+            tsconfig.json-->>Developer: Apply changes (compilerOptions.sourceMap, compilerOptions.declaration)
         ```
     - Files:
-        - Update: `src/modules/task.service.ts`
-    - Classes:
-        - Update: `TaskService`
-    - Variables:
-        - Update (Constants): `TaskService.TASK_PATTERN` (Adjust regex to optionally match prefix: `^(?:\[pew\]\s+)?\s*-\s*\[\s*[xX\s]*\s*\]`)
-        - Update (Constants): `TaskService.UNCHECKED_PATTERN` (Adjust regex: `^(?:\[pew\]\s+)?\s*-\s*\[\s*\]`)
-        - Update (Constants): `TaskService.CHECKED_PATTERN` (Adjust regex: `^(?:\[pew\]\s+)?\s*-\s*\[\s*[xX]\s*\]`)
-    - Methods:
-        - Update: `TaskService.isTask(line: string): boolean` (Use updated regex or helper `getLineWithoutPewPrefix` before testing)
-        - Update: `TaskService.isUncheckedTask(line: string): boolean` (Use updated regex or helper)
-        - Update: `TaskService.isCheckedTask(line: string): boolean` (Use updated regex or helper)
-        - Update: `TaskService.findFirstUncheckedTask(lines: string[]): number` (Ensure it uses the updated `isUncheckedTask`)
-        - Update: `TaskService.markTaskComplete(line: string): string` (Modify to preserve prefix. Find `- [ ]` in the line *after* any potential prefix, replace it with `- [x]`, and return the full modified line including prefix if it was present).
-        - Update: `TaskService.getTaskStatsFromLines(lines: string[]): { total: number, completed: number, remaining: number }` (Ensure it uses updated `isTask`, `isCheckedTask`)
+        - Update: `tsconfig.json`
+    - Properties:
+        - Verify/Update: `compilerOptions.sourceMap`: Should be `false`.
+        - Verify/Update: `compilerOptions.declaration`: Should be `false`.
     - Process:
-        - Modify the regex constants to optionally match the `[pew]` prefix at the start (`^(?:\[pew\]\s+)?`).
-        - Review all methods listed and ensure they correctly identify/process tasks regardless of the prefix. For `markTaskComplete`, the logic should be: find `- [ ]`, replace with `- [x]`, ensuring not to damage the prefix if present.
+        - Open `tsconfig.json`.
+        - Locate the `compilerOptions` object.
+        - Ensure the value of the `sourceMap` property is `false`. If it's `true` or missing, set it to `false`.
+        - Ensure the value of the `declaration` property is `false`. If it's `true` or missing, set it to `false`.
+        - Save the `tsconfig.json` file if changes were made.
 
-#### Task 1.3: Implement New Presentation Logic
-- [x] 1. Update `TaskService.getTaskOutputRange` and `TaskService.getContextHeaders` to implement the refined logic for determining the block of lines to display.
+#### Task 1.3: Update `README.md` License and Installation Instructions
+- [x] 1. Modify `README.md` to remove conflicting license information and update the installation command to reflect the new package name.
     - Sequence diagram:
         ```mermaid
         sequenceDiagram
-            CliService->>TaskService: getTaskOutputRange(lines, taskIndex)
-            TaskService->>TaskService: Find governing header level for taskIndex
-            TaskService->>TaskService: Scan backwards for startIndex (header or 0)
-            TaskService->>TaskService: Scan forwards for endIndex (next task, same/higher header, or end)
-            TaskService-->>CliService: { startIndex, endIndex }
-            CliService->>TaskService: getContextHeaders(lines, taskIndex)
-            TaskService->>TaskService: Scan backwards for up to 2 headers
-            TaskService-->>CliService: headerString
+            Developer->>README.md: Edit file
+            README.md-->>Developer: Apply changes (Remove CC license badge/text, update install command)
         ```
     - Files:
-        - Update: `src/modules/task.service.ts`
-    - Classes:
-        - Update: `TaskService`
-    - Methods:
-        - Update: `TaskService.getTaskOutputRange(lines: string[], taskIndex: number): { startIndex: number, endIndex: number }`
-        - Update: `TaskService.getContextHeaders(lines: string[], taskIndex: number): string` (Existing logic might be sufficient, review).
-        - Add Helper (Private Static): `TaskService.getLineHeaderLevel(line: string): number` (Returns 1-6 if header, 0 otherwise)
-        - Add Helper (Private Static): `TaskService.isTaskOrHeader(line: string): boolean`
+        - Update: `README.md`
     - Process:
-        - Implement `getLineHeaderLevel` using `HEADER_PATTERN`.
-        - Refactor `getTaskOutputRange`:
-            - Find the header level governing `lines[taskIndex]` by scanning backwards from `taskIndex - 1` until a header is found or index 0 is reached. Store this `governingLevel`.
-            - Find `startIndex`: Scan backwards from `taskIndex - 1`. The `startIndex` is the index of the first line found that is a header, or 0 if no header is found before the start.
-            - Find `endIndex`: Scan forwards from `taskIndex + 1`. The `endIndex` is the index of the first line found that is:
-                - A task (`isTask(line)`).
-                - A header (`isHeader(line)`) with a level <= `governingLevel`.
-            - If no such line is found, `endIndex` is `lines.length`.
-        - Review `getContextHeaders`: The current logic of scanning backwards for 2 headers seems okay. Ensure it uses the updated `isHeader`.
+        - Open `README.md`.
+        - Delete the CC BY-NC 4.0 license badge line: `[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)`.
+        - Delete the entire "License" section near the end of the file that describes the CC BY-NC 4.0 license. You may optionally add a simple statement like: `## License\n\nThis software is provided under a private license. See the `LICENSE` file in the source repository for details.` or simply remove the section if preferred, given the `LICENSE` file won't be published. Since the user requested removal, let's remove the section entirely.
+        - In the "Installation" -> "Global Installation (Planned)" section, change the example command from `# npm install -g pew-pew-cli # (Coming soon)` to `npm install -g pew`. Remove the `# (Coming soon)` comment.
+        - Review the rest of the README for any other mentions of the old license or `pew-pew-cli` in installation contexts and update accordingly. Keep references to `pewPewCLI` for the tool's descriptive name.
+        - Save the `README.md` file.
 
-### Milestone 2: Refactor CLI Service Logic
-Update `CliService.handleNextTask` to implement the new state machine using the enhanced `TaskService`.
-
-#### Task 2.1: Implement `handleNextTask` State Machine
-- [x] 1. Replace the existing logic in `CliService.handleNextTask` with the new state machine described in the Activity Flow.
-    - Sequence diagram: (Represents the overall flow from Activity Flows section)
+#### Task 1.4: Verify Executable Shebang
+- [x] 1. Check the main executable file (`bin/pew.js`) to ensure it starts with the correct shebang line required for node CLI scripts.
+    - Sequence diagram:
         ```mermaid
         sequenceDiagram
-            participant User
-            participant CLI
-            participant CliSvc as CliService
-            participant TaskSvc as TaskService
-            participant FSvc as FileSystemService
+            Developer->>bin/pew.js: Read file content
+            bin/pew.js-->>Developer: Show first line
+            Developer->>Developer: Verify first line is '#!/usr/bin/env node'
+        ```
+    - Files:
+        - Read: `bin/pew.js`
+    - Properties:
+        - Verify: `shebang` (first line) is `#!/usr/bin/env node`
+    - Process:
+        - Open `bin/pew.js`.
+        - Confirm that the very first line of the file is exactly `#!/usr/bin/env node`.
+        - If it's missing or incorrect, add/edit it.
+        - Save the file if changes were made.
 
-            User->>CLI: pew next task
-            CLI->>CliSvc: handleNextTask()
-            CliSvc->>TaskSvc: readTaskLines()
-            TaskSvc->>FSvc: readFile()
-            FSvc-->>TaskSvc: fileContent
-            TaskSvc-->>CliSvc: lines
-            CliSvc->>TaskSvc: findFirstUncheckedTask(lines)
-            TaskSvc-->>CliSvc: firstUncheckedIndex
-            CliSvc->>TaskSvc: findTaskWithPewPrefix(lines)
-            TaskSvc-->>CliSvc: pewIndex
-            CliSvc->>TaskSvc: getTaskStatsFromLines(lines)
-            TaskSvc-->>CliSvc: statsBefore
+### Milestone 2: Build, Account Setup, and Publishing Instructions
+Perform a clean build, provide instructions for npm account management, and detail the publishing command.
 
-            alt Empty or No Tasks
-                CliSvc->>CliSvc: Check if lines empty or no tasks
-                CliSvc->>Console: Print "No tasks found."
-                CliSvc->>TaskSvc: getSummary(statsBefore)
-                TaskSvc-->>CliSvc: summaryString
-                CliSvc->>Console: Print summaryString
-            else All Tasks Complete
-                CliSvc->>CliSvc: Check if firstUncheckedIndex == -1
-                opt pewIndex != -1
-                    CliSvc->>TaskSvc: removePewPrefix(lines, pewIndex)
-                    TaskSvc-->>CliSvc: updatedLines
-                    CliSvc->>TaskSvc: writeTaskLines(updatedLines)
-                    TaskSvc->>FSvc: writeFile()
-                    FSvc-->>TaskSvc: ok
-                    TaskSvc-->>CliSvc: ok
-                end
-                CliSvc->>Console: Print "✅ All tasks complete."
-                CliSvc->>TaskSvc: getSummary(statsBefore)
-                TaskSvc-->>CliSvc: summaryString
-                CliSvc->>Console: Print summaryString
-            else Pew on Wrong Task
-                CliSvc->>CliSvc: Check if pewIndex != -1 and pewIndex != firstUncheckedIndex
-                CliSvc->>TaskSvc: removePewPrefix(lines, pewIndex)
-                TaskSvc-->>CliSvc: lines // updated in memory
-                CliSvc->>CliSvc: Set pewIndex = -1 (for this run)
-                // Fallthrough to Needs Prefix
-            else Needs Pew Prefix
-                CliSvc->>CliSvc: Check if pewIndex == -1
-                CliSvc->>TaskSvc: addPewPrefix(lines, firstUncheckedIndex)
-                TaskSvc-->>CliSvc: updatedLines
-                CliSvc->>TaskSvc: writeTaskLines(updatedLines)
-                TaskSvc->>FSvc: writeFile()
-                FSvc-->>TaskSvc: ok
-                TaskSvc-->>CliSvc: ok
-                CliSvc->>TaskSvc: getContextHeaders(updatedLines, firstUncheckedIndex)
-                TaskSvc-->>CliSvc: contextHeaders
-                CliSvc->>TaskSvc: getTaskOutputRange(updatedLines, firstUncheckedIndex)
-                TaskSvc-->>CliSvc: range
-                CliSvc->>Console: Print contextHeaders
-                CliSvc->>Console: Print lines[range.startIndex...range.endIndex]
-                CliSvc->>TaskSvc: getSummary(statsBefore)
-                TaskSvc-->>CliSvc: summaryString
-                CliSvc->>Console: Print summaryString
-            else Complete Task with Pew
-                CliSvc->>CliSvc: Check if pewIndex == firstUncheckedIndex
-                CliSvc->>TaskSvc: removePewPrefix(lines, firstUncheckedIndex)
-                TaskSvc-->>CliSvc: lines // updated in memory
-                CliSvc->>TaskSvc: markTaskComplete(lines[firstUncheckedIndex])
-                TaskSvc-->>CliSvc: modifiedLine
-                CliSvc->>CliSvc: Update lines array with modifiedLine
-                CliSvc->>TaskSvc: writeTaskLines(lines) // Write completion + prefix removal
-                TaskSvc->>FSvc: writeFile()
-                FSvc-->>TaskSvc: ok
-                TaskSvc-->>CliSvc: ok
-                CliSvc->>Console: Print "✅ Task marked as complete"
-                CliSvc->>TaskSvc: getTaskStatsFromLines(lines) // Calculate statsAfter
-                TaskSvc-->>CliSvc: statsAfter
-                CliSvc->>TaskSvc: findFirstUncheckedTask(lines) // Find next one
-                TaskSvc-->>CliSvc: nextUncheckedIndex
-                opt nextUncheckedIndex != -1
-                    CliSvc->>TaskSvc: addPewPrefix(lines, nextUncheckedIndex)
-                    TaskSvc-->>CliSvc: linesWithNewPrefix
-                    CliSvc->>TaskSvc: writeTaskLines(linesWithNewPrefix) // Write new prefix
-                    TaskSvc->>FSvc: writeFile()
-                    FSvc-->>TaskSvc: ok
-                    TaskSvc-->>CliSvc: ok
-                    CliSvc->>TaskSvc: getContextHeaders(linesWithNewPrefix, nextUncheckedIndex)
-                    TaskSvc-->>CliSvc: nextContextHeaders
-                    CliSvc->>TaskSvc: getTaskOutputRange(linesWithNewPrefix, nextUncheckedIndex)
-                    TaskSvc-->>CliSvc: nextRange
-                    CliSvc->>Console: Print nextContextHeaders
-                    CliSvc->>Console: Print lines[nextRange.startIndex...nextRange.endIndex]
-                    CliSvc->>TaskSvc: getSummary(statsAfter)
-                    TaskSvc-->>CliSvc: summaryString
-                    CliSvc->>Console: Print summaryString
-                else // No more tasks
-                    CliSvc->>Console: Print "✅ All tasks complete."
-                    CliSvc->>TaskSvc: getSummary(statsAfter)
-                    TaskSvc-->>CliSvc: summaryString
-                    CliSvc->>Console: Print summaryString
-                end
+#### Task 2.1: Perform Clean Build
+- [x] 1. Instruct the developer to perform a clean build to ensure the `dist` directory contains the latest compiled JavaScript code without source maps or declaration files.
+    - Sequence diagram:
+        ```mermaid
+        sequenceDiagram
+            Developer->>Terminal: Run 'npm run build'
+            Terminal->>TypeScript Compiler: Execute 'tsc' based on tsconfig.json
+            TypeScript Compiler->>dist/: Output compiled .js files
+            dist/-->>Developer: Contains compiled code
+        ```
+    - Files:
+        - Delete: `dist/` (Optional, but ensures a clean build)
+        - Create/Update: `dist/` directory and its `.js` contents.
+    - Process:
+        - Open a terminal in the project root directory.
+        - (Optional but recommended) Remove the existing `dist` directory: `rm -rf dist` (macOS/Linux) or `rmdir /s /q dist` (Windows).
+        - Run the build script defined in `package.json`: `npm run build`.
+        - Verify that the `dist` directory is created and contains `.js` files corresponding to your `.ts` files in `src/`.
+        - Verify that no `.js.map` or `.d.ts` files are present in the `dist` directory.
+
+#### Task 2.2: Provide npm Account and Login Instructions
+- [x] 1. Provide instructions for creating an npm account (if needed) and logging into the account via the npm CLI.
+    - Sequence diagram:
+        ```mermaid
+        sequenceDiagram
+            alt No npm Account
+                Developer->>npmjs.com: Navigate to signup page
+                npmjs.com-->>Developer: Display signup form
+                Developer->>npmjs.com: Submit signup details
+                npmjs.com-->>Developer: Account created
             end
+            Developer->>Terminal: Run 'npm login'
+            Terminal->>npm CLI: Initiate login process
+            npm CLI-->>Developer: Prompt for username
+            Developer->>npm CLI: Enter username
+            npm CLI-->>Developer: Prompt for password
+            Developer->>npm CLI: Enter password
+            npm CLI-->>Developer: Prompt for email/OTP (if 2FA enabled)
+            Developer->>npm CLI: Enter email/OTP
+            npm CLI->>npm Registry: Authenticate user
+            npm Registry-->>npm CLI: Authentication status
+            npm CLI-->>Developer: Display login success/failure message
+        ```
+    - Process:
+        - **If you don't have an npm account:**
+            - Go to [https://www.npmjs.com/signup](https://www.npmjs.com/signup).
+            - Fill out the required information (username, password, email) and complete the signup process.
+            - Verify your email address if required.
+        - **Log in via the command line:**
+            - Open a terminal.
+            - Run the command: `npm login`.
+            - Enter your npm username when prompted.
+            - Enter your npm password when prompted.
+            - Enter the email address associated with your account when prompted (this is often used for verification or notifications).
+            - If you have Two-Factor Authentication (2FA) enabled, you will be prompted to enter a One-Time Password (OTP) from your authenticator app.
+            - Upon successful login, you should see a message like `Logged in as <your-username> on https://registry.npmjs.org/`.
+
+#### Task 2.3: Provide Publishing Instructions
+- [x] 1. Provide the command to publish the package to the npm registry.
+    - Sequence diagram:
+        ```mermaid
+        sequenceDiagram
+            Developer->>Terminal: Run 'npm publish'
+            Terminal->>npm CLI: Initiate publish process
+            npm CLI->>package.json: Read package metadata and 'files' array
+            npm CLI->>Filesystem: Package specified files into .tgz archive
+            npm CLI->>npm Registry: Upload .tgz archive for 'pew@0.1.0'
+            npm Registry-->>npm CLI: Publish success/failure status
+            npm CLI-->>Developer: Display publish success/failure message
         ```
     - Files:
-        - Update: `src/modules/cli.service.ts`
-    - Classes:
-        - Update: `CliService`
-    - Variables:
-        - Within `handleNextTask`: `lines`, `firstUncheckedIndex`, `pewIndex`, `statsBefore`, `statsAfter`, `nextUncheckedIndex`, `contextHeaders`, `range`, `summaryString`, etc.
-    - Methods:
-        - Update: `CliService.handleNextTask(): Promise<void>`
+        - Read: `package.json`
+        - Read: Files listed in `package.json`'s `files` array (e.g., `dist/`, `bin/`, `README.md`)
     - Process:
-        - Clear the existing implementation of `handleNextTask`.
-        - Implement the logic step-by-step as outlined in the "Activity Flows & Scenarios" section and the sequence diagram above.
-        - Use the newly added/updated methods from `TaskService` (`readTaskLines`, `findFirstUncheckedTask`, `findTaskWithPewPrefix`, `getTaskStatsFromLines`, `removePewPrefix`, `addPewPrefix`, `markTaskComplete`, `writeTaskLines`, `getContextHeaders`, `getTaskOutputRange`, `getSummary`).
-        - Ensure all file writes (`writeTaskLines`) happen at the correct points (after adding/removing prefix, after marking complete). Note that two writes might occur in the "Complete Task" scenario if a subsequent task needs its prefix added.
-        - Structure the code using `if/else if/else` blocks to represent the different scenarios (Empty, All Complete, Needs Prefix, Complete Task).
-        - Include `try...catch` block around the main logic to handle potential errors during file operations or processing, logging errors to the console.
-        - Ensure the summary is printed using `TaskService.getSummary` and `console.log` before exiting in every scenario branch.
-        - Handle the presentation logic: call `getContextHeaders` and `getTaskOutputRange`, then iterate from `range.startIndex` to `range.endIndex` printing `lines[i]`.
+        - Ensure you are logged in to npm (see Task 2.2).
+        - Ensure your `package.json` reflects the desired package name (`pew`) and version (`0.1.0`).
+        - Ensure the `private` field in `package.json` is set to `false`.
+        - Ensure the build is complete and the `dist` directory is up-to-date (see Task 2.1).
+        - Open a terminal in the project root directory.
+        - Run the command: `npm publish`.
+        - Monitor the output for success or error messages.
+            - **Success:** You should see messages indicating the package contents being uploaded and a final confirmation like `+ pew@0.1.0`.
+            - **Error (Name Taken):** If the name `pew` is already taken, npm will return an error (e.g., `npm ERR! 403 Forbidden - PUT https://registry.npmjs.org/pew - You do not have permission to publish "pew". Are you logged in as the correct user?`). You would need to choose a different, unique name in `package.json` and try again.
+            - **Error (Not Logged In):** If you are not logged in, you'll likely see an error prompting you to log in first. Run `npm login` and retry `npm publish`.
+            - **Other Errors:** Address any other build or configuration errors reported by npm.
 
 ---
 Plan Parts:
-1. Milestone 1: Enhance Task Service Logic (Tasks 1.1, 1.2, 1.3)
-2. Milestone 2: Refactor CLI Service Logic (Task 2.1)
+1. Milestone 1: Prepare Package Configuration
+2. Milestone 2: Build, Account Setup, and Publishing Instructions
 ```
