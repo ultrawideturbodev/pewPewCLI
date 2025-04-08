@@ -1,4 +1,4 @@
-# ⚡ pewPewCLI - agents fav dev tool
+# pewPewCLI ❤️ agents fav dev tool 🔫
 
 A simple CLI for agents to manage their markdown task files. Run commands like `pew next task` to check off tasks or `pew paste tasks` to update your task list from clipboard.
 
