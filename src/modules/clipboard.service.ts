@@ -4,6 +4,8 @@
  * Handles clipboard interactions.
  * Provides methods for reading from and writing to the system clipboard.
  */
+import clipboardy from 'clipboardy';
+
 export class ClipboardService {
   constructor() {
     // Initialize service
@@ -13,8 +15,12 @@ export class ClipboardService {
    * Read text from clipboard
    */
   async readFromClipboard(): Promise<string> {
-    // Implementation stub
-    return '';
+    try {
+      return await clipboardy.read();
+    } catch (error) {
+      console.error('Error reading from clipboard:', error);
+      throw error;
+    }
   }
 
   /**

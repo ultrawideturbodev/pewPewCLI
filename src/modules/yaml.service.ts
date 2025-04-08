@@ -1,11 +1,11 @@
 /**
  * YamlService
  * 
- * Wraps YAML parsing/serialization logic.
- * Provides utilities for loading and dumping YAML data.
+ * Handles YAML parsing and serialization.
+ * Provides methods for reading and writing YAML files.
  */
-import { load, dump } from 'js-yaml';
-import { FileSystemService } from './file-system.service';
+import yaml from 'js-yaml';
+import { FileSystemService } from './file-system.service.js';
 
 export class YamlService {
   private fileSystemService: FileSystemService;
@@ -22,7 +22,7 @@ export class YamlService {
       if (!yamlString || yamlString.trim() === '') {
         return {};
       }
-      return load(yamlString) as Record<string, any> || {};
+      return yaml.load(yamlString) as Record<string, any> || {};
     } catch (error) {
       console.error('Error parsing YAML:', error);
       return {};
@@ -34,7 +34,7 @@ export class YamlService {
    */
   serializeToYaml(data: Record<string, any>): string {
     try {
-      return dump(data || {});
+      return yaml.dump(data || {});
     } catch (error) {
       console.error('Error serializing to YAML:', error);
       return '';

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { CliService } from './modules/cli.service';
+import { CliService } from './modules/cli.service.js';
 
 /**
  * Main CLI entry point
@@ -36,13 +36,17 @@ program
     }
   });
 
-// Paste command (stub for future implementation)
+// Paste command
 program
   .command('paste')
   .argument('<target>', 'Target to paste to (e.g., "tasks")')
   .description('Paste clipboard content to a target file')
-  .action((target) => {
-    console.log(`Paste command called with target: ${target} (stub)`);
+  .action(async (target) => {
+    if (target === 'tasks') {
+      await cliService.handlePasteTasks();
+    } else {
+      console.error(`Invalid target '${target}' for paste. Valid targets: tasks`);
+    }
   });
 
 // Next command (stub for future implementation)
