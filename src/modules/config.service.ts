@@ -123,8 +123,24 @@ export class ConfigService {
     // Determine which config to use
     const config = global ? this.globalPathsData : (this.localPathsFile ? this.localPathsData : this.globalPathsData);
     
-    // Return tasks list or default
-    return config.tasks && Array.isArray(config.tasks) ? config.tasks : ['.pew/tasks.md'];
+    // Get raw paths from config or use default
+    const rawPaths = config.tasks && Array.isArray(config.tasks) ? config.tasks : ['.pew/tasks.md'];
+    
+    // Determine if we're using the global config source
+    const isGlobalSource = global || config === this.globalPathsData;
+    
+    // Resolve paths based on their source
+    if (isGlobalSource) {
+      // For global paths, resolve relative to the global config directory
+      return rawPaths.map(p => path.resolve(this.globalConfigDir, p));
+    } else if (this.localConfigDir) {
+      // For local paths, resolve relative to the project root (parent of .pew)
+      const projectRoot = path.dirname(this.localConfigDir);
+      return rawPaths.map(p => path.resolve(projectRoot, p));
+    } else {
+      // Fallback if no config exists at all (using default)
+      return rawPaths.map(p => path.resolve(process.cwd(), p));
+    }
   }
 
   /**

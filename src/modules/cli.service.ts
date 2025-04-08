@@ -145,7 +145,7 @@ export class CliService {
   /**
    * Handle paste tasks command logic
    */
-  async handlePasteTasks(): Promise<void> {
+  async handlePasteTasks(mode: 'overwrite' | 'append' | 'insert' | null = null): Promise<void> {
     try {
       // Read from clipboard
       const clipboardContent = await this.clipboardService.readFromClipboard();
@@ -156,17 +156,20 @@ export class CliService {
         return;
       }
       
-      // Ask user for paste mode
-      const mode = await this.userInputService.askForSelection<'overwrite' | 'append' | 'insert'>(
-        'Choose paste mode:',
-        ['overwrite', 'append', 'insert']
-      );
+      // Use provided mode or ask user for paste mode
+      let finalMode = mode;
+      if (finalMode === null) {
+        finalMode = await this.userInputService.askForSelection<'overwrite' | 'append' | 'insert'>(
+          'Choose paste mode:',
+          ['overwrite', 'append', 'insert']
+        );
+      }
       
       // Write content to tasks file
-      await this.taskService.writeTasksContent(clipboardContent, mode);
+      await this.taskService.writeTasksContent(clipboardContent, finalMode);
       
       // Success message
-      console.log(`Pasted content to tasks file (${mode}).`);
+      console.log(`Pasted content to tasks file (${finalMode}).`);
     } catch (error) {
       console.error('Error during paste tasks operation:', error);
     }
