@@ -1,6 +1,6 @@
 {
   "name": "pew-pew-cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -12,7 +12,20 @@
     "dev": "node --loader ts-node/esm src/index.ts",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
-  "keywords": ["cli", "tasks", "workflow", "automation"],
+  "keywords": [
+    "cli", 
+    "tasks", 
+    "workflow", 
+    "automation", 
+    "ai-agents", 
+    "cursor", 
+    "claude", 
+    "markdown", 
+    "todo", 
+    "agentic", 
+    "productivity",
+    "ai-coding-assistant"
+  ],
   "author": "ultrawideturbodev <brian@ultrawideturbodev.com>",
   "license": "UNLICENSED",
   "description": "pewPewCLI - agents fav dev tool",
