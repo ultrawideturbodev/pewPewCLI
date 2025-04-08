@@ -13,12 +13,12 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "keywords": ["cli", "tasks", "workflow", "automation"],
-  "author": "Coda Veto <codaveto@example.com>",
+  "author": "ultrawideturbodev <brian@ultrawideturbodev.com>",
   "license": "UNLICENSED",
-  "description": "A command-line tool for managing tasks and workflows",
+  "description": "pewPewCLI - agents fav cli tool",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/codaveto/pew-pew-cli.git"
+    "url": "git+https://github.com/ultrawideturbodev/pew-pew-cli.git"
   },
   "files": ["dist", "bin", "README.md", "LICENSE"],
   "private": true,
