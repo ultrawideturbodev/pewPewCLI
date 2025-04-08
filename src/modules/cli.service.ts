@@ -180,119 +180,155 @@ export class CliService {
    */
   async handleNextTask(): Promise<void> {
     try {
-      // Get the primary tasks file path
-      const filePath = await this.taskService.getPrimaryTasksFilePath();
-      
-      // Check if file exists
-      const fileExists = await this.fileSystemService.pathExists(filePath);
-      if (!fileExists) {
-        console.error(`Task file not found: ${filePath}`);
-        return;
-      }
-      
       // Read the task file content
       let lines = await this.taskService.readTaskLines();
+      
+      // Find the first unchecked task
+      const firstUncheckedIndex = TaskService.findFirstUncheckedTask(lines);
+      
+      // Find task with [pew] prefix
+      const pewIndex = TaskService.findTaskWithPewPrefix(lines);
+      
+      console.log(`Debug - First unchecked task index: ${firstUncheckedIndex}`);
+      console.log(`Debug - [pew] prefix index: ${pewIndex}`);
+      if (pewIndex !== -1) {
+        console.log(`Debug - Line with [pew]: "${lines[pewIndex]}"`);
+      }
       
       // Calculate initial statistics BEFORE any modifications
       const statsBefore = TaskService.getTaskStatsFromLines(lines);
       
-      // Find the first unchecked task
-      const currentTaskIndex = TaskService.findFirstUncheckedTask(lines);
+      // [Scenario: Empty/No Tasks]
+      if (lines.length === 0 || statsBefore.total === 0) {
+        console.log("\n✅ No tasks found.");
+        console.log(`\n${TaskService.getSummary(statsBefore)}`);
+        return;
+      }
       
-      // If there is an unchecked task, mark it complete
-      if (currentTaskIndex !== -1) {
-        // Get the original line
-        const originalLine = lines[currentTaskIndex];
+      // [Scenario: All Tasks Complete]
+      if (firstUncheckedIndex === -1) {
+        // If there's a [pew] prefix, we should remove it
+        if (pewIndex !== -1) {
+          lines = TaskService.removePewPrefix(lines, pewIndex);
+          await this.taskService.writeTaskLines(lines);
+        }
         
-        // Mark it as complete
+        console.log("\n✅ All tasks complete.");
+        console.log(`\n${TaskService.getSummary(statsBefore)}`);
+        return;
+      }
+      
+      // [Scenario: [pew] on Wrong Task]
+      let currentPewIndex = pewIndex;
+      if (pewIndex !== -1 && pewIndex !== firstUncheckedIndex) {
+        console.log(`Debug - Removing [pew] from wrong task at index ${pewIndex}`);
+        lines = TaskService.removePewPrefix(lines, pewIndex);
+        currentPewIndex = -1; // Reset for this run
+        // Continue to "Needs Prefix" scenario
+      }
+      
+      // [Scenario: Needs [pew] Prefix]
+      if (currentPewIndex === -1) {
+        console.log(`Debug - Adding [pew] prefix to task at index ${firstUncheckedIndex}`);
+        console.log(`Debug - Before: "${lines[firstUncheckedIndex]}"`);
+        lines = TaskService.addPewPrefix(lines, firstUncheckedIndex);
+        console.log(`Debug - After: "${lines[firstUncheckedIndex]}"`);
+        await this.taskService.writeTaskLines(lines);
+        
+        // Get context for display
+        const contextHeaders = TaskService.getContextHeaders(lines, firstUncheckedIndex);
+        const range = TaskService.getTaskOutputRange(lines, firstUncheckedIndex);
+        
+        // Format header
+        const taskHeader = "⭕ Current Task";
+        const fullHeader = contextHeaders ? `${taskHeader} (${contextHeaders})` : taskHeader;
+        
+        // Display task and context
+        console.log(`\n${fullHeader}`);
+        console.log("═".repeat(fullHeader.length) + "\n");
+        
+        // Extract and print lines
+        let linesToPrint = lines.slice(range.startIndex, range.endIndex);
+        // Trim trailing empty lines
+        while (linesToPrint.length > 0 && linesToPrint[linesToPrint.length - 1].trim() === '') {
+          linesToPrint.pop();
+        }
+        linesToPrint.forEach(line => console.log(line));
+        
+        // Print summary
+        console.log(`\n${TaskService.getSummary(statsBefore)}`);
+        return;
+      }
+      
+      // [Scenario: Complete Task with [pew]]
+      if (currentPewIndex === firstUncheckedIndex) {
+        console.log(`Debug - Completing task with [pew] at index ${firstUncheckedIndex}`);
+        console.log(`Debug - Before: "${lines[firstUncheckedIndex]}"`);
+        
+        // Remove [pew] prefix
+        lines = TaskService.removePewPrefix(lines, firstUncheckedIndex);
+        console.log(`Debug - After removing prefix: "${lines[firstUncheckedIndex]}"`);
+        
+        // Mark task as complete
+        const originalLine = lines[firstUncheckedIndex];
         const modifiedLine = TaskService.markTaskComplete(originalLine);
+        lines[firstUncheckedIndex] = modifiedLine;
+        console.log(`Debug - After marking complete: "${lines[firstUncheckedIndex]}"`);
         
-        // Update the array
-        lines[currentTaskIndex] = modifiedLine;
-        
-        // Write the updated lines back to the file
+        // Write changes to file
         await this.taskService.writeTaskLines(lines);
         
         // Confirmation message
         console.log("\n✅ Task marked as complete");
         
-        // Find the next unchecked task in the UPDATED in-memory lines
-        const nextUncheckedIndex = TaskService.findFirstUncheckedTask(lines);
+        // Calculate stats after completion
+        const statsAfter = {
+          total: statsBefore.total,
+          completed: statsBefore.completed + 1,
+          remaining: statsBefore.remaining - 1,
+        };
         
-        // If there is a next task, display it
+        // Find the next unchecked task
+        const nextUncheckedIndex = TaskService.findFirstUncheckedTask(lines);
+        console.log(`Debug - Next unchecked task index: ${nextUncheckedIndex}`);
+        
+        // If there is a next task, display it with [pew] prefix
         if (nextUncheckedIndex !== -1) {
-          // Calculate statsAfter based on statsBefore (one task was completed)
-          const statsAfter = {
-            total: statsBefore.total,
-            completed: statsBefore.completed + 1,
-            remaining: statsBefore.remaining - 1,
-          };
+          // Add [pew] prefix to next task
+          console.log(`Debug - Adding [pew] to next task: "${lines[nextUncheckedIndex]}"`);
+          lines = TaskService.addPewPrefix(lines, nextUncheckedIndex);
+          console.log(`Debug - After adding prefix: "${lines[nextUncheckedIndex]}"`);
+          await this.taskService.writeTaskLines(lines);
           
-          // Get summary using the newly calculated stats
-          const summary = TaskService.getSummary(statsAfter);
-          
-          // Get context headers
+          // Get context for display
           const contextHeaders = TaskService.getContextHeaders(lines, nextUncheckedIndex);
-          
-          // Get task output range
           const range = TaskService.getTaskOutputRange(lines, nextUncheckedIndex);
           
-          // Determine if this is the first task
-          const firstTaskIndex = TaskService.findFirstTask(lines);
-          const isFirstDisplayedTask = (firstTaskIndex === nextUncheckedIndex);
-          
-          // Format header string
-          const taskHeader = isFirstDisplayedTask ? "📋 First Task" : "⭕ Current Task";
-          
-          // Add context to header
+          // Format header
+          const taskHeader = "⭕ Current Task";
           const fullHeader = contextHeaders ? `${taskHeader} (${contextHeaders})` : taskHeader;
           
-          // Print header
+          // Display task and context
           console.log(`\n${fullHeader}`);
-          
-          // Print separator
           console.log("═".repeat(fullHeader.length) + "\n");
           
-          // Extract lines to print
+          // Extract and print lines
           let linesToPrint = lines.slice(range.startIndex, range.endIndex);
-          
           // Trim trailing empty lines
           while (linesToPrint.length > 0 && linesToPrint[linesToPrint.length - 1].trim() === '') {
             linesToPrint.pop();
           }
-          
-          // Print the lines
           linesToPrint.forEach(line => console.log(line));
           
-          // Print summary
-          console.log(`\n${summary}`);
+          // Print summary with updated stats
+          console.log(`\n${TaskService.getSummary(statsAfter)}`);
         } else {
-          // No more unchecked tasks - we completed the last one
-          const finalStats = {
-            total: statsBefore.total,
-            completed: statsBefore.completed + 1,
-            remaining: 0, // Since this was the last task
-          };
-          
-          const summary = TaskService.getSummary(finalStats);
-          
+          // No more tasks
           console.log("\n✅ All tasks complete.");
-          console.log(`\n${summary}`);
-        }
-      } else {
-        // No unchecked tasks found initially
-        // Use statsBefore for summary since nothing changed
-        const summary = TaskService.getSummary(statsBefore);
-        
-        // Determine the appropriate message
-        if (statsBefore.total === 0) {
-          console.log("\n✅ No tasks found.");
-        } else {
-          console.log("\n✅ All tasks complete.");
+          console.log(`\n${TaskService.getSummary(statsAfter)}`);
         }
         
-        // Display the summary
-        console.log(`\n${summary}`);
+        return;
       }
     } catch (error) {
       console.error('Error processing next task:', error);
