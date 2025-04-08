@@ -12,10 +12,16 @@
     "dev": "node --loader ts-node/esm src/index.ts",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": ["cli", "tasks", "workflow", "automation"],
+  "author": "Coda Veto <codaveto@example.com>",
+  "license": "UNLICENSED",
+  "description": "A command-line tool for managing tasks and workflows",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codaveto/pew-pew-cli.git"
+  },
+  "files": ["dist", "bin", "README.md", "LICENSE"],
+  "private": true,
   "devDependencies": {
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^29.5.11",

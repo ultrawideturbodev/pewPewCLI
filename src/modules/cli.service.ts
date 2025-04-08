@@ -190,6 +190,9 @@ export class CliService {
       // Read the task file content
       let lines = await this.taskService.readTaskLines();
       
+      // Calculate initial statistics BEFORE any modifications
+      const statsBefore = TaskService.getTaskStatsFromLines(lines);
+      
       // Find the first unchecked task
       const currentTaskIndex = TaskService.findFirstUncheckedTask(lines);
       
@@ -209,80 +212,83 @@ export class CliService {
         
         // Confirmation message
         console.log("\n✅ Task marked as complete");
+        
+        // Find the next unchecked task in the UPDATED in-memory lines
+        const nextUncheckedIndex = TaskService.findFirstUncheckedTask(lines);
+        
+        // If there is a next task, display it
+        if (nextUncheckedIndex !== -1) {
+          // Calculate statsAfter based on statsBefore (one task was completed)
+          const statsAfter = {
+            total: statsBefore.total,
+            completed: statsBefore.completed + 1,
+            remaining: statsBefore.remaining - 1,
+          };
+          
+          // Get summary using the newly calculated stats
+          const summary = TaskService.getSummary(statsAfter);
+          
+          // Get context headers
+          const contextHeaders = TaskService.getContextHeaders(lines, nextUncheckedIndex);
+          
+          // Get task output range
+          const range = TaskService.getTaskOutputRange(lines, nextUncheckedIndex);
+          
+          // Determine if this is the first task
+          const firstTaskIndex = TaskService.findFirstTask(lines);
+          const isFirstDisplayedTask = (firstTaskIndex === nextUncheckedIndex);
+          
+          // Format header string
+          const taskHeader = isFirstDisplayedTask ? "📋 First Task" : "⭕ Current Task";
+          
+          // Add context to header
+          const fullHeader = contextHeaders ? `${taskHeader} (${contextHeaders})` : taskHeader;
+          
+          // Print header
+          console.log(`\n${fullHeader}`);
+          
+          // Print separator
+          console.log("═".repeat(fullHeader.length) + "\n");
+          
+          // Extract lines to print
+          let linesToPrint = lines.slice(range.startIndex, range.endIndex);
+          
+          // Trim trailing empty lines
+          while (linesToPrint.length > 0 && linesToPrint[linesToPrint.length - 1].trim() === '') {
+            linesToPrint.pop();
+          }
+          
+          // Print the lines
+          linesToPrint.forEach(line => console.log(line));
+          
+          // Print summary
+          console.log(`\n${summary}`);
+        } else {
+          // No more unchecked tasks - we completed the last one
+          const finalStats = {
+            total: statsBefore.total,
+            completed: statsBefore.completed + 1,
+            remaining: 0, // Since this was the last task
+          };
+          
+          const summary = TaskService.getSummary(finalStats);
+          
+          console.log("\n✅ All tasks complete.");
+          console.log(`\n${summary}`);
+        }
       } else {
-        // Get task statistics
-        const stats = TaskService.getTaskStatsFromLines(lines);
+        // No unchecked tasks found initially
+        // Use statsBefore for summary since nothing changed
+        const summary = TaskService.getSummary(statsBefore);
         
         // Determine the appropriate message
-        if (stats.total === 0) {
+        if (statsBefore.total === 0) {
           console.log("\n✅ No tasks found.");
         } else {
           console.log("\n✅ All tasks complete.");
         }
         
-        // Get and display the summary
-        const summary = TaskService.getSummary(stats);
-        console.log(`\n${summary}`);
-        
-        // No next task to display, return early
-        return;
-      }
-      
-      // Read the file again to get fresh state
-      const updatedLines = await this.taskService.readTaskLines();
-      
-      // Find the next unchecked task
-      const nextTaskIndex = TaskService.findFirstUncheckedTask(updatedLines);
-      
-      // If there is a next task, display it
-      if (nextTaskIndex !== -1) {
-        // Get task statistics
-        const stats = TaskService.getTaskStatsFromLines(updatedLines);
-        
-        // Get summary
-        const summary = TaskService.getSummary(stats);
-        
-        // Get context headers
-        const contextHeaders = TaskService.getContextHeaders(updatedLines, nextTaskIndex);
-        
-        // Get task output range
-        const range = TaskService.getTaskOutputRange(updatedLines, nextTaskIndex);
-        
-        // Determine if this is the first task
-        const firstTaskIndex = TaskService.findFirstTask(updatedLines);
-        const isFirstDisplayedTask = (firstTaskIndex === nextTaskIndex);
-        
-        // Format header string
-        const taskHeader = isFirstDisplayedTask ? "📋 First Task" : "⭕ Current Task";
-        
-        // Add context to header
-        const fullHeader = contextHeaders ? `${taskHeader} (${contextHeaders})` : taskHeader;
-        
-        // Print header
-        console.log(`\n${fullHeader}`);
-        
-        // Print separator
-        console.log("═".repeat(fullHeader.length) + "\n");
-        
-        // Extract lines to print
-        let linesToPrint = updatedLines.slice(range.startIndex, range.endIndex);
-        
-        // Trim trailing empty lines
-        while (linesToPrint.length > 0 && linesToPrint[linesToPrint.length - 1].trim() === '') {
-          linesToPrint.pop();
-        }
-        
-        // Print the lines
-        linesToPrint.forEach(line => console.log(line));
-        
-        // Print summary
-        console.log(`\n${summary}`);
-      } else {
-        // No more unchecked tasks
-        const stats = TaskService.getTaskStatsFromLines(updatedLines);
-        const summary = TaskService.getSummary(stats);
-        
-        console.log("\n✅ All tasks complete.");
+        // Display the summary
         console.log(`\n${summary}`);
       }
     } catch (error) {
