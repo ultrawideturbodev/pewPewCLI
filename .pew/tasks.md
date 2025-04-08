@@ -9,7 +9,7 @@ This project aims to refactor the `pew next task` command logic within the `pew-
 
 ## 2. Requirements
 Overview of all requirements based on user request and codebase analysis.
-- [ ] Read the requirements:
+- [x] Read the requirements:
     - 👤 **Actors & 🧩 Components:**
         - **Actors:**
             - User (executing `pew next task`)
@@ -178,7 +178,7 @@ The project is broken down into two milestones: enhancing the `TaskService` with
 Update `TaskService` to handle the `[pew]` prefix, refine task identification, and implement the new presentation range calculation.
 
 #### Task 1.1: Implement `[pew]` Prefix Management
-- [ ] 1. Add methods to `TaskService` for finding, adding, and removing the `[pew]` prefix from task lines.
+- [x] 1. Add methods to `TaskService` for finding, adding, and removing the `[pew]` prefix from task lines.
     - Sequence diagram:
         ```mermaid
         sequenceDiagram
@@ -211,7 +211,7 @@ Update `TaskService` to handle the `[pew]` prefix, refine task identification, a
         - Implement helper methods.
 
 #### Task 1.2: Refine Task Identification and Completion
-- [ ] 1. Update existing `TaskService` static methods (`isTask`, `isUncheckedTask`, `isCheckedTask`, `findFirstUncheckedTask`, `markTaskComplete`, `getTaskStatsFromLines`) to correctly handle lines that may or may not have the `[pew]` prefix.
+- [x] 1. Update existing `TaskService` static methods (`isTask`, `isUncheckedTask`, `isCheckedTask`, `findFirstUncheckedTask`, `markTaskComplete`, `getTaskStatsFromLines`) to correctly handle lines that may or may not have the `[pew]` prefix.
     - Sequence diagram:
         ```mermaid
         sequenceDiagram
@@ -251,7 +251,7 @@ Update `TaskService` to handle the `[pew]` prefix, refine task identification, a
         - Review all methods listed and ensure they correctly identify/process tasks regardless of the prefix. For `markTaskComplete`, the logic should be: find `- [ ]`, replace with `- [x]`, ensuring not to damage the prefix if present.
 
 #### Task 1.3: Implement New Presentation Logic
-- [ ] 1. Update `TaskService.getTaskOutputRange` and `TaskService.getContextHeaders` to implement the refined logic for determining the block of lines to display.
+- [x] 1. Update `TaskService.getTaskOutputRange` and `TaskService.getContextHeaders` to implement the refined logic for determining the block of lines to display.
     - Sequence diagram:
         ```mermaid
         sequenceDiagram
@@ -288,7 +288,7 @@ Update `TaskService` to handle the `[pew]` prefix, refine task identification, a
 Update `CliService.handleNextTask` to implement the new state machine using the enhanced `TaskService`.
 
 #### Task 2.1: Implement `handleNextTask` State Machine
-- [ ] 1. Replace the existing logic in `CliService.handleNextTask` with the new state machine described in the Activity Flow.
+- [x] 1. Replace the existing logic in `CliService.handleNextTask` with the new state machine described in the Activity Flow.
     - Sequence diagram: (Represents the overall flow from Activity Flows section)
         ```mermaid
         sequenceDiagram

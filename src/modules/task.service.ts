@@ -10,10 +10,14 @@ import * as path from 'path';
 
 export class TaskService {
   // Static regex patterns for task identification
-  private static readonly TASK_PATTERN: RegExp = /^\s*-\s*\[\s*[xX\s]*\s*\]/;
-  private static readonly UNCHECKED_PATTERN: RegExp = /^\s*-\s*\[\s*\]/;
-  private static readonly CHECKED_PATTERN: RegExp = /^\s*-\s*\[\s*[xX]\s*\]/;
+  private static readonly TASK_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*[xX\s]*\s*\]/;
+  private static readonly UNCHECKED_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*\]/;
+  private static readonly CHECKED_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*[xX]\s*\]/;
   private static readonly HEADER_PATTERN: RegExp = /^(#{1,6})\s+(.+)$/;
+  
+  // Constants for [pew] prefix
+  private static readonly PEW_PREFIX: string = "👉 ";
+  private static readonly PEW_PREFIX_REGEX: RegExp = /^👉\s+/;
 
   private tasksFilePath: string;
   private configService: ConfigService;
@@ -51,6 +55,94 @@ export class TaskService {
    */
   public static isHeader(line: string): boolean {
     return this.HEADER_PATTERN.test(line);
+  }
+
+  /**
+   * Get the header level (1-6) for a line if it's a header, 0 otherwise
+   */
+  private static getLineHeaderLevel(line: string): number {
+    if (!this.isHeader(line)) {
+      return 0;
+    }
+    
+    const match = this.HEADER_PATTERN.exec(line);
+    if (match && match[1]) {
+      return match[1].length; // Return the number of # characters
+    }
+    
+    return 0;
+  }
+
+  /**
+   * Check if a line is either a task or a header
+   */
+  private static isTaskOrHeader(line: string): boolean {
+    return this.isTask(line) || this.isHeader(line);
+  }
+
+  /**
+   * Check if a line has the [pew] prefix
+   */
+  public static lineHasPewPrefix(line: string): boolean {
+    return this.PEW_PREFIX_REGEX.test(line);
+  }
+
+  /**
+   * Get line content without the [pew] prefix if it exists
+   */
+  public static getLineWithoutPewPrefix(line: string): string {
+    return line.replace(this.PEW_PREFIX_REGEX, '');
+  }
+
+  /**
+   * Find task with [pew] prefix in the given lines
+   * Returns the index of the first task with [pew] prefix, or -1 if none found
+   */
+  public static findTaskWithPewPrefix(lines: string[]): number {
+    for (let i = 0; i < lines.length; i++) {
+      if (this.lineHasPewPrefix(lines[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Add [pew] prefix to a specific line
+   * Returns a new array with the modified line
+   */
+  public static addPewPrefix(lines: string[], index: number): string[] {
+    if (index < 0 || index >= lines.length) {
+      return [...lines]; // Return copy of original if index is invalid
+    }
+    
+    const newLines = [...lines]; // Create a copy of the array
+    
+    // Only add prefix if it doesn't already exist
+    if (!this.lineHasPewPrefix(newLines[index])) {
+      newLines[index] = this.PEW_PREFIX + newLines[index];
+    }
+    
+    return newLines;
+  }
+
+  /**
+   * Remove [pew] prefix from a specific line
+   * Returns a new array with the modified line
+   */
+  public static removePewPrefix(lines: string[], index: number): string[] {
+    if (index < 0 || index >= lines.length) {
+      return [...lines]; // Return copy of original if index is invalid
+    }
+    
+    const newLines = [...lines]; // Create a copy of the array
+    
+    // Only remove if prefix exists
+    if (this.lineHasPewPrefix(newLines[index])) {
+      newLines[index] = this.getLineWithoutPewPrefix(newLines[index]);
+    }
+    
+    return newLines;
   }
 
   /**
@@ -306,32 +398,32 @@ export class TaskService {
       return { startIndex: 0, endIndex: 0 };
     }
 
-    // Find if this is the first task
-    const firstTaskIndex = this.findFirstTask(lines);
-    const isFirstTask = (firstTaskIndex === taskIndex);
+    // Find the governing header level for the task
+    let governingLevel = 0;
+    for (let i = taskIndex - 1; i >= 0; i--) {
+      const headerLevel = this.getLineHeaderLevel(lines[i]);
+      if (headerLevel > 0) {
+        governingLevel = headerLevel;
+        break;
+      }
+    }
 
-    // Find the next unchecked task
-    const nextUncheckedIndex = this.findNextUncheckedTask(lines, taskIndex);
-    const isLastTask = (nextUncheckedIndex === -1);
+    // Find startIndex by scanning backwards for a header
+    let startIndex = 0;
+    for (let i = taskIndex - 1; i >= 0; i--) {
+      if (this.isHeader(lines[i])) {
+        startIndex = i;
+        break;
+      }
+    }
 
-    // Set the start index
-    // If it's the first task, start from the beginning of the file
-    // Otherwise, start from the task's own index
-    const startIndex = isFirstTask ? 0 : taskIndex;
-
-    // Set the default end index to the end of the file
+    // Find endIndex by scanning forwards for a task or a header with level <= governingLevel
     let endIndex = lines.length;
-
-    if (!isLastTask) {
-      // If there's another unchecked task, end at that task
-      endIndex = nextUncheckedIndex;
-    } else {
-      // If it's the last task, look for the next header to mark the end
-      for (let i = taskIndex + 1; i < lines.length; i++) {
-        if (this.isHeader(lines[i])) {
-          endIndex = i;
-          break;
-        }
+    for (let i = taskIndex + 1; i < lines.length; i++) {
+      if (this.isTask(lines[i]) || 
+          (this.isHeader(lines[i]) && this.getLineHeaderLevel(lines[i]) <= governingLevel)) {
+        endIndex = i;
+        break;
       }
     }
 
@@ -342,17 +434,25 @@ export class TaskService {
    * Mark a task as complete
    * 
    * Takes a task line string, finds the unchecked task marker (- [ ]),
-   * and replaces it with the checked marker (- [x]), preserving indentation
-   * and surrounding text.
+   * and replaces it with the checked marker (- [x]), preserving indentation,
+   * surrounding text, and the [pew] prefix if present.
    */
   public static markTaskComplete(line: string): string {
     if (!this.isUncheckedTask(line)) {
       return line;
     }
     
+    // Check if line has [pew] prefix
+    const hasPewPrefix = this.lineHasPewPrefix(line);
+    
+    // Get line without prefix if it exists
+    const lineWithoutPrefix = hasPewPrefix ? this.getLineWithoutPewPrefix(line) : line;
+    
     // Replace the unchecked marker with checked marker
-    // Use a safer replacement that won't affect other potential '[ ]' in the content
-    return line.replace(/-\s*\[\s*\]/, (match) => match.replace('[ ]', '[x]'));
+    const modifiedLineWithoutPrefix = lineWithoutPrefix.replace(/-\s*\[\s*\]/, (match) => match.replace('[ ]', '[x]'));
+    
+    // Return line with prefix if it had one
+    return hasPewPrefix ? this.PEW_PREFIX + modifiedLineWithoutPrefix : modifiedLineWithoutPrefix;
   }
 
   /**
