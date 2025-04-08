@@ -189,12 +189,6 @@ export class CliService {
       // Find task with [pew] prefix
       const pewIndex = TaskService.findTaskWithPewPrefix(lines);
       
-      console.log(`Debug - First unchecked task index: ${firstUncheckedIndex}`);
-      console.log(`Debug - [pew] prefix index: ${pewIndex}`);
-      if (pewIndex !== -1) {
-        console.log(`Debug - Line with [pew]: "${lines[pewIndex]}"`);
-      }
-      
       // Calculate initial statistics BEFORE any modifications
       const statsBefore = TaskService.getTaskStatsFromLines(lines);
       
@@ -221,7 +215,6 @@ export class CliService {
       // [Scenario: [pew] on Wrong Task]
       let currentPewIndex = pewIndex;
       if (pewIndex !== -1 && pewIndex !== firstUncheckedIndex) {
-        console.log(`Debug - Removing [pew] from wrong task at index ${pewIndex}`);
         lines = TaskService.removePewPrefix(lines, pewIndex);
         currentPewIndex = -1; // Reset for this run
         // Continue to "Needs Prefix" scenario
@@ -229,10 +222,7 @@ export class CliService {
       
       // [Scenario: Needs [pew] Prefix]
       if (currentPewIndex === -1) {
-        console.log(`Debug - Adding [pew] prefix to task at index ${firstUncheckedIndex}`);
-        console.log(`Debug - Before: "${lines[firstUncheckedIndex]}"`);
         lines = TaskService.addPewPrefix(lines, firstUncheckedIndex);
-        console.log(`Debug - After: "${lines[firstUncheckedIndex]}"`);
         await this.taskService.writeTaskLines(lines);
         
         // Get context for display
@@ -262,18 +252,13 @@ export class CliService {
       
       // [Scenario: Complete Task with [pew]]
       if (currentPewIndex === firstUncheckedIndex) {
-        console.log(`Debug - Completing task with [pew] at index ${firstUncheckedIndex}`);
-        console.log(`Debug - Before: "${lines[firstUncheckedIndex]}"`);
-        
         // Remove [pew] prefix
         lines = TaskService.removePewPrefix(lines, firstUncheckedIndex);
-        console.log(`Debug - After removing prefix: "${lines[firstUncheckedIndex]}"`);
         
         // Mark task as complete
         const originalLine = lines[firstUncheckedIndex];
         const modifiedLine = TaskService.markTaskComplete(originalLine);
         lines[firstUncheckedIndex] = modifiedLine;
-        console.log(`Debug - After marking complete: "${lines[firstUncheckedIndex]}"`);
         
         // Write changes to file
         await this.taskService.writeTaskLines(lines);
@@ -290,14 +275,11 @@ export class CliService {
         
         // Find the next unchecked task
         const nextUncheckedIndex = TaskService.findFirstUncheckedTask(lines);
-        console.log(`Debug - Next unchecked task index: ${nextUncheckedIndex}`);
         
         // If there is a next task, display it with [pew] prefix
         if (nextUncheckedIndex !== -1) {
           // Add [pew] prefix to next task
-          console.log(`Debug - Adding [pew] to next task: "${lines[nextUncheckedIndex]}"`);
           lines = TaskService.addPewPrefix(lines, nextUncheckedIndex);
-          console.log(`Debug - After adding prefix: "${lines[nextUncheckedIndex]}"`);
           await this.taskService.writeTaskLines(lines);
           
           // Get context for display
