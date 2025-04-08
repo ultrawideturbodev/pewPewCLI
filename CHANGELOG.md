@@ -2,6 +2,13 @@
 
 All notable changes to pewPewCLI will be documented in this file.
 
+## v0.1.3
+
+### April 9, 2025
+
+#### 🏷️ Metadata
+- Updated keywords to better represent tool's purpose for AI agents and coding assistants
+
 ## v0.1.2
 
 ### April 9, 2025
