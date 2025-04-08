@@ -9,6 +9,12 @@ import { FileSystemService } from './file-system.service.js';
 import * as path from 'path';
 
 export class TaskService {
+  // Static regex patterns for task identification
+  private static readonly TASK_PATTERN: RegExp = /^\s*-\s*\[\s*[xX\s]*\s*\]/;
+  private static readonly UNCHECKED_PATTERN: RegExp = /^\s*-\s*\[\s*\]/;
+  private static readonly CHECKED_PATTERN: RegExp = /^\s*-\s*\[\s*[xX]\s*\]/;
+  private static readonly HEADER_PATTERN: RegExp = /^(#{1,6})\s+(.+)$/;
+
   private tasksFilePath: string;
   private configService: ConfigService;
   private fileSystemService: FileSystemService;
@@ -17,6 +23,70 @@ export class TaskService {
     this.tasksFilePath = '';
     this.configService = ConfigService.getInstance();
     this.fileSystemService = new FileSystemService();
+  }
+
+  /**
+   * Check if a line is a task (checked or unchecked)
+   */
+  public static isTask(line: string): boolean {
+    return this.TASK_PATTERN.test(line);
+  }
+
+  /**
+   * Check if a line is an unchecked task
+   */
+  public static isUncheckedTask(line: string): boolean {
+    return this.UNCHECKED_PATTERN.test(line);
+  }
+
+  /**
+   * Check if a line is a checked task
+   */
+  public static isCheckedTask(line: string): boolean {
+    return this.CHECKED_PATTERN.test(line);
+  }
+
+  /**
+   * Check if a line is a header
+   */
+  public static isHeader(line: string): boolean {
+    return this.HEADER_PATTERN.test(line);
+  }
+
+  /**
+   * Find the first unchecked task in the given lines
+   */
+  public static findFirstUncheckedTask(lines: string[]): number {
+    for (let i = 0; i < lines.length; i++) {
+      if (this.isUncheckedTask(lines[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Find the next unchecked task after the given start index
+   */
+  public static findNextUncheckedTask(lines: string[], startIndex: number): number {
+    for (let i = startIndex + 1; i < lines.length; i++) {
+      if (this.isUncheckedTask(lines[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Find the first task (checked or unchecked) in the given lines
+   */
+  public static findFirstTask(lines: string[]): number {
+    for (let i = 0; i < lines.length; i++) {
+      if (this.isTask(lines[i])) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /**
@@ -136,7 +206,7 @@ export class TaskService {
   /**
    * Get task statistics
    */
-  getTaskStats(tasks: Array<{ text: string; isComplete: boolean }>): { total: number; completed: number; remaining: number; percentComplete: number } {
+  public static getTaskStats(tasks: Array<{ text: string; isComplete: boolean }>): { total: number; completed: number; remaining: number; percentComplete: number } {
     // Implementation stub
     return {
       total: 0,
@@ -144,5 +214,197 @@ export class TaskService {
       remaining: 0,
       percentComplete: 0
     };
+  }
+
+  /**
+   * Get task statistics from lines
+   * 
+   * Takes an array of lines and returns statistics about the tasks in them
+   * (total count, completed count, remaining count)
+   */
+  public static getTaskStatsFromLines(lines: string[]): { total: number, completed: number, remaining: number } {
+    let completedTasks = 0;
+    let remainingTasks = 0;
+    
+    for (const line of lines) {
+      if (this.isTask(line)) {
+        if (this.isCheckedTask(line)) {
+          completedTasks++;
+        } else {
+          remainingTasks++;
+        }
+      }
+    }
+    
+    const totalTasks = completedTasks + remainingTasks;
+    
+    return {
+      total: totalTasks,
+      completed: completedTasks,
+      remaining: remainingTasks
+    };
+  }
+
+  /**
+   * Generate a formatted summary string from task statistics
+   * 
+   * Takes a task statistics object and returns a formatted string
+   * showing total, completed (with percentage), and remaining tasks
+   */
+  public static getSummary(stats: { total: number, completed: number, remaining: number }): string {
+    const { total, completed, remaining } = stats;
+    const completionPercentage = total > 0 ? (completed / total * 100) : 0;
+    
+    return `Total: ${total} task(s) | Completed: ${completed} (${completionPercentage.toFixed(1)}%) | Remaining: ${remaining}`;
+  }
+
+  /**
+   * Get context headers for a task
+   * 
+   * Takes an array of lines and a task index, searches backwards for up to two header lines,
+   * and returns them formatted as a single string (e.g., "Header 1 - Header 2")
+   */
+  public static getContextHeaders(lines: string[], taskIndex: number): string {
+    if (taskIndex < 0 || taskIndex >= lines.length) {
+      return '';
+    }
+
+    const headers: string[] = [];
+    
+    // Search backwards from the task index
+    for (let i = taskIndex - 1; i >= 0; i--) {
+      if (this.isHeader(lines[i])) {
+        // Extract the header text using HEADER_PATTERN
+        const match = this.HEADER_PATTERN.exec(lines[i]);
+        if (match && match[2]) {
+          const headerText = match[2].trim();
+          // Add header to the beginning of the array to maintain correct order
+          headers.unshift(headerText);
+          
+          // Stop if we've found 2 headers
+          if (headers.length === 2) {
+            break;
+          }
+        }
+      }
+    }
+    
+    // Join headers with " - " and return
+    return headers.join(' - ');
+  }
+
+  /**
+   * Determine the output range for displaying a task
+   * 
+   * Takes an array of lines and a task index, determines the start and end line indices
+   * for displaying the task (including context, sub-tasks, descriptions).
+   * Returns an object with startIndex and endIndex.
+   */
+  public static getTaskOutputRange(lines: string[], taskIndex: number): { startIndex: number, endIndex: number } {
+    // Handle invalid task index
+    if (taskIndex < 0 || taskIndex >= lines.length) {
+      return { startIndex: 0, endIndex: 0 };
+    }
+
+    // Find if this is the first task
+    const firstTaskIndex = this.findFirstTask(lines);
+    const isFirstTask = (firstTaskIndex === taskIndex);
+
+    // Find the next unchecked task
+    const nextUncheckedIndex = this.findNextUncheckedTask(lines, taskIndex);
+    const isLastTask = (nextUncheckedIndex === -1);
+
+    // Set the start index
+    // If it's the first task, start from the beginning of the file
+    // Otherwise, start from the task's own index
+    const startIndex = isFirstTask ? 0 : taskIndex;
+
+    // Set the default end index to the end of the file
+    let endIndex = lines.length;
+
+    if (!isLastTask) {
+      // If there's another unchecked task, end at that task
+      endIndex = nextUncheckedIndex;
+    } else {
+      // If it's the last task, look for the next header to mark the end
+      for (let i = taskIndex + 1; i < lines.length; i++) {
+        if (this.isHeader(lines[i])) {
+          endIndex = i;
+          break;
+        }
+      }
+    }
+
+    return { startIndex, endIndex };
+  }
+
+  /**
+   * Mark a task as complete
+   * 
+   * Takes a task line string, finds the unchecked task marker (- [ ]),
+   * and replaces it with the checked marker (- [x]), preserving indentation
+   * and surrounding text.
+   */
+  public static markTaskComplete(line: string): string {
+    if (!this.isUncheckedTask(line)) {
+      return line;
+    }
+    
+    // Replace the unchecked marker with checked marker
+    // Use a safer replacement that won't affect other potential '[ ]' in the content
+    return line.replace(/-\s*\[\s*\]/, (match) => match.replace('[ ]', '[x]'));
+  }
+
+  /**
+   * Write an array of lines to the task file
+   * 
+   * Takes an array of strings (lines) and writes them to the primary tasks file,
+   * overwriting the existing content.
+   */
+  async writeTaskLines(lines: string[]): Promise<void> {
+    try {
+      // Get the tasks file path
+      const filePath = await this.getPrimaryTasksFilePath();
+      
+      // Join the lines with newlines
+      const content = lines.join('\n');
+      
+      // Ensure directory exists
+      const dirPath = path.dirname(filePath);
+      await this.fileSystemService.ensureDirectoryExists(dirPath);
+      
+      // Write the content to the file
+      await this.fileSystemService.writeFile(filePath, content);
+    } catch (error) {
+      console.error('Error writing task lines:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Read task lines from the primary tasks file
+   * 
+   * Reads the primary task file and returns its content as an array of lines.
+   */
+  async readTaskLines(): Promise<string[]> {
+    try {
+      // Get the tasks file path
+      const filePath = await this.getPrimaryTasksFilePath();
+      
+      // Check if file exists
+      const fileExists = await this.fileSystemService.pathExists(filePath);
+      if (!fileExists) {
+        throw new Error(`Task file not found: ${filePath}`);
+      }
+      
+      // Read the file content
+      const content = await this.fileSystemService.readFile(filePath);
+      
+      // Split into lines
+      return content.split('\n');
+    } catch (error) {
+      console.error('Error reading task lines:', error);
+      throw error;
+    }
   }
 } 

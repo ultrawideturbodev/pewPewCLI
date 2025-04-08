@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2022",                     /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
+    "target": "ESNext",                     /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
     "module": "NodeNext",                  /* Specify what module code is generated. */
     "moduleResolution": "NodeNext",        /* Specify how TypeScript looks up a file from a given module specifier. */
     "rootDir": "./src",                      /* Specify the root folder within your source files. */
@@ -11,8 +11,9 @@
     "skipLibCheck": true,                    /* Skip type checking all .d.ts files. */
     "resolveJsonModule": true,             /* Enable importing .json files */
     "sourceMap": true,                       /* Create source map files for emitted JavaScript files. */
-    "declaration": true                      /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
+    "declaration": true,                      /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
+    "isolatedModules": true
   },
   "include": ["src/**/*"],                   /* Specifies an array of filenames or patterns to include in the program */
-  "exclude": ["node_modules", "dist"]        /* Specifies an array of filenames or patterns that should be skipped when resolving include. */
+  "exclude": ["node_modules", "**/*.test.ts"]        /* Specifies an array of filenames or patterns that should be skipped when resolving include. */
 } 

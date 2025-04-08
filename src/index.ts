@@ -49,13 +49,17 @@ program
     }
   });
 
-// Next command (stub for future implementation)
+// Next command
 program
   .command('next')
   .argument('<itemType>', 'Type of item to advance (e.g., "task")')
   .description('Advance to the next item')
-  .action((itemType) => {
-    console.log(`Next command called with itemType: ${itemType} (stub)`);
+  .action(async (itemType) => {
+    if (itemType === 'task') {
+      await cliService.handleNextTask();
+    } else {
+      console.error(`Invalid itemType '${itemType}' for next. Valid types: task`);
+    }
   });
 
 program.parse(process.argv);
