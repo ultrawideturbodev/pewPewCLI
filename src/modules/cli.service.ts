@@ -4,9 +4,11 @@
  * Orchestrates command execution.
  * Handles parsing commands and dispatching to appropriate services.
  */
-import { FileSystemService } from './file-system.service';
-import { ConfigService } from './config.service';
-import { UserInputService } from './user-input.service';
+import { FileSystemService } from './file-system.service.js';
+import { ConfigService } from './config.service.js';
+import { UserInputService } from './user-input.service.js';
+import { ClipboardService } from './clipboard.service.js';
+import { TaskService } from './task.service.js';
 
 export class CliService {
   private command: string;
@@ -16,6 +18,8 @@ export class CliService {
   private fileSystemService: FileSystemService;
   private configService: ConfigService;
   private userInputService: UserInputService;
+  private clipboardService: ClipboardService;
+  private taskService: TaskService;
   
   // Singleton instance
   private static instance: CliService | null = null;
@@ -31,6 +35,8 @@ export class CliService {
     this.fileSystemService = new FileSystemService();
     this.configService = ConfigService.getInstance();
     this.userInputService = new UserInputService();
+    this.clipboardService = new ClipboardService();
+    this.taskService = new TaskService();
   }
   
   /**
@@ -140,7 +146,30 @@ export class CliService {
    * Handle paste tasks command logic
    */
   async handlePasteTasks(): Promise<void> {
-    // Implementation stub
+    try {
+      // Read from clipboard
+      const clipboardContent = await this.clipboardService.readFromClipboard();
+      
+      // Check if clipboard is empty
+      if (!clipboardContent.trim()) {
+        console.log('Clipboard is empty. Nothing to paste.');
+        return;
+      }
+      
+      // Ask user for paste mode
+      const mode = await this.userInputService.askForSelection<'overwrite' | 'append' | 'insert'>(
+        'Choose paste mode:',
+        ['overwrite', 'append', 'insert']
+      );
+      
+      // Write content to tasks file
+      await this.taskService.writeTasksContent(clipboardContent, mode);
+      
+      // Success message
+      console.log(`Pasted content to tasks file (${mode}).`);
+    } catch (error) {
+      console.error('Error during paste tasks operation:', error);
+    }
   }
 
   /**

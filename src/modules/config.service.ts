@@ -5,8 +5,8 @@
  * Handles configuration keys, values, and scopes (local vs global).
  */
 import * as path from 'path';
-import { FileSystemService } from './file-system.service';
-import { YamlService } from './yaml.service';
+import { FileSystemService } from './file-system.service.js';
+import { YamlService } from './yaml.service.js';
 
 export class ConfigService {
   // Singleton instance
