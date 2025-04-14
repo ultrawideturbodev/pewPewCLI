@@ -1,13 +1,14 @@
+import * as path from 'path';
+import { FileSystemService } from './file-system.service.js';
+import { YamlService } from './yaml.service.js';
+import { LoggerService } from './logger.service.js';
+
 /**
  * @class ConfigService
  * @description Manages loading, saving, and accessing YAML configurations for the pew CLI.
  * Handles configuration keys, values, and scopes (local vs global project settings).
  * Implemented as a lazy singleton.
  */
-import * as path from 'path';
-import { FileSystemService } from './file-system.service.js';
-import { YamlService } from './yaml.service.js';
-
 export class ConfigService {
   // Singleton instance
   private static instance: ConfigService | null = null;
@@ -24,6 +25,7 @@ export class ConfigService {
   private fileSystemService: FileSystemService;
   private yamlService: YamlService;
   private isInitialized: boolean = false;
+  private logger: LoggerService;
 
   /**
    * Private constructor to enforce singleton pattern.
@@ -32,8 +34,8 @@ export class ConfigService {
    */
   private constructor(fileSystemService: FileSystemService) {
     this.fileSystemService = fileSystemService;
-    // YamlService now requires FileSystemService injected
     this.yamlService = new YamlService(this.fileSystemService);
+    this.logger = LoggerService.getInstance();
     
     // Set global config paths
     const homeDir = this.fileSystemService.getHomeDirectory();
@@ -128,7 +130,7 @@ export class ConfigService {
       try {
         this.globalCoreData = await this.yamlService.readYamlFile(this.globalCoreFile);
       } catch (error: any) {
-        console.warn(`Warning: Could not read or parse global core config file at ${this.globalCoreFile}. Using default values. Error: ${error.message}`);
+        this.logger.warn(`Warning: Could not read or parse global core config file at ${this.globalCoreFile}. Using default values. Error: ${error.message}`);
         this.globalCoreData = {};
       }
     } else {
@@ -280,7 +282,7 @@ export class ConfigService {
       return path.resolve(configSourceDir, pasteTaskPathValue.trim());
     } else if (pasteTaskPathValue !== undefined && pasteTaskPathValue !== null) {
       const sourceName = configFilePath || (isLocalSource ? 'local' : 'global');
-      console.warn(`Malformed 'paste-tasks' value in config file [${sourceName}], using fallback.`);
+      this.logger.warn(`Malformed 'paste-tasks' value in config file [${sourceName}], using fallback.`);
     }
 
     const tasksList = effectiveConfig.tasks;
@@ -326,7 +328,7 @@ export class ConfigService {
       await this.yamlService.writeYamlFile(this.globalCoreFile, coreDataToWrite);
       this.globalCoreData = coreDataToWrite;
     } catch (error: any) {
-      console.error(`Error writing global core config value for key '${key}' to ${this.globalCoreFile}: ${error.message}`);
+      this.logger.error(`Error writing global core config value for key '${key}' to ${this.globalCoreFile}: ${error.message}`, error);
       throw new Error(`Failed to set global core value: ${error.message}`);
     }
   }

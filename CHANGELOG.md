@@ -2,6 +2,20 @@
 
 All notable changes to pewPewCLI will be documented in this file.
 
+## v0.4.0
+
+### April 14, 2025
+
+#### 🛠️ Improvements:
+- Added comprehensive JSDoc comments to all service classes and public methods (`ConfigService`, `CliService`, `FileSystemService`, `TaskService`, `UpdateService`, `UserInputService`, `YamlService`, `ClipboardService`).
+- Refactored service constructors (`CliService`, `TaskService`, `UpdateService`) to correctly inject dependencies.
+
+#### 🐛 Bug fixes:
+- Removed unused stub methods and TODO comments from service classes (`CliService`, `TaskService`).
+- Fixed potential runtime error in `CliService.handleSetPath` by ensuring the value obtained from user input is valid before proceeding.
+- Corrected `CliService` dependency injection for `TaskService` and `UpdateService`.
+- Replaced non-existent `askForPath` calls with `askForText` in `CliService`.
+
 ## v0.3.0
 
 ### April 14, 2025
@@ -49,6 +63,16 @@ All notable changes to pewPewCLI will be documented in this file.
 ## v0.1.3
 
 ### April 9, 2025
+
+#### 🛠️ Improvements:
+- Added comprehensive JSDoc comments to all service classes and public methods (`ConfigService`, `CliService`, `FileSystemService`, `TaskService`, `UpdateService`, `UserInputService`, `YamlService`, `ClipboardService`).
+- Refactored service constructors (`CliService`, `TaskService`, `UpdateService`) to correctly inject dependencies.
+
+#### 🐛 Bug fixes:
+- Removed unused stub methods and TODO comments from service classes (`CliService`, `TaskService`).
+- Fixed potential runtime error in `CliService.handleSetPath` by ensuring the value obtained from user input is valid before proceeding.
+- Corrected `CliService` dependency injection for `TaskService` and `UpdateService`.
+- Replaced non-existent `askForPath` calls with `askForText` in `CliService`.
 
 #### 🏷️ Metadata
 - Updated keywords to better represent tool's purpose for AI agents and coding assistants

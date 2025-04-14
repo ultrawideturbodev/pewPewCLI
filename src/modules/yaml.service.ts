@@ -5,9 +5,11 @@
  */
 import yaml from 'js-yaml';
 import { FileSystemService } from './file-system.service.js';
+import { LoggerService } from './logger.service.js';
 
 export class YamlService {
   private fileSystemService: FileSystemService;
+  private logger: LoggerService;
 
   /**
    * Constructor for YamlService.
@@ -15,6 +17,7 @@ export class YamlService {
    */
   constructor(fileSystemService: FileSystemService) {
     this.fileSystemService = fileSystemService;
+    this.logger = LoggerService.getInstance();
   }
 
   /**
@@ -31,7 +34,7 @@ export class YamlService {
       }
       return yaml.load(yamlString) as Record<string, any> || {};
     } catch (error) {
-      console.error('Error parsing YAML:', error);
+      this.logger.error('Error parsing YAML:', error);
       return {};
     }
   }
@@ -47,7 +50,7 @@ export class YamlService {
     try {
       return yaml.dump(data || {});
     } catch (error) {
-      console.error('Error serializing to YAML:', error);
+      this.logger.error('Error serializing to YAML:', error);
       return '';
     }
   }
@@ -70,7 +73,7 @@ export class YamlService {
       const content = await this.fileSystemService.readFile(filePath);
       return this.parseYaml(content);
     } catch (error) {
-      console.error(`Error reading YAML file ${filePath}:`, error);
+      this.logger.error(`Error reading YAML file ${filePath}:`, error);
       return {};
     }
   }
@@ -89,7 +92,7 @@ export class YamlService {
       const yamlContent = this.serializeToYaml(data);
       await this.fileSystemService.writeFile(filePath, yamlContent);
     } catch (error) {
-      console.error(`Error writing YAML file ${filePath}:`, error);
+      this.logger.error(`Error writing YAML file ${filePath}:`, error);
       throw error;
     }
   }

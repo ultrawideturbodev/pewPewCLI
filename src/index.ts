@@ -1,11 +1,13 @@
 import { Command } from 'commander';
 import { CliService } from './modules/cli.service.js';
+import { LoggerService } from './modules/logger.service.js';
 
 /**
  * Main CLI entry point
  */
 const program = new Command();
 const cliService = CliService.getInstance();
+const logger = LoggerService.getInstance();
 
 program
   .name('pew')
@@ -30,7 +32,7 @@ program
     if (subcommand === 'path') {
       await cliService.handleSetPath(options.field, options.value, { global: options.global || false });
     } else {
-      console.error(`Invalid subcommand '${subcommand}' for set. Valid subcommands: path`);
+      logger.error(`Invalid subcommand '${subcommand}' for set. Valid subcommands: path`);
     }
   });
 
@@ -56,7 +58,7 @@ program
   .action(async (target: string, options: PasteOptions) => {
     if (target === 'tasks') {
       const modeFlags: { flag: PasteMode, value: boolean | undefined }[] = [
-        { flag: 'overwrite', value: options.overwrite || options.force }, // Treat force as overwrite
+        { flag: 'overwrite', value: options.overwrite || options.force },
         { flag: 'append', value: options.append },
         { flag: 'insert', value: options.insert },
       ];
@@ -65,11 +67,10 @@ program
 
       if (activeModes.length > 1) {
         const flagNames = activeModes.map(f => `--${f.flag}`);
-        // Add --force back to the message if it was used alongside another flag
         if (options.force && !options.overwrite && activeModes.some(f => f.flag !== 'overwrite')) {
           flagNames.push('--force');
         }
-        console.error(`Error: Options ${flagNames.join(' and ')} are mutually exclusive.`);
+        logger.error(`Error: Options ${flagNames.join(' and ')} are mutually exclusive.`);
         return;
       }
 
@@ -77,7 +78,7 @@ program
 
       await cliService.handlePasteTasks(mode, { path: options.path });
     } else {
-      console.error(`Invalid target '${target}' for paste. Valid targets: tasks`);
+      logger.error(`Invalid target '${target}' for paste. Valid targets: tasks`);
     }
   });
 
@@ -89,7 +90,7 @@ program
     if (itemType === 'task') {
       await cliService.handleNextTask();
     } else {
-      console.error(`Invalid itemType '${itemType}' for next. Valid types: task`);
+      logger.error(`Invalid itemType '${itemType}' for next. Valid types: task`);
     }
   });
 
@@ -107,7 +108,7 @@ program
     if (target === 'tasks') {
       await cliService.handleResetTasks();
     } else {
-      console.error(`Invalid target '${target}' for reset. Valid targets: tasks`);
+      logger.error(`Invalid target '${target}' for reset. Valid targets: tasks`);
       process.exit(1);
     }
   });

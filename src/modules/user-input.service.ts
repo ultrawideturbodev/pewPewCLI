@@ -5,6 +5,7 @@
  * Provides methods for various types of user input.
  */
 import inquirer from 'inquirer';
+import { LoggerService } from './logger.service.js';
 
 /**
  * @class UserInputService
@@ -12,11 +13,13 @@ import inquirer from 'inquirer';
  * Encapsulates different prompt types (text, confirmation, selection, multiple selection).
  */
 export class UserInputService {
+  private logger: LoggerService;
+
   /**
    * Initializes the UserInputService.
    */
   constructor() {
-    // Initialize service
+    this.logger = LoggerService.getInstance();
   }
 
   /**
@@ -38,7 +41,7 @@ export class UserInputService {
       ]);
       return response.value;
     } catch (error) {
-      console.error('Error during text input:', error);
+      this.logger.error('Error during text input:', error);
       return defaultValue || '';
     }
   }
@@ -62,7 +65,7 @@ export class UserInputService {
       ]);
       return response.value;
     } catch (error) {
-      console.error('Error during confirmation prompt:', error);
+      this.logger.error('Error during confirmation prompt:', error);
       return defaultValue;
     }
   }
@@ -87,7 +90,7 @@ export class UserInputService {
       ]);
       return response.value;
     } catch (error) {
-      console.error('Error during selection prompt:', error);
+      this.logger.error('Error during selection prompt:', error);
       return choices[0];
     }
   }
@@ -112,7 +115,7 @@ export class UserInputService {
       ]);
       return response.value;
     } catch (error) {
-      console.error('Error during multiple selection prompt:', error);
+      this.logger.error('Error during multiple selection prompt:', error);
       return [];
     }
   }

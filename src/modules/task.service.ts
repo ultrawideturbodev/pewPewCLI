@@ -7,6 +7,7 @@
 import { ConfigService } from './config.service.js';
 import { FileSystemService } from './file-system.service.js';
 import * as path from 'path';
+import { LoggerService } from './logger.service.js';
 
 /**
  * @class TaskService
@@ -27,6 +28,7 @@ export class TaskService {
 
   private configService: ConfigService;
   private fileSystemService: FileSystemService;
+  private logger: LoggerService;
 
   /**
    * Constructor for TaskService.
@@ -36,6 +38,7 @@ export class TaskService {
   constructor(configService: ConfigService, fileSystemService: FileSystemService) {
     this.configService = configService;
     this.fileSystemService = fileSystemService;
+    this.logger = LoggerService.getInstance();
   }
 
   /**
@@ -267,7 +270,7 @@ export class TaskService {
         await this.fileSystemService.writeFile(filePath, finalContent);
       }
     } catch (error) {
-      console.error('Error writing tasks content:', error);
+      this.logger.error('Error writing tasks content:', error);
       throw error;
     }
   }
@@ -425,7 +428,7 @@ export class TaskService {
       
       await this.fileSystemService.writeFile(filePath, content);
     } catch (error) {
-      console.error('Error writing task lines:', error);
+      this.logger.error('Error writing task lines:', error);
       throw error;
     }
   }
@@ -438,14 +441,11 @@ export class TaskService {
    */
   public static uncheckTasksInLines(lines: string[]): { modifiedLines: string[]; resetCount: number } {
     let resetCount = 0;
-    // Regex to capture: 
-    // 1: Leading whitespace and '- [' 
-    // 2: The closing ']' and the rest of the line (after the [x])
     const checkedPattern = /^(\s*-\s*\[)[xX](\].*)$/i;
     
     const modifiedLines = lines.map(line => {
-      const replacedLine = line.replace(checkedPattern, `$1 $2`); // Reconstruct with group 1 (prefix) and group 2 (suffix)
-      if (replacedLine !== line) { // Check if a replacement actually occurred
+      const replacedLine = line.replace(checkedPattern, `$1 $2`);
+      if (replacedLine !== line) {
         resetCount++;
       }
       return replacedLine;
@@ -475,7 +475,7 @@ export class TaskService {
       // Split into lines
       return content.split('\n');
     } catch (error) {
-      console.error('Error reading task lines:', error);
+      this.logger.error('Error reading task lines:', error);
       throw error;
     }
   }
@@ -503,4 +503,308 @@ export class TaskService {
     // Return the count of reset tasks
     return resetCount;
   }
+
+  /**
+   * Processes the state of tasks across multiple files to determine and perform the next action.
+   * This involves finding the current `👉` task, marking it complete, finding the next `[ ]` task,
+   * adding `👉` to it, and handling various states (no tasks, all complete, etc.).
+   * It performs necessary file writes.
+   *
+   * @param {string[]} filePaths - An ordered list of task file paths to process.
+   * @returns {Promise<NextTaskResult>} A promise resolving with the outcome and necessary display information.
+   */
+  public async processNextTaskState(filePaths: string[]): Promise<NextTaskResult> {
+    let firstUncheckedFilePath: string | null = null;
+    let firstUncheckedIndex: number = -1;
+    let firstUncheckedLines: string[] | null = null;
+    let pewFilePath: string | null = null;
+    let pewIndex: number = -1;
+    let pewLines: string[] | null = null;
+    const allLinesRead: Map<string, string[]> = new Map();
+    let totalTasksAcrossFiles = 0;
+    let completedTasksAcrossFiles = 0;
+    let readErrorOccurred = false;
+
+    // 1. Read all files and find initial state
+    for (const filePath of filePaths) {
+      try {
+        const currentLines = await this.readTaskLines(filePath);
+        allLinesRead.set(filePath, currentLines);
+
+        const fileStats = TaskService.getTaskStatsFromLines(currentLines);
+        totalTasksAcrossFiles += fileStats.total;
+        completedTasksAcrossFiles += fileStats.completed;
+
+        if (firstUncheckedFilePath === null) {
+          const taskIndex = TaskService.findFirstUncheckedTask(currentLines);
+          if (taskIndex !== -1) {
+            firstUncheckedFilePath = filePath;
+            firstUncheckedIndex = taskIndex;
+            firstUncheckedLines = currentLines;
+          }
+        }
+
+        const currentPewIndex = TaskService.findTaskWithPewPrefix(currentLines);
+        if (currentPewIndex !== -1) {
+          pewFilePath = filePath;
+          pewIndex = currentPewIndex;
+          pewLines = currentLines;
+        }
+      } catch (error) {
+        this.logger.error(`Error reading task file ${filePath}:`, error);
+        readErrorOccurred = true;
+        // Continue processing other files
+      }
+    }
+
+    // 2. Handle overall states (No Tasks, All Complete)
+    if (totalTasksAcrossFiles === 0 && !readErrorOccurred) {
+      return { status: TaskStatus.NO_TASKS, summary: TaskService.getSummary({ total: 0, completed: 0, remaining: 0 }) };
+    }
+
+    if (firstUncheckedIndex === -1 && !readErrorOccurred) {
+      let finalLines: string[] = [];
+      let finalPath = '';
+      // If a pew was found, remove it and use that file's final state
+      if (pewFilePath && pewIndex !== -1 && pewLines) {
+        finalLines = TaskService.removePewPrefix(pewLines, pewIndex);
+        await this.writeTaskLines(pewFilePath, finalLines);
+        finalPath = pewFilePath;
+      } else if (filePaths.length > 0) {
+        // Otherwise, use the last readable file
+        const lastReadablePath = [...allLinesRead.keys()].pop();
+        if (lastReadablePath) {
+          finalPath = lastReadablePath;
+          finalLines = allLinesRead.get(lastReadablePath) || [];
+        }
+      }
+      const fileStats = TaskService.getTaskStatsFromLines(finalLines);
+      return {
+        status: TaskStatus.ALL_COMPLETE,
+        summary: TaskService.getSummary(fileStats),
+        displayFilePath: finalPath,
+      };
+    }
+    
+    // Handle case where first unchecked task couldn't be determined due to read errors
+    if (firstUncheckedIndex === -1 && readErrorOccurred) {
+       return { status: TaskStatus.ERROR, message: "Could not determine next task due to file read errors." };
+    }
+
+    // --- From here, we know there's at least one unchecked task --- 
+    let displayFilePath: string | null = null;
+    let displayIndex: number = -1;
+    let displayLines: string[] | null = null;
+    let message: string | null = null;
+
+    try {
+      // 3. Handle prefix adjustments and task completion
+
+      // [Scenario: [pew] on Wrong Task]
+      if (pewIndex !== -1 && pewFilePath !== null && pewLines !== null &&
+          (pewFilePath !== firstUncheckedFilePath || pewIndex !== firstUncheckedIndex)) {
+        const linesWithoutOldPrefix = TaskService.removePewPrefix(pewLines, pewIndex);
+        await this.writeTaskLines(pewFilePath, linesWithoutOldPrefix);
+        allLinesRead.set(pewFilePath, linesWithoutOldPrefix); // Update cache
+
+        if (firstUncheckedFilePath !== null && firstUncheckedLines !== null) {
+          const linesWithNewPrefix = TaskService.addPewPrefix(firstUncheckedLines, firstUncheckedIndex);
+          await this.writeTaskLines(firstUncheckedFilePath, linesWithNewPrefix);
+          displayFilePath = firstUncheckedFilePath;
+          displayIndex = firstUncheckedIndex;
+          displayLines = linesWithNewPrefix;
+        }
+      }
+      // [Scenario: Needs [pew] Prefix]
+      else if (pewIndex === -1 && firstUncheckedFilePath !== null && firstUncheckedLines !== null) {
+        const modifiedLines = TaskService.addPewPrefix(firstUncheckedLines, firstUncheckedIndex);
+        await this.writeTaskLines(firstUncheckedFilePath, modifiedLines);
+        displayFilePath = firstUncheckedFilePath;
+        displayIndex = firstUncheckedIndex;
+        displayLines = modifiedLines;
+      }
+      // [Scenario: Complete Task with [pew]]
+      else if (pewIndex !== -1 && pewFilePath !== null && pewLines !== null &&
+               pewFilePath === firstUncheckedFilePath && pewIndex === firstUncheckedIndex) {
+
+        let linesNoPrefix = TaskService.removePewPrefix(pewLines, pewIndex);
+        const completedLine = TaskService.markTaskComplete(linesNoPrefix[pewIndex]);
+        linesNoPrefix[pewIndex] = completedLine;
+        await this.writeTaskLines(pewFilePath, linesNoPrefix);
+        allLinesRead.set(pewFilePath, linesNoPrefix); // Update cache
+        message = "Task marked as complete";
+
+        // Find the *very next* unchecked task (could be in same file or wrap around)
+        let nextFilePath: string | null = null;
+        let nextIndex: number = -1;
+        let nextLines: string[] | null = null;
+
+        const sameFileNextIndex = TaskService.findNextUncheckedTask(linesNoPrefix, pewIndex);
+        if (sameFileNextIndex !== -1) {
+          nextFilePath = pewFilePath;
+          nextIndex = sameFileNextIndex;
+          nextLines = linesNoPrefix;
+        } else {
+          const currentFileOrderIndex = filePaths.indexOf(pewFilePath);
+          // Search remaining files in order, wrapping around
+          for (let i = 1; i < filePaths.length; i++) {
+            const checkFileIndex = (currentFileOrderIndex + i) % filePaths.length;
+            const checkFilePath = filePaths[checkFileIndex];
+            const lines = allLinesRead.get(checkFilePath);
+            if (!lines) continue; // Skip files that couldn't be read
+            const taskIndex = TaskService.findFirstUncheckedTask(lines);
+            if (taskIndex !== -1) {
+              nextFilePath = checkFilePath;
+              nextIndex = taskIndex;
+              nextLines = lines;
+              break;
+            }
+          }
+        }
+
+        if (nextFilePath !== null && nextIndex !== -1 && nextLines !== null) {
+          const nextLinesWithPrefix = TaskService.addPewPrefix(nextLines, nextIndex);
+          await this.writeTaskLines(nextFilePath, nextLinesWithPrefix);
+          displayFilePath = nextFilePath;
+          displayIndex = nextIndex;
+          displayLines = nextLinesWithPrefix;
+        } else {
+          // No more tasks found after completion, so now all are complete
+          const finalStats = TaskService.getTaskStatsFromLines(linesNoPrefix);
+           return {
+             status: TaskStatus.ALL_COMPLETE,
+             summary: TaskService.getSummary(finalStats),
+             message: message,
+             displayFilePath: pewFilePath, // Show the file where task was completed
+          };
+        }
+      }
+      // [Scenario: [pew] already on the correct task (no action needed except display)]
+      else if (pewFilePath === firstUncheckedFilePath && pewIndex === firstUncheckedIndex && pewLines !== null) {
+         displayFilePath = pewFilePath;
+         displayIndex = pewIndex;
+         displayLines = pewLines;
+      }
+
+      // 4. Prepare result if a task is ready for display
+      if (displayFilePath !== null && displayIndex !== -1 && displayLines !== null) {
+        const fileStats = TaskService.getTaskStatsFromLines(displayLines);
+        const contextHeaders = TaskService.getContextHeaders(displayLines, displayIndex);
+        const range = TaskService.getTaskOutputRange(displayLines, displayIndex);
+        let taskLinesToDisplay = displayLines.slice(range.startIndex, range.endIndex);
+         // Trim trailing empty lines
+        while (taskLinesToDisplay.length > 0 && taskLinesToDisplay[taskLinesToDisplay.length - 1].trim() === '') {
+          taskLinesToDisplay.pop();
+        }
+
+        return {
+          status: TaskStatus.NEXT_TASK_FOUND,
+          displayFilePath: displayFilePath,
+          displayTaskLines: taskLinesToDisplay,
+          displayContextHeaders: contextHeaders,
+          summary: TaskService.getSummary(fileStats),
+          message: message, // Include completion message if applicable
+        };
+      } else {
+         // Should ideally not happen if firstUncheckedIndex was valid
+         return { status: TaskStatus.ERROR, message: "Could not determine next task state after processing." };
+      }
+
+    } catch (error: any) {
+        this.logger.error('Error processing next task state:', error);
+        return { status: TaskStatus.ERROR, message: `Error processing next task state: ${error.message}` };
+    }
+  }
+
+  /**
+   * Reads multiple task files, calculates their summaries, and checks existence.
+   * Useful for preparing data for interactive prompts like in 'reset'.
+   *
+   * @param {string[]} filePaths - An array of absolute file paths to summarize.
+   * @returns {Promise<TaskFileSummary[]>} A promise that resolves with an array of summary objects.
+   */
+  public async getTaskFileSummaries(filePaths: string[]): Promise<TaskFileSummary[]> {
+    const summaryPromises = filePaths.map(async (filePath) => {
+      const relativePath = path.relative(process.cwd(), filePath);
+      let summaryResult: TaskFileSummary = {
+        filePath: filePath,
+        relativePath: relativePath,
+        summary: '(File not found or empty)', // Default summary
+        exists: false,
+        error: null,
+        disabled: false,
+      };
+
+      try {
+        const exists = await this.fileSystemService.pathExists(filePath);
+        summaryResult.exists = exists;
+        if (!exists) {
+          summaryResult.error = 'File not found';
+          summaryResult.disabled = true;
+          return summaryResult;
+        }
+
+        const lines = await this.readTaskLines(filePath);
+        if (lines.length === 0) {
+           summaryResult.summary = '(Empty file)';
+           return summaryResult; // Exists but empty
+        }
+
+        const stats = TaskService.getTaskStatsFromLines(lines);
+        summaryResult.summary = TaskService.getSummary(stats);
+
+      } catch (readError: any) {
+        this.logger.warn(`⚠️ Could not read file ${relativePath} to generate summary: ${readError.message}`);
+        summaryResult.summary = '(Error reading file)';
+        summaryResult.error = readError.message || 'Error reading file';
+        summaryResult.disabled = true;
+      }
+      return summaryResult;
+    });
+
+    return Promise.all(summaryPromises);
+  }
+}
+
+// Define helper types/enums for the result
+export enum TaskStatus {
+  NEXT_TASK_FOUND = 'NEXT_TASK_FOUND',
+  ALL_COMPLETE = 'ALL_COMPLETE',
+  NO_TASKS = 'NO_TASKS',
+  ERROR = 'ERROR'
+}
+
+export type NextTaskResult = 
+  | { 
+      status: TaskStatus.NEXT_TASK_FOUND;
+      displayFilePath: string;
+      displayTaskLines: string[];
+      displayContextHeaders: string;
+      summary: string;
+      message?: string | null; // Optional message (e.g., "Task marked complete")
+    }
+  | { 
+      status: TaskStatus.ALL_COMPLETE;
+      summary: string;
+      displayFilePath?: string; // Optional: path of last file processed
+      message?: string | null; 
+    }
+  | { 
+      status: TaskStatus.NO_TASKS;
+      summary: string;
+      message?: string | null;
+    }
+  | { 
+      status: TaskStatus.ERROR;
+      message: string;
+    }; 
+
+// Add type for task file summary
+export interface TaskFileSummary {
+  filePath: string;
+  relativePath: string;
+  summary: string;
+  exists: boolean;
+  error: string | null;
+  disabled: boolean; // Indicates if it should be disabled in prompts
 } 

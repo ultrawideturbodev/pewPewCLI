@@ -5,6 +5,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { LoggerService } from './logger.service.js';
 
 const execAsync = promisify(exec);
 
@@ -25,6 +26,7 @@ export class UpdateService {
     private fileSystemService: FileSystemService;
     private configService: ConfigService;
     private currentVersion: string | null = null;
+    private logger: LoggerService;
     private static readonly kUpdateCheckIntervalMs = 24 * 60 * 60 * 1000; // 1 day
 
     /**
@@ -35,6 +37,7 @@ export class UpdateService {
     constructor(fileSystemService: FileSystemService, configService: ConfigService) {
         this.fileSystemService = fileSystemService;
         this.configService = configService;
+        this.logger = LoggerService.getInstance();
     }
 
     /**
@@ -58,7 +61,7 @@ export class UpdateService {
             }
             return this.currentVersion;
         } catch (error: any) {
-            console.error('Error reading current version:', error.message);
+            this.logger.error('Error reading current version:', error.message);
             throw new Error(`Failed to get current version: ${error.message}`);
         }
     }
@@ -73,7 +76,7 @@ export class UpdateService {
             const latest = await latestVersion(kPackageName);
             return latest;
         } catch (error: any) {
-            console.error('Error fetching latest version:', error.message);
+            this.logger.error('Error fetching latest version:', error.message);
             throw new Error(`Failed to get latest version from npm: ${error.message}`);
         }
     }
@@ -89,7 +92,7 @@ export class UpdateService {
 
             return latestVersion > currentVersion;
         } catch (error: any) {
-            console.error('Error checking if update is available:', error.message);
+            this.logger.error('Error checking if update is available:', error.message);
             return false;
         }
     }
@@ -98,7 +101,7 @@ export class UpdateService {
         try {
             return await this.configService.getGlobalCoreValue<number>('lastUpdateCheckTimestamp', 0);
         } catch (error: any) {
-            console.warn(`Warning: Could not read last update check timestamp. Assuming check is needed. Error: ${error.message}`);
+            this.logger.warn(`Warning: Could not read last update check timestamp. Assuming check is needed. Error: ${error.message}`);
             return 0;
         }
     }
@@ -128,7 +131,7 @@ export class UpdateService {
      *  - `noUpdateNeeded`: true if the package was already up to date.
      */
     public async performUpdate(): Promise<{success: boolean, error?: Error, noUpdateNeeded?: boolean}> {
-        console.log("Checking for updates...");
+        this.logger.log("Checking for updates...");
         let isAvailable = false;
         let currentVersion = 'unknown';
         let latestVersion = 'unknown';
@@ -142,16 +145,16 @@ export class UpdateService {
             isAvailable = latestVersion > currentVersion;
 
         } catch (error: any) {
-            console.error(`❌ Could not check for updates: ${error.message}`);
+            this.logger.error(`❌ Could not check for updates: ${error.message}`);
             return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
         }
 
         if (!isAvailable) {
-            console.log(`ℹ️ ${kPackageName} is already up to date (v${currentVersion}).`);
+            this.logger.info(`ℹ️ ${kPackageName} is already up to date (v${currentVersion}).`);
             return { success: true, noUpdateNeeded: true };
         }
 
-        console.log(`Updating ${kPackageName} from v${currentVersion} to v${latestVersion}...`);
+        this.logger.log(`Updating ${kPackageName} from v${currentVersion} to v${latestVersion}...`);
 
         try {
             const { stdout, stderr } = await execAsync(kNpmInstallCommand);
@@ -159,16 +162,16 @@ export class UpdateService {
                 throw new Error(stderr);
             }
             const updatedVersion = await this.getLatestVersion();
-            console.log(`✅ ${kPackageName} updated successfully to v${updatedVersion}.`);
+            this.logger.success(`✅ ${kPackageName} updated successfully to v${updatedVersion}.`);
             return { success: true };
         } catch (error: any) {
-            console.error(`❌ Error updating ${kPackageName}: ${error.message}`);
+            this.logger.error(`❌ Error updating ${kPackageName}: ${error.message}`, error);
             return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
         }
     }
 
     private notifyUserOfUpdate(currentVersion: string, latestVersion: string): void {
-        console.info(`\nℹ️ Update available: ${kPackageName} v${latestVersion} is available (current: v${currentVersion}). Run 'pew update' to install.\n`);
+        this.logger.info(`\nℹ️ Update available: ${kPackageName} v${latestVersion} is available (current: v${currentVersion}). Run 'pew update' to install.\n`);
     }
 
     private async setLastUpdateCheckTimestamp(): Promise<void> {
@@ -176,7 +179,7 @@ export class UpdateService {
         try {
             await this.configService.setGlobalCoreValue('lastUpdateCheckTimestamp', timestamp);
         } catch (error: any) {
-            console.warn(`Warning: Could not set last update check timestamp. Error: ${error.message}`);
+            this.logger.warn(`Warning: Could not set last update check timestamp. Error: ${error.message}`);
         }
     }
 
@@ -207,7 +210,7 @@ export class UpdateService {
                 await this.setLastUpdateCheckTimestamp();
 
             } catch (checkError: any) {
-                console.warn(`⚠️ Could not check for ${kPackageName} updates: ${checkError.message}`);
+                this.logger.warn(`⚠️ Could not check for ${kPackageName} updates: ${checkError.message}`);
                 return;
             }
 
@@ -216,7 +219,7 @@ export class UpdateService {
             }
 
         } catch (error: any) {
-            console.warn(`⚠️ An unexpected error occurred during the update check process: ${error.message}`);
+            this.logger.warn(`⚠️ An unexpected error occurred during the update check process: ${error.message}`);
         }
     }
 } 
