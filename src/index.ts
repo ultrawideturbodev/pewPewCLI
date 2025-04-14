@@ -44,6 +44,7 @@ program
   .option('--overwrite', 'Overwrite the entire tasks file')
   .option('--append', 'Append content to the end of the tasks file')
   .option('--insert', 'Insert content at the beginning of the tasks file')
+  .option('--path <value>', 'Specify the target file path, overriding config')
   .option('--force', 'Force overwrite (alias for --overwrite)')
   .action(async (target, options) => {
     if (target === 'tasks') {
@@ -72,8 +73,8 @@ program
         mode = 'insert';
       }
       
-      // Call the service method with the determined mode
-      await cliService.handlePasteTasks(mode);
+      // Call the service method with the determined mode and options
+      await cliService.handlePasteTasks(mode, { path: options.path });
     } else {
       console.error(`Invalid target '${target}' for paste. Valid targets: tasks`);
     }

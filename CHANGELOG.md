@@ -2,6 +2,29 @@
 
 All notable changes to pewPewCLI will be documented in this file.
 
+## v0.2.0
+
+### April 14, 2025
+
+#### ✨ Features
+- Enhanced `pew next task` command to support multiple task files specified in `paths.yaml`.
+- Implemented logic to find the first available task across all configured files.
+- Added robust management of the `👉` prefix (add, remove, move) across different task files.
+- Updated summary output to be file-specific, showing stats and the relative path for the file containing the current task.
+- Added `paste-tasks` key to `paths.yaml` to specify a default target file for `pew paste tasks`.
+- Added `--path <value>` option to `pew paste tasks` command to override the configured or default target file.
+- Implemented logic in `pew paste tasks` to handle non-existent paths provided via `--path` by prompting the user.
+- Updated `pew init` command to automatically configure the `paste-tasks` key alongside the `tasks` key in `paths.yaml`.
+
+#### 🛠️ Improvements
+- Refactored `ConfigService` to provide a list of all configured task file paths.
+- Refactored `TaskService` methods (`readTaskLines`, `writeTaskLines`) to operate on specific file paths, removing reliance on a single primary file.
+- Added integration tests for the new multi-file functionality in `CliService.handleNextTask` using Jest mocks.
+- Refactored `ConfigService` to include `getPasteTasksPath` method with fallback logic (config key -> first task -> default).
+- Modified `ConfigService.setTasksPaths` to handle setting both `tasks` and `paste-tasks` keys.
+- Updated `CliService.handlePasteTasks` to use the new configuration and option logic.
+- Updated documentation (`README.md`, tutorials) to reflect the new `paste-tasks` functionality.
+
 ## v0.1.3
 
 ### April 9, 2025

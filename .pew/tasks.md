@@ -1,687 +1,454 @@
-# Project Plan: Multi-File Task Iteration for `pew next task`
+# Mode: ACT
+🎯 Main Objective: Modify the `pew paste tasks` command to allow specifying a target file via a new `paste-tasks` config key in `paths.yaml` or a `--path` command-line option, including handling for non-existent paths and updating the `pew init` process.
+
+# Project Plan: Enhanced `pew paste tasks` Target File Specification
 
 ## 1. Project Overview
-This project aims to enhance the `pew next task` command in the `pew-pew-cli` tool. The primary objective is to enable the command to iterate through multiple markdown task files, as configured in `paths.yaml`, instead of just the primary one. This involves finding the next available task across all files, correctly managing the `👉` prefix (adding, removing, moving it between files), updating the summary output to be file-specific, and implementing integration tests to ensure the new multi-file functionality works as expected under various scenarios.
+This project enhances the `pew paste tasks` command to provide users more control over the target file. It introduces a new `paste-tasks` configuration key in `paths.yaml` to define a default paste target and adds a `--path` command-line option to override this default. The plan includes updating configuration handling, command-line parsing, the paste logic (including user prompts for non-existent override paths), and the initialization process to set the new configuration key. Documentation will also be updated.
 - [x] Read the project overview:
-    - Modify `pew next task` to support multiple task files defined in `paths.yaml`.
-    - Implement logic to find the first available task across all configured files.
-    - Manage the `👉` prefix correctly across files (add, remove, move).
-    - Update the summary output to show statistics and the path for the file containing the current task.
-    - Add integration tests for the multi-file behavior.
+    - Add `paste-tasks: <path>` key to `paths.yaml`.
+    - Add `--path <value>` option to `pew paste tasks`.
+    - Prioritize `--path` over `paste-tasks` config.
+    - Implement fallback logic: `--path` (if exists) -> prompt if `--path` doesn't exist (offer config path) -> `paste-tasks` config path -> first `tasks` path -> default `./.pew/tasks.md`.
+    - Update `pew init` to set both `tasks` list and `paste-tasks` string.
+    - Update documentation.
 
 ## 2. Requirements Analysis Summary
 A concise summary of the requirements identified for this feature enhancement.
 - [x] Review the requirements summary:
-    - **👤 Actors & 🧩 Components:** `CliService`, `ConfigService`, `TaskService`, `FileSystemService`, `YamlService`, `User` (implicit), Task File(s), Console Output, Jest Test Runner, Mocks (fs, config, console).
-    - **🎬 Activities:** Read multiple task files, Find first unchecked task across files, Find `👉` prefix across files, Add `👉` prefix to task line, Remove `👉` prefix from task line, Mark task as complete in line array, Write modified lines to specific file, Calculate stats for a single file, Display file-specific summary, Display relative file path, Log file read errors, Run integration tests.
-    - **🌊 Activity Flows & Scenarios:** Iterating through files, Handling file read errors, Finding first task (in first file vs later file), Managing prefix (add new, move existing, complete task & add to next), Handling "all tasks complete", Handling no tasks found.
-    - **📝 Properties:** List of task file paths, Current task file path, Current task line index, Current task line array, `👉` prefix file path, `👉` prefix line index, File-specific task statistics (total, completed, remaining), Relative file path string.
-    - **🛠️ Behaviours:** Iterate files in configured order, Log errors and skip unreadable files, Wrap around file list when searching for next task after completion, Display summary based *only* on the current task's file, Display relative path below summary.
+    - **👤 Actors & 🧩 Components:** `User`, `pew CLI Application` (`CliService`, `ConfigService`, `TaskService`, `FileSystemService`, `YamlService`, `UserInputService`, `Console Output`, `Commander`), `paths.yaml` (`tasks` key, `paste-tasks` key), Task File, Command Line Interface (`--path` option).
+    - **🎬 Activities:** Get paste tasks path, Set paste tasks path, Handle malformed config, Update `handleInit`, Update `handlePasteTasks`, Parse `--path` option, Determine final paste path, Check path existence, Prompt user, Update documentation.
+    - **🌊 Activity Flows & Scenarios:** Getting paste path (local/global/fallback), `paste tasks` with/without `--path`, Handling existing/non-existing override path, `init` setting both keys.
+    - **📝 Properties:** `paths.yaml.paste-tasks: string`, `options.path: string | undefined`, `defaultPastePath: string`, `finalPastePath: string`.
+    - **🛠️ Behaviours:** Prioritize `--path`, Prompt on non-existent override, Fallback logic chain, `init` sets both keys, Log warning on malformed config.
 *(Full detailed analysis follows)*
 
 ## 3. Detailed Requirements
 
 - 👤 **Actors & 🧩 Components:**
-    - [Actor] User (Executes `pew next task`)
+    - [Actor] User (Executes `pew` commands, provides input)
     - [Component] `pew` CLI Application
-        - [Component] `CliService` (Orchestrates `next task` command)
-        - [Component] `ConfigService` (Provides list of task file paths)
-        - [Component] `TaskService` (Reads/writes specific task files, parses/modifies lines)
-        - [Component] `FileSystemService` (Performs underlying file operations)
-        - [Component] `YamlService` (Used by `ConfigService` to read `paths.yaml`)
-        - [Component] Console Output (Displays task, summary, file path, errors)
-    - [Component] Task File(s) (Markdown files containing tasks, referenced in `paths.yaml`)
-        - [Component] Task Line (`- [ ]`, `- [x]`)
-        - [Component] Header Line (`#`, `##`, etc.)
-        - [Component] `👉` Prefix
-    - [Component] `paths.yaml` (Configuration file listing task files)
-    - [Actor] Jest Test Runner (Executes integration tests)
-    - [Component] Test Environment
-        - [Component] Filesystem Mock
-        - [Component] `ConfigService` Mock
-        - [Component] `console.log` Mock
+        - [Component] `CliService` (Orchestrates commands)
+        - [Component] `ConfigService` (Manages `paths.yaml` access)
+        - [Component] `TaskService` (Writes to task files)
+        - [Component] `FileSystemService` (Checks file existence)
+        - [Component] `YamlService` (Parses/serializes `paths.yaml`)
+        - [Component] `UserInputService` (Handles interactive prompts)
+        - [Component] Console Output (Displays messages, prompts, errors)
+        - [Component] Commander (Library for parsing CLI args/options)
+    - [Component] `paths.yaml` (Configuration file)
+        - [Property] `tasks: string[]` (Existing list of task files)
+        - [Property] `paste-tasks: string` (New: Default path for paste command)
+    - [Component] Task File (Markdown file to be written to)
+    - [Component] Command Line Interface
+        - [Component] `--path <value>` (New option for `pew paste tasks`)
 
 - 🎬 **Activities:**
     - [`ConfigService`]
-        - [Activity] Get all configured task file paths (resolved)
-    - [`TaskService`]
-        - [Activity] Read lines from a specific task file path
-        - [Activity] Write lines to a specific task file path
-        - [Activity] Check if line is task/unchecked/checked/header (Static)
-        - [Activity] Check if line has `👉` prefix (Static)
-        - [Activity] Get line without `👉` prefix (Static)
-        - [Activity] Find task with `👉` prefix in lines (Static)
-        - [Activity] Add `👉` prefix to line in array (Static)
-        - [Activity] Remove `👉` prefix from line in array (Static)
-        - [Activity] Find first unchecked task in lines (Static)
-        - [Activity] Find next unchecked task in lines (Static)
-        - [Activity] Find first task in lines (Static)
-        - [Activity] Calculate task statistics from lines (Static)
-        - [Activity] Format statistics summary string (Static)
-        - [Activity] Get context headers from lines (Static)
-        - [Activity] Get task output range from lines (Static)
-        - [Activity] Mark task complete in line string (Static)
-    - [`CliService` (`handleNextTask`)]
-        - [Activity] Get all task file paths from `ConfigService`
-        - [Activity] Iterate through file paths
-        - [Activity] Read lines for current file path using `TaskService`
-        - [Activity] Handle file read error (log, skip file)
-        - [Activity] Find first unchecked task across all files' lines
-        - [Activity] Find `👉` prefix location across all files' lines
-        - [Activity] Determine overall state (no tasks, all complete, needs prefix, move prefix, complete task)
-        - [Activity] Remove `👉` prefix from specific file's lines using `TaskService`
-        - [Activity] Mark task complete in specific file's lines using `TaskService`
-        - [Activity] Add `👉` prefix to specific file's lines using `TaskService`
-        - [Activity] Write modified lines to correct file path using `TaskService`
-        - [Activity] Find next unchecked task (potentially wrapping around file list)
-        - [Activity] Calculate statistics for the current task's file lines using `TaskService`
-        - [Activity] Get summary string for current file's stats using `TaskService`
-        - [Activity] Get context headers for current task's lines using `TaskService`
-        - [Activity] Get output range for current task's lines using `TaskService`
-        - [Activity] Calculate relative path for current file
-        - [Activity] Display task content to Console Output
-        - [Activity] Display file-specific summary to Console Output
-        - [Activity] Display relative file path to Console Output
-        - [Activity] Display "All tasks complete" message with last file's summary
-        - [Activity] Display "No tasks found" message
-    - [Jest Test Runner]
-        - [Activity] Execute integration tests for `CliService.handleNextTask`
-        - [Activity] Use Mocks for filesystem, config, console
+        - [Activity] Get resolved paste tasks path (New: `getPasteTasksPath`) - includes fallback logic.
+        - [Activity] Handle malformed `paste-tasks` config value (Log warning, fallback).
+        - [Activity] Set tasks and paste tasks paths (Update: Modify `setTasksPaths` or add related logic for `init`).
+    - [`CliService`]
+        - [Activity] Handle `pew init` command (Update: Ensure `paste-tasks` key is set alongside `tasks`).
+        - [Activity] Handle `pew paste tasks` command (Update: Incorporate `--path` option and fallback logic).
+        - [Activity] Parse `--path` option value from Commander context.
+        - [Activity] Determine final paste path based on `--path`, config, existence checks, and user prompts.
+        - [Activity] Check if override path provided via `--path` exists using `FileSystemService`.
+        - [Activity] Prompt user for confirmation if override path doesn't exist using `UserInputService`.
+    - [`UserInputService`]
+        - [Activity] Ask for confirmation (Used for non-existent path scenario).
+    - [`FileSystemService`]
+        - [Activity] Check path existence (Used for `--path` validation).
+    - [User]
+        - [Activity] Execute `pew init`.
+        - [Activity] Execute `pew paste tasks`.
+        - [Activity] Execute `pew paste tasks --path <path>`.
+        - [Activity] Respond to confirmation prompt.
+    - [Documentation]
+        - [Activity] Update `README.md` command table and descriptions.
+        - [Activity] Update `tutorials/how-to-set-up-repeatable-workflows-eg-build-steps-qa.md` or relevant tutorial.
 
 - 🌊 **Activity Flows & Scenarios:**
-    - [Find First Unchecked Task Across Files]
-        - GIVEN multiple task files are configured in `paths.yaml`
-        - WHEN User runs `pew next task`
-        - AND `CliService` gets the list of file paths from `ConfigService`
-        - THEN `CliService` iterates through the file paths in order
-        - AND For each path, `CliService` calls `TaskService.readTaskLines(filePath)`
-        - [Error Flow: File Read Error]
-            - GIVEN `TaskService.readTaskLines` throws an error for `filePath1`
-            - THEN `CliService` logs an error message mentioning `filePath1`
-            - AND `CliService` continues iteration with the next file path
-        - AND `CliService` calls `TaskService.findFirstUncheckedTask(lines)` for each successfully read file
-        - WHEN `TaskService.findFirstUncheckedTask` returns a valid index for `filePath2`
-        - THEN `CliService` stores `filePath2`, the index, and its lines
-        - AND `CliService` stops iterating through files for finding the task
-    - [Manage `👉` Prefix - Add New]
-        - GIVEN No `👉` prefix exists in any file
-        - AND The first unchecked task is found at `taskIndex` in `lines` from `filePath`
-        - WHEN `CliService` determines the "Needs Prefix" state
-        - THEN `CliService` calls `TaskService.addPewPrefix(lines, taskIndex)`
-        - AND `CliService` calls `TaskService.writeTaskLines(filePath, modifiedLines)`
-        - AND `CliService` displays the task from `lines` at `taskIndex`
-    - [Manage `👉` Prefix - Complete Task & Add Next]
-        - GIVEN `👉` prefix exists on the first unchecked task at `taskIndex` in `lines` from `filePath`
-        - WHEN `CliService` determines the "Complete Task" state
-        - THEN `CliService` calls `TaskService.removePewPrefix(lines, taskIndex)`
-        - AND `CliService` calls `TaskService.markTaskComplete(lines[taskIndex])` updating the line in `lines`
-        - AND `CliService` calls `TaskService.writeTaskLines(filePath, modifiedLines)`
-        - AND `CliService` searches for the *next* unchecked task starting from `filePath` (or the next file), potentially wrapping around
-        - WHEN The next unchecked task is found at `nextTaskIndex` in `nextLines` from `nextFilePath`
-        - THEN `CliService` calls `TaskService.addPewPrefix(nextLines, nextTaskIndex)`
-        - AND `CliService` calls `TaskService.writeTaskLines(nextFilePath, nextModifiedLines)`
-        - AND `CliService` displays the task from `nextLines` at `nextTaskIndex`
-    - [Manage `👉` Prefix - Move Incorrect]
-        - GIVEN `👉` prefix exists on a completed task at `pewIndex` in `pewLines` from `pewFilePath`
-        - AND The first unchecked task is found at `taskIndex` in `taskLines` from `taskFilePath`
-        - WHEN `CliService` determines the "Move Prefix" state
-        - THEN `CliService` calls `TaskService.removePewPrefix(pewLines, pewIndex)`
-        - AND `CliService` calls `TaskService.writeTaskLines(pewFilePath, modifiedPewLines)`
-        - AND `CliService` calls `TaskService.addPewPrefix(taskLines, taskIndex)`
-        - AND `CliService` calls `TaskService.writeTaskLines(taskFilePath, modifiedTaskLines)`
-        - AND `CliService` displays the task from `taskLines` at `taskIndex`
-    - [Display Summary]
-        - GIVEN The current task to display is at `taskIndex` in `lines` from `filePath`
-        - WHEN `CliService` prepares the output
-        - THEN `CliService` calls `TaskService.getTaskStatsFromLines(lines)`
-        - AND `CliService` calls `TaskService.getSummary(fileStats)`
-        - AND `CliService` calls `path.relative(process.cwd(), filePath)`
-        - THEN `CliService` prints the summary string to the console
-        - AND `CliService` prints the relative path string on the next line
+    - [Get Paste Path Logic (`ConfigService.getPasteTasksPath`)]
+        - GIVEN `ConfigService` is initialized
+        - WHEN `CliService` calls `getPasteTasksPath`
+        - THEN `ConfigService` checks effective config (local > global) for `paste-tasks` key
+        - AND IF key exists AND value is a non-empty string
+            - THEN Resolve path relative to config source (project root or global dir)
+            - AND Return resolved path
+        - AND IF key exists BUT value is NOT a non-empty string
+            - THEN Log warning "Malformed 'paste-tasks' value in config, using fallback."
+            - AND Proceed to fallback step 1
+        - AND IF key does NOT exist
+            - THEN Proceed to fallback step 1
+        - [Fallback Step 1: First `tasks` path]
+            - THEN Get `tasks` list from effective config
+            - AND IF `tasks` is an array AND has at least one non-empty string element
+                - THEN Resolve the first path relative to config source
+                - AND Return resolved path
+            - ELSE Proceed to fallback step 2
+        - [Fallback Step 2: Default path]
+            - THEN Resolve default path `./.pew/tasks.md` relative to `process.cwd()`
+            - AND Return resolved default path
+    - [`pew paste tasks` (No --path)]
+        - GIVEN User runs `pew paste tasks`
+        - WHEN `CliService.handlePasteTasks` executes
+        - THEN `CliService` gets `options.path` (undefined)
+        - THEN `CliService` calls `ConfigService.getPasteTasksPath` -> returns `configuredPath`
+        - THEN `CliService` sets `finalPastePath = configuredPath`
+        - THEN `CliService` calls `TaskService.writeTasksContent(finalPastePath, ...)`
+    - [`pew paste tasks` (--path exists)]
+        - GIVEN User runs `pew paste tasks --path existing/file.md`
+        - WHEN `CliService.handlePasteTasks` executes
+        - THEN `CliService` gets `options.path = "existing/file.md"`
+        - THEN `CliService` calls `FileSystemService.pathExists("existing/file.md")` -> returns `true`
+        - THEN `CliService` sets `finalPastePath = "existing/file.md"`
+        - THEN `CliService` calls `TaskService.writeTasksContent(finalPastePath, ...)`
+    - [`pew paste tasks` (--path does NOT exist)]
+        - GIVEN User runs `pew paste tasks --path new/file.md`
+        - WHEN `CliService.handlePasteTasks` executes
+        - THEN `CliService` gets `options.path = "new/file.md"`
+        - THEN `CliService` calls `FileSystemService.pathExists("new/file.md")` -> returns `false`
+        - THEN `CliService` calls `ConfigService.getPasteTasksPath` -> returns `configuredPath`
+        - THEN `CliService` calls `UserInputService.askForConfirmation("Path 'new/file.md' does not exist. Paste into default '${configuredPath}' instead?")`
+        - IF User confirms 'yes'
+            - THEN `CliService` sets `finalPastePath = configuredPath`
+            - THEN `CliService` calls `TaskService.writeTasksContent(finalPastePath, ...)`
+        - ELSE (User confirms 'no')
+            - THEN `CliService` logs "Paste operation aborted."
+            - AND `CliService` returns
+    - [`pew init`]
+        - GIVEN User runs `pew init` (not forced)
+        - WHEN `CliService.handleInit` executes
+        - THEN `CliService` prompts for "primary tasks file path" -> user enters `my/tasks.md`
+        - THEN `CliService` calls `ConfigService.setTasksPaths(['my/tasks.md'], false, 'my/tasks.md')` (or similar updated signature/logic)
+        - THEN `ConfigService` writes local `paths.yaml` with `tasks: ['my/tasks.md']` and `paste-tasks: my/tasks.md`
+    - [`pew init --force`]
+        - GIVEN User runs `pew init --force`
+        - WHEN `CliService.handleInit` executes
+        - THEN `CliService` uses default path `.pew/tasks.md`
+        - THEN `CliService` calls `ConfigService.setTasksPaths(['.pew/tasks.md'], false, '.pew/tasks.md')` (or similar updated signature/logic)
+        - THEN `ConfigService` writes local `paths.yaml` with `tasks: ['.pew/tasks.md']` and `paste-tasks: .pew/tasks.md`
 
 - 📝 **Properties:**
+    - [`paths.yaml`]
+        - [tasks : string[]]
+        - [paste-tasks : string] (New)
+    - [`CliService.handlePasteTasks` scope]
+        - [options.path : string | undefined] (From Commander)
+        - [configuredPastePath : string] (Result from `ConfigService.getPasteTasksPath`)
+        - [finalPastePath : string] (Path ultimately used for writing)
+        - [overridePathExists : boolean] (Result from `FileSystemService.pathExists` on `options.path`)
     - [`ConfigService`]
-        - [allTasksPaths : string[]] (Resolved paths from local/global config)
-    - [`CliService` (`handleNextTask` scope)]
-        - [filePaths : string[]] (List of paths from `ConfigService`)
-        - [currentFilePath : string] (Path of the file being processed in loop)
-        - [currentLines : string[]] (Lines read from `currentFilePath`)
-        - [firstUncheckedFilePath : string | null]
-        - [firstUncheckedIndex : number] (-1 if none found)
-        - [firstUncheckedLines : string[] | null]
-        - [pewFilePath : string | null]
-        - [pewIndex : number] (-1 if none found)
-        - [pewLines : string[] | null]
-        - [fileStats : { total: number, completed: number, remaining: number }] (Stats for the *current* file)
-        - [summaryString : string]
-        - [relativeFilePath : string]
-    - [Task File Line]
-        - [isTask : boolean]
-        - [isUnchecked : boolean]
-        - [isChecked : boolean]
-        - [hasPewPrefix : boolean]
-        - [content : string]
+        - [localPathsData.paste-tasks : any] (Raw value read from local YAML)
+        - [globalPathsData.paste-tasks : any] (Raw value read from global YAML)
 
 - 🛠️ **Behaviours:**
-    - [`CliService.handleNextTask`]
-        - [Behaviour] Should iterate through file paths obtained from `ConfigService` in the order they are returned.
-        - [Behaviour] Should log an error message to the console and continue to the next file if `TaskService.readTaskLines` fails for a specific file path.
-        - [Behaviour] Should identify the very first unchecked task (`- [ ]`) across all readable files, respecting the file iteration order.
-        - [Behaviour] Should correctly identify the location (file path and index) of an existing `👉` prefix, if any.
-        - [Behaviour] If no unchecked tasks are found, should display "✅ All tasks complete." along with the summary for the last file checked.
-        - [Behaviour] If no tasks (`- [ ]` or `- [x]`) are found in any file, should display "✅ No tasks found." with a zero-stats summary.
-        - [Behaviour] If `👉` prefix exists and is on the first unchecked task, should mark that task complete (`- [x]`), remove the prefix, write changes to that file, find the *next* unchecked task (wrapping around the file list if necessary), add the prefix to the next task, write changes to *its* file, and display the next task.
-        - [Behaviour] If `👉` prefix exists but is *not* on the first unchecked task, should remove the prefix from its current location, write changes to that file, add the prefix to the *correct* first unchecked task, write changes to *its* file, and display the correct task.
-        - [Behaviour] If no `👉` prefix exists, should add it to the first unchecked task found, write changes to that file, and display that task.
-        - [Behaviour] When displaying a task, should calculate statistics (`getTaskStatsFromLines`) using *only* the lines from the file containing that task.
-        - [Behaviour] When displaying a task, should show the summary string followed by the relative path of the task's file on a new line (e.g., `(File: path/to/tasks.md)`).
+    - [`ConfigService.getPasteTasksPath`]
+        - Should return the correctly resolved path based on local `paste-tasks` if valid.
+        - Should return the correctly resolved path based on global `paste-tasks` if local is invalid/missing but global is valid.
+        - Should log a warning to console if `paste-tasks` value is found but is not a non-empty string.
+        - Should return the correctly resolved first path from the `tasks` list if `paste-tasks` is invalid/missing in both scopes.
+        - Should return the correctly resolved default `./.pew/tasks.md` path if `paste-tasks` and `tasks` are invalid/missing.
+    - [`CliService.handlePasteTasks`]
+        - Should use the value from the `--path` option as the target file path if provided and the file exists.
+        - If `--path` is provided but the file does *not* exist, should prompt the user whether to use the configured default path instead.
+        - If the user declines the prompt, the paste operation should be aborted with a message.
+        - If `--path` is not provided, should use the path returned by `ConfigService.getPasteTasksPath`.
+    - [`CliService.handleInit`]
+        - When initializing (or force initializing), should write both the `tasks` key (as a single-element list) and the `paste-tasks` key (as a string) to the local `paths.yaml`, using the path provided by the user or the default path.
 
 ## 4. Milestones and Tasks
 
-### Milestone 1: Refactor Services for Multi-File Support
-Modify `ConfigService` and `TaskService` to handle multiple file paths and operate on specific files rather than assuming a single primary file.
+### Milestone 1: Update Configuration Handling
+Modify `ConfigService` to read, validate, and fallback for the new `paste-tasks` key, and update the setting logic used by `init`.
 
-#### Task 1.1: Update `ConfigService` to Get All Task Paths
-- [x] **Do:** Add a new public method `getAllTasksPaths(): Promise<string[]>` to `ConfigService` that returns a resolved list of all task file paths, respecting local-over-global configuration precedence.
+#### Task 1.1: Implement `ConfigService.getPasteTasksPath`
+- [x] **Do:** Create a new public async method `getPasteTasksPath(): Promise<string>` in `ConfigService` to retrieve the resolved default paste task file path, implementing the specified fallback logic (local `paste-tasks` -> global `paste-tasks` -> first local/global `tasks` -> default `./.pew/tasks.md`) and validation.
 - **Sequence Diagram:**
     ```mermaid
     sequenceDiagram
-        participant C as CliService
+        participant CliS as CliService
         participant CS as ConfigService
         participant FSS as FileSystemService
         participant YS as YamlService
+        participant path as NodeJSPathModule
+        participant console as Console
 
-        C->>CS: getAllTasksPaths()
+        CliS->>CS: getPasteTasksPath()
         CS->>CS: initialize() # If not already initialized
-        CS->>CS: _loadPathsConfig() # Loads local/global data
-        CS->>CS: Determine config source (local or global)
-        CS->>CS: Get raw paths array from configData.tasks
-        CS->>CS: Resolve paths relative to project root or global dir
-        CS-->>C: Return string[] (resolved paths)
+        CS->>CS: Determine effective config (local or global)
+        alt Local config has 'paste-tasks' key
+            CS->>CS: Get raw value localPathsData.tasks['paste-tasks']
+            alt Value is valid string
+                CS->>path: resolve(localProjectRoot, value)
+                path-->>CS: resolvedPath
+                CS-->>CliS: resolvedPath
+            else Value is invalid
+                CS->>console: warn("Malformed 'paste-tasks'...")
+                CS->>CS: Proceed to Global Check / Fallback 1
+            end
+        else Local config missing 'paste-tasks' key
+             CS->>CS: Proceed to Global Check / Fallback 1
+        end
+        Note over CS: Similar check for global config if local failed
+
+        Note over CS: Fallback 1: Check 'tasks' list
+        CS->>CS: Get effective 'tasks' list (local or global)
+        alt Tasks list is valid array with items
+            CS->>path: resolve(configSourceDir, tasks[0])
+            path-->>CS: resolvedPath
+            CS-->>CliS: resolvedPath
+        else Tasks list invalid/empty
+            CS->>CS: Proceed to Fallback 2
+        end
+
+        Note over CS: Fallback 2: Default path
+        CS->>path: resolve(process.cwd(), './.pew/tasks.md')
+        path-->>CS: resolvedDefaultPath
+        CS-->>CliS: resolvedDefaultPath
     ```
 - **Files:**
     - U: `src/modules/config.service.ts`
 - **Classes:**
     - U: `ConfigService`
 - **Methods:**
-    - C: `public async getAllTasksPaths(): Promise<string[]>` (in `ConfigService`)
-    - U: Potentially reuse internal logic from `getTasksPaths` like path resolution.
+    - C: `public async getPasteTasksPath(): Promise<string>`
+    - R: `initialize()` (called internally)
+    - R: `getTasksPaths()` (potentially reuse parts of its logic for fallback)
+- **Variables:**
+    - C: `getPasteTasksPath.const effectiveConfig = ...` (Determine local or global data source)
+    - C: `getPasteTasksPath.const isLocalSource = ...`
+    - C: `getPasteTasksPath.let pasteTaskPathValue: any = effectiveConfig['paste-tasks'];`
+    - C: `getPasteTasksPath.let resolvedPath: string | null = null;`
 - **Process:**
     1. Open `src/modules/config.service.ts`.
-    2. Define the new public async method `getAllTasksPaths`.
-    3. Inside the method, ensure the service is initialized by calling `await this.initialize();`.
-    4. Determine the effective configuration data: check if `this.localPathsFile` exists and `this.localPathsData` has content; if so, use `this.localPathsData`, otherwise use `this.globalPathsData`.
-    5. Get the raw paths array from the `tasks` key of the effective configuration data (defaulting to `['.pew/tasks.md']` if the key is missing or not an array).
-    6. Determine if the source was global (`config === this.globalPathsData`).
-    7. Resolve the raw paths:
-        - If the source is global, map paths using `path.resolve(this.globalConfigDir, p)`.
-        - If the source is local (and `this.localConfigDir` is set), map paths using `path.resolve(path.dirname(this.localConfigDir), p)`.
-        - Add a fallback for the default case if needed (e.g., `path.resolve(process.cwd(), p)`).
-    8. Return the array of resolved paths.
+    2. Define the new public async method `getPasteTasksPath`.
+    3. Ensure initialization: `await this.initialize();`.
+    4. Determine effective config source (local `this.localPathsData` if `this.localPathsFile` exists and data is not empty, else `this.globalPathsData`). Store the source data and whether it's local.
+    5. Check for `paste-tasks` key in the effective config.
+    6. If the key exists:
+        a. Get the value.
+        b. Check if the value is a non-empty string.
+        c. If valid: Resolve the path based on the source (local resolves relative to project root `path.dirname(this.localConfigDir)`, global resolves relative to `this.globalConfigDir`). Return the resolved path.
+        d. If invalid: Log a warning `console.warn("Malformed 'paste-tasks' value in config file [path], using fallback.");`. Proceed to fallback 1.
+    7. If the key does not exist: Proceed to fallback 1.
+    8. **Fallback 1 (Tasks List):**
+        a. Get the `tasks` list from the effective config.
+        b. Check if it's a valid array with at least one non-empty string element.
+        c. If valid: Resolve the *first* path (`tasks[0]`) based on the source (as in step 6c). Return the resolved path.
+        d. If invalid: Proceed to fallback 2.
+    9. **Fallback 2 (Default):**
+        a. Resolve the default path: `path.resolve(process.cwd(), './.pew/tasks.md')`.
+        b. Return the resolved default path.
 
-#### Task 1.2: Refactor `TaskService` Instance Methods for File Path Parameter
-- [x] **Do:** Modify `TaskService` instance methods `readTaskLines` and `writeTaskLines` to accept a `filePath: string` parameter and operate on that specific file, removing the internal reliance on `getPrimaryTasksFilePath`. Remove the `getPrimaryTasksFilePath` method.
-- **Sequence Diagram:**
+#### Task 1.2: Update `ConfigService.setTasksPaths` for `init`
+- [x] **Do:** Modify `ConfigService.setTasksPaths` (or create a related helper/adjust `handleInit`) to ensure that when setting paths during initialization, it writes *both* the `tasks` list (with a single path) and the `paste-tasks` string key to the target `paths.yaml` file.
+- **Sequence Diagram:** (Illustrates the updated save logic)
     ```mermaid
     sequenceDiagram
-        participant CliS as CliService
-        participant TS as TaskService
+        participant CliS_Init as CliService.handleInit
+        participant CS as ConfigService
+        participant YS as YamlService
         participant FSS as FileSystemService
 
-        CliS->>TS: readTaskLines(filePath)
-        TS->>FSS: pathExists(filePath)
-        FSS-->>TS: boolean
-        alt File Exists
-            TS->>FSS: readFile(filePath)
-            FSS-->>TS: fileContent (string)
-            TS->>TS: Split content into lines
-            TS-->>CliS: string[] (lines)
-        else File Does Not Exist
-            TS-->>CliS: Throw Error
-        end
-
-        CliS->>TS: writeTaskLines(filePath, lines)
-        TS->>TS: Join lines with newline
-        TS->>FSS: ensureDirectoryExists(path.dirname(filePath))
-        FSS-->>TS: void
-        TS->>FSS: writeFile(filePath, content)
-        FSS-->>TS: void
-        TS-->>CliS: void
+        CliS_Init->>CS: setTasksPaths(['path/to/tasks.md'], false, 'path/to/tasks.md') # Example call signature change
+        CS->>CS: Determine targetFile (localPathsFile) and configData (localPathsData)
+        CS->>FSS: ensureDirectoryExists(path.dirname(targetFile))
+        FSS-->>CS: void
+        CS->>CS: Create updated config object: { ...configData, tasks: ['path/to/tasks.md'], 'paste-tasks': 'path/to/tasks.md' }
+        CS->>YS: writeYamlFile(targetFile, updatedConfigObject)
+        YS->>FSS: writeFile(targetFile, yamlString)
+        FSS-->>YS: void
+        YS-->>CS: void
+        CS->>CS: Update this.localPathsData
+        CS-->>CliS_Init: void
     ```
 - **Files:**
-    - U: `src/modules/task.service.ts`
+    - U: `src/modules/config.service.ts`
 - **Classes:**
-    - U: `TaskService`
+    - U: `ConfigService`
 - **Methods:**
-    - U: `async readTaskLines(filePath: string): Promise<string[]>` (was `async readTaskLines(): Promise<string[]>`) - Update signature and implementation to use `filePath` parameter.
-    - U: `async writeTaskLines(filePath: string, lines: string[]): Promise<void>` (was `async writeTaskLines(lines: string[]): Promise<void>`) - Update signature and implementation to use `filePath` parameter.
-    - D: `async getPrimaryTasksFilePath(): Promise<string>` (Delete this method).
-    - U: Constructor - Remove initialization related to `tasksFilePath` if any.
-    - U: Remove `tasksFilePath` class property.
+    - U: `public async setTasksPaths(paths: string[], global: boolean, pasteTaskPath?: string): Promise<void>` (Proposed signature change, adding optional `pasteTaskPath`)
+    - OR: Keep `setTasksPaths` as is and add a new method like `setInitialPaths(primaryPath: string): Promise<void>` specifically for `init`. Let's modify `setTasksPaths` for simplicity.
+- **Variables:**
+    - U: `setTasksPaths.configData` (Update this object before writing)
 - **Process:**
-    1. Open `src/modules/task.service.ts`.
-    2. Modify the signature of `readTaskLines` to accept `filePath: string`.
-    3. Update the implementation of `readTaskLines` to use the passed `filePath` directly when calling `this.fileSystemService.pathExists` and `this.fileSystemService.readFile`. Remove any calls to `getPrimaryTasksFilePath`.
-    4. Modify the signature of `writeTaskLines` to accept `filePath: string` and `lines: string[]`.
-    5. Update the implementation of `writeTaskLines` to use the passed `filePath` directly when calling `path.dirname`, `this.fileSystemService.ensureDirectoryExists`, and `this.fileSystemService.writeFile`. Remove any calls to `getPrimaryTasksFilePath`.
-    6. Delete the `getPrimaryTasksFilePath` method entirely.
-    7. Remove the `tasksFilePath` class property.
-    8. Remove any logic in the constructor related to setting `this.tasksFilePath`.
+    1. Open `src/modules/config.service.ts`.
+    2. Modify the signature of `setTasksPaths` to accept an optional third parameter: `pasteTaskPath?: string`.
+    3. Inside the method, after determining the `targetFile` and cloning `configData`:
+        a. Set `configData.tasks = paths;`.
+        b. **New:** If `pasteTaskPath` is provided (and not empty), set `configData['paste-tasks'] = pasteTaskPath;`.
+        c. If `pasteTaskPath` is *not* provided or is empty, consider removing the key: `delete configData['paste-tasks'];` (or decide if it should default to `paths[0]`). For the `init` case, it *will* be provided.
+    4. Proceed with writing the updated `configData` to the `targetFile` using `YamlService`.
+    5. Update the in-memory cache (`this.globalPathsData` or `this.localPathsData`) with the modified `configData`.
 
-#### Task 1.3: Confirm `TaskService` Static Methods Suitability
-- [x] **Do:** Review the existing static methods in `TaskService` to confirm they operate purely on input parameters (like line strings or line arrays) and do not implicitly rely on a single file context or instance state, making them suitable for the multi-file logic.
-- **Sequence Diagram:** (N/A - Code review task)
+### Milestone 2: Update CLI Command Handling
+Modify `CliService` and `index.ts` to handle the new option, logic, and prompts for `paste tasks` and ensure `init` uses the updated config setting.
+
+#### Task 2.1: Add `--path` Option to `pew paste tasks`
+- [x] **Do:** Modify `src/index.ts` to define the optional `--path <value>` argument for the `pew paste tasks` command using `commander`.
+- **Sequence Diagram:** (N/A - Configuration update)
 - **Files:**
-    - R: `src/modules/task.service.ts`
+    - U: `src/index.ts`
 - **Classes:**
-    - R: `TaskService`
+    - N/A
 - **Methods:**
-    - R: `isTask(line: string): boolean`
-    - R: `isUncheckedTask(line: string): boolean`
-    - R: `isCheckedTask(line: string): boolean`
-    - R: `isHeader(line: string): boolean`
-    - R: `getLineHeaderLevel(line: string): number`
-    - R: `isTaskOrHeader(line: string): boolean`
-    - R: `lineHasPewPrefix(line: string): boolean`
-    - R: `getLineWithoutPewPrefix(line: string): string`
-    - R: `findTaskWithPewPrefix(lines: string[]): number`
-    - R: `addPewPrefix(lines: string[], index: number): string[]`
-    - R: `removePewPrefix(lines: string[], index: number): string[]`
-    - R: `findFirstUncheckedTask(lines: string[]): number`
-    - R: `findNextUncheckedTask(lines: string[], startIndex: number): number`
-    - R: `findFirstTask(lines: string[]): number`
-    - R: `getTaskStatsFromLines(lines: string[]): { total: number, completed: number, remaining: number }`
-    - R: `getSummary(stats: { total: number, completed: number, remaining: number }): string`
-    - R: `getContextHeaders(lines: string[], taskIndex: number): string`
-    - R: `getTaskOutputRange(lines: string[], taskIndex: number): { startIndex: number, endIndex: number }`
-    - R: `markTaskComplete(line: string): string`
+    - N/A (Updating command definition)
+- **Variables:**
+    - N/A
 - **Process:**
-    1. Open `src/modules/task.service.ts`.
-    2. Examine the implementation of each static method listed above.
-    3. Verify that each method only uses its input parameters (`line`, `lines`, `index`, `stats`, etc.) and static properties/constants (like `TASK_PATTERN`, `PEW_PREFIX`).
-    4. Confirm that none of these static methods access instance properties (like `this.tasksFilePath` which was removed) or call instance methods that rely on a single file context (like the old `readTaskLines` or `writeTaskLines`).
-    5. Conclude that these methods are safe to use within the multi-file iteration logic in `CliService`.
+    1. Open `src/index.ts`.
+    2. Locate the `.command('paste')` definition.
+    3. Add a new `.option('--path <value>', 'Specify the target file path, overriding config')` line before the `.action(...)` call.
+    4. Ensure the `options` object passed into the `action` function will now potentially contain a `path` property.
 
-### Milestone 2: Implement Multi-File Logic in `CliService.handleNextTask`
-Update the `handleNextTask` method in `CliService` to iterate through all configured task files, manage the `👉` prefix across them, and update the summary output.
-
-#### Task 2.1: Fetch All Paths in `handleNextTask`
-- [x] **Do:** Modify `CliService.handleNextTask` to call the new `configService.getAllTasksPaths()` method instead of the previous `taskService.readTaskLines()` to get the list of files to process.
+#### Task 2.2: Update `CliService.handleInit` Call
+- [x] **Do:** Modify `CliService.handleInit` to call the updated `ConfigService.setTasksPaths` method, passing the determined task path as both the single element in the `paths` array and as the new `pasteTaskPath` argument.
 - **Sequence Diagram:**
     ```mermaid
     sequenceDiagram
         participant CliS as CliService
+        participant UIS as UserInputService
         participant CS as ConfigService
 
-        Note over CliS: Start of handleNextTask()
-        CliS->>CS: getAllTasksPaths()
-        CS-->>CliS: filePaths: string[]
-        Note over CliS: Store filePaths for iteration
+        Note over CliS: Inside handleInit
+        alt Not flags.force
+            CliS->>UIS: askForPath('Enter primary tasks file path:', '.pew/tasks.md')
+            UIS-->>CliS: taskPath (e.g., 'user/tasks.md')
+        else flags.force
+            CliS->>CliS: taskPath = '.pew/tasks.md'
+        end
+        CliS->>CS: initialize()
+        CS-->>CliS: void
+        CliS->>CS: setTasksPaths([taskPath], false, taskPath) # Pass taskPath twice
+        CS-->>CliS: void
+        Note over CliS: Continue with file creation etc.
     ```
 - **Files:**
     - U: `src/modules/cli.service.ts`
 - **Classes:**
     - U: `CliService`
 - **Methods:**
-    - U: `async handleNextTask(): Promise<void>`
+    - U: `async handleInit(flags: { force: boolean }): Promise<void>`
 - **Variables:**
-    - C: `handleNextTask.const filePaths: string[] = await this.configService.getAllTasksPaths();`
-    - D: Remove the initial call to `this.taskService.readTaskLines()` at the beginning of the method.
+    - U: `handleInit.taskPath` (Use this value for both arguments)
 - **Process:**
     1. Open `src/modules/cli.service.ts`.
-    2. Locate the `handleNextTask` method.
-    3. Remove the existing line that reads the primary task file (e.g., `let lines = await this.taskService.readTaskLines();`).
-    4. Add a new line near the beginning of the `try` block to call `configService.getAllTasksPaths()` and store the result in a variable, e.g., `const filePaths = await this.configService.getAllTasksPaths();`.
-    5. Check if `filePaths` is empty. If so, display a "No task files configured" message and return.
+    2. Locate the `handleInit` method.
+    3. Find the line where `this.configService.setTasksPaths([taskPath], false);` is called.
+    4. Modify the call to pass `taskPath` as the third argument: `await this.configService.setTasksPaths([taskPath], false, taskPath);`.
 
-#### Task 2.2: Implement Core Iteration Logic in `handleNextTask`
-- [x] **Do:** Implement the main loop in `handleNextTask` to iterate through the fetched `filePaths`. Inside the loop, read each file's content, handle errors, find the first unchecked task across all files, and locate the current `👉` prefix. Determine the overall state after checking all files.
-- **Sequence Diagram:**
+#### Task 2.3: Implement New Logic in `CliService.handlePasteTasks`
+- [x] **Do:** Update `CliService.handlePasteTasks` to read the `--path` option, get the configured default path, check for override path existence, prompt the user if the override path doesn't exist, determine the final path, and call `TaskService.writeTasksContent` accordingly.
+- **Sequence Diagram:** (Illustrates --path non-existent scenario)
     ```mermaid
     sequenceDiagram
         participant CliS as CliService
+        participant options as CommanderOptions
+        participant FSS as FileSystemService
+        participant CS as ConfigService
+        participant UIS as UserInputService
         participant TS as TaskService
+        participant console as Console
 
-        CliS->>CliS: Initialize state variables (firstUnchecked*, pew*) to null/empty/-1
-        loop For each filePath in filePaths
-            CliS->>TS: readTaskLines(filePath)
-            alt Success
-                TS-->>CliS: lines: string[]
-                CliS->>TS: findFirstUncheckedTask(lines)
-                TS-->>CliS: taskIndex: number
-                alt taskIndex !== -1 AND firstUncheckedFilePath === null
-                    CliS->>CliS: Store filePath, taskIndex, lines in firstUnchecked* variables
-                end
-                CliS->>TS: findTaskWithPewPrefix(lines)
-                TS-->>CliS: pewIndex: number
-                alt pewIndex !== -1
-                    CliS->>CliS: Store filePath, pewIndex, lines in pew* variables
-                end
-            else Error Reading File
-                TS-->>CliS: Error
-                CliS->>CliS: Log error message for filePath
-                CliS->>CliS: Continue to next filePath
+        Note over CliS: Start handlePasteTasks(mode, options)
+        CliS->>options: Read options.path (e.g., 'new/file.md')
+        alt options.path is provided
+            CliS->>FSS: pathExists(options.path)
+            FSS-->>CliS: false
+            CliS->>CS: getPasteTasksPath()
+            CS-->>CliS: configuredPath (e.g., 'default/tasks.md')
+            CliS->>UIS: askForConfirmation("Path 'new/file.md' does not exist. Paste into default 'default/tasks.md' instead?")
+            UIS-->>CliS: userConfirmation (e.g., false)
+            alt userConfirmation is false
+                CliS->>console: log("Paste operation aborted.")
+                CliS-->>: return
+            else userConfirmation is true
+                CliS->>CliS: finalPastePath = configuredPath
             end
+        else options.path is provided AND exists
+             CliS->>FSS: pathExists(options.path)
+             FSS-->>CliS: true
+             CliS->>CliS: finalPastePath = options.path
         end
-        CliS->>CliS: Determine overall state based on firstUnchecked* and pew* variables
-    ```
-- **Files:**
-    - U: `src/modules/cli.service.ts`
-- **Classes:**
-    - U: `CliService`
-- **Methods:**
-    - U: `async handleNextTask(): Promise<void>`
-- **Variables:**
-    - C: `handleNextTask.let firstUncheckedFilePath: string | null = null;`
-    - C: `handleNextTask.let firstUncheckedIndex: number = -1;`
-    - C: `handleNextTask.let firstUncheckedLines: string[] | null = null;`
-    - C: `handleNextTask.let pewFilePath: string | null = null;`
-    - C: `handleNextTask.let pewIndex: number = -1;`
-    - C: `handleNextTask.let pewLines: string[] | null = null;`
-    - C: `handleNextTask.let allLinesRead: Map<string, string[]> = new Map();` (To store lines for later use)
-    - C: `handleNextTask.let totalTasksAcrossFiles = 0;`
-    - C: `handleNextTask.let completedTasksAcrossFiles = 0;`
-- **Process:**
-    1. Inside `handleNextTask`, after getting `filePaths`, initialize the state variables (`firstUncheckedFilePath`, `firstUncheckedIndex`, `firstUncheckedLines`, `pewFilePath`, `pewIndex`, `pewLines`) to their default null/-1 values. Initialize `allLinesRead = new Map()` and task counters.
-    2. Start a `for...of` loop iterating through `filePaths`.
-    3. Inside the loop, wrap the file reading and processing in a `try...catch` block.
-    4. **Try block:**
-        a. Call `const currentLines = await this.taskService.readTaskLines(filePath);`.
-        b. Store the lines: `allLinesRead.set(filePath, currentLines);`.
-        c. Calculate stats for this file: `const fileStats = TaskService.getTaskStatsFromLines(currentLines);`
-        d. Accumulate total stats: `totalTasksAcrossFiles += fileStats.total; completedTasksAcrossFiles += fileStats.completed;`
-        e. If `firstUncheckedFilePath` is still `null` (meaning we haven't found the first one yet):
-            i. Call `const taskIndex = TaskService.findFirstUncheckedTask(currentLines);`.
-            ii. If `taskIndex !== -1`, update `firstUncheckedFilePath = filePath`, `firstUncheckedIndex = taskIndex`, `firstUncheckedLines = currentLines`.
-        f. Call `const currentPewIndex = TaskService.findTaskWithPewPrefix(currentLines);`.
-        g. If `currentPewIndex !== -1`, update `pewFilePath = filePath`, `pewIndex = currentPewIndex`, `pewLines = currentLines`. (This will overwrite if found in multiple files, effectively finding the last one, which is acceptable as there should only be one).
-    5. **Catch block:**
-        a. Log an error using `console.error(`Error reading task file ${filePath}:`, error);`.
-        b. `continue;` to the next iteration of the loop.
-    6. After the loop, determine the overall state based on the values of the state variables and total task counts. This logic will replace the initial checks from the old implementation. Example checks:
-        - If `totalTasksAcrossFiles === 0`: Handle "No tasks found".
-        - If `firstUncheckedIndex === -1`: Handle "All tasks complete".
-        - Otherwise: Proceed to prefix management logic.
+        else options.path is NOT provided
+            CliS->>CS: getPasteTasksPath()
+            CS-->>CliS: configuredPath
+            CliS->>CliS: finalPastePath = configuredPath
+        end
 
-#### Task 2.3: Implement `👉` Prefix Management Across Files
-- [x] **Do:** Implement the logic within `handleNextTask` to correctly add, remove, or move the `👉` prefix based on the state determined in Task 2.2, ensuring modifications are written back to the correct task files.
-- **Sequence Diagram:** (Illustrates the "Complete Task & Add Next" scenario)
-    ```mermaid
-    sequenceDiagram
-        participant CliS as CliService
-        participant TS as TaskService
-
-        Note over CliS: State: Complete Task (pewIndex === firstUncheckedIndex)
-        CliS->>CliS: Get lines for completed task (firstUncheckedLines, firstUncheckedFilePath)
-        CliS->>TS: removePewPrefix(firstUncheckedLines, firstUncheckedIndex)
-        TS-->>CliS: modifiedLines (prefix removed)
-        CliS->>TS: markTaskComplete(modifiedLines[firstUncheckedIndex])
-        TS-->>CliS: completedLineString
-        CliS->>CliS: Update line in modifiedLines array
-        CliS->>TS: writeTaskLines(firstUncheckedFilePath, modifiedLines)
+        CliS->>TS: writeTasksContent(finalPastePath, clipboardContent, finalMode)
         TS-->>CliS: void
-
-        CliS->>CliS: Find NEXT unchecked task (loop through files, starting after firstUncheckedFilePath, wrap around)
-        alt Next task found (nextFilePath, nextIndex, nextLines)
-            CliS->>TS: addPewPrefix(nextLines, nextIndex)
-            TS-->>CliS: nextModifiedLines
-            CliS->>TS: writeTaskLines(nextFilePath, nextModifiedLines)
-            TS-->>CliS: void
-            CliS->>CliS: Prepare display for NEXT task
-        else No next task found
-             CliS->>CliS: Prepare "All tasks complete" display
-        end
+        CliS->>console: log("Pasted content to tasks file...")
     ```
 - **Files:**
     - U: `src/modules/cli.service.ts`
 - **Classes:**
     - U: `CliService`
 - **Methods:**
-    - U: `async handleNextTask(): Promise<void>`
-- **Process:**
-    1. Structure the logic after the iteration loop (Task 2.2) using `if/else if` blocks based on the determined state.
-    2. **Scenario: Needs Prefix (`pewIndex === -1` and `firstUncheckedIndex !== -1`)**
-        a. Get the correct lines: `let linesToModify = allLinesRead.get(firstUncheckedFilePath);` (Handle potential map miss).
-        b. Add prefix: `const modifiedLines = TaskService.addPewPrefix(linesToModify, firstUncheckedIndex);`.
-        c. Write back: `await this.taskService.writeTaskLines(firstUncheckedFilePath, modifiedLines);`.
-        d. Set variables for display: `displayFilePath = firstUncheckedFilePath`, `displayIndex = firstUncheckedIndex`, `displayLines = modifiedLines`.
-    3. **Scenario: Move Prefix (`pewIndex !== -1` and `pewFilePath !== firstUncheckedFilePath` or `pewIndex !== firstUncheckedIndex`)**
-        a. Get lines for *old* prefix location: `let oldPrefixLines = allLinesRead.get(pewFilePath);`.
-        b. Remove old prefix: `const linesWithoutOldPrefix = TaskService.removePewPrefix(oldPrefixLines, pewIndex);`.
-        c. Write back old file: `await this.taskService.writeTaskLines(pewFilePath, linesWithoutOldPrefix);`.
-        d. Get lines for *new* prefix location: `let newPrefixLines = allLinesRead.get(firstUncheckedFilePath);`.
-        e. Add new prefix: `const linesWithNewPrefix = TaskService.addPewPrefix(newPrefixLines, firstUncheckedIndex);`.
-        f. Write back new file: `await this.taskService.writeTaskLines(firstUncheckedFilePath, linesWithNewPrefix);`.
-        g. Set variables for display: `displayFilePath = firstUncheckedFilePath`, `displayIndex = firstUncheckedIndex`, `displayLines = linesWithNewPrefix`.
-    4. **Scenario: Complete Task (`pewIndex !== -1` and `pewFilePath === firstUncheckedFilePath` and `pewIndex === firstUncheckedIndex`)**
-        a. Get lines for completed task: `let completedTaskLines = allLinesRead.get(firstUncheckedFilePath);`.
-        b. Remove prefix: `let linesNoPrefix = TaskService.removePewPrefix(completedTaskLines, firstUncheckedIndex);`.
-        c. Mark complete: `const completedLine = TaskService.markTaskComplete(linesNoPrefix[firstUncheckedIndex]); linesNoPrefix[firstUncheckedIndex] = completedLine;`.
-        d. Write back completed file: `await this.taskService.writeTaskLines(firstUncheckedFilePath, linesNoPrefix);`.
-        e. **Find Next Task:**
-            i. Implement a helper function or inline logic to search for the next unchecked task. Start searching from `firstUncheckedIndex + 1` in `linesNoPrefix`.
-            ii. If not found, continue iterating through the *rest* of the `filePaths` array (using `allLinesRead`), starting from the file *after* `firstUncheckedFilePath`.
-            iii. If still not found, wrap around and search from the *beginning* of the `filePaths` array up to (but not including) `firstUncheckedFilePath`.
-            iv. Store the result: `nextFilePath`, `nextIndex`, `nextLines`.
-        f. **If Next Task Found:**
-            i. Add prefix to next task: `const nextLinesWithPrefix = TaskService.addPewPrefix(nextLines, nextIndex);`.
-            ii. Write back next file: `await this.taskService.writeTaskLines(nextFilePath, nextLinesWithPrefix);`.
-            iii. Set variables for display: `displayFilePath = nextFilePath`, `displayIndex = nextIndex`, `displayLines = nextLinesWithPrefix`.
-            iv. Set flag `taskWasCompleted = true`.
-        g. **If No Next Task Found:**
-            i. Set flag `allNowComplete = true`.
-            ii. Set variables for display: `displayFilePath = firstUncheckedFilePath`, `displayLines = linesNoPrefix`.
-    5. Ensure all file paths and line arrays used in these scenarios are correctly retrieved from the `allLinesRead` map or updated state variables.
-
-#### Task 2.4: Update Summary Output in `handleNextTask`
-- [x] **Do:** Modify the console output section of `handleNextTask` to calculate statistics based *only* on the lines of the file containing the task being displayed, format the summary, and append the relative file path on a new line.
-- **Sequence Diagram:**
-    ```mermaid
-    sequenceDiagram
-        participant CliS as CliService
-        participant TS as TaskService
-        participant path as NodeJSPathModule
-
-        Note over CliS: Preparing display for task in displayFilePath at displayIndex
-        CliS->>TS: getTaskStatsFromLines(displayLines)
-        TS-->>CliS: fileStats: {total, completed, remaining}
-        CliS->>TS: getSummary(fileStats)
-        TS-->>CliS: summaryString: string
-        CliS->>path: relative(process.cwd(), displayFilePath)
-        path-->>CliS: relativePath: string
-        CliS->>CliS: Format output string for file path: e.g., "(File: relativePath)"
-        CliS->>Console: log(task content)
-        CliS->>Console: log(summaryString)
-        CliS->>Console: log(formatted file path string)
-    ```
-- **Files:**
-    - U: `src/modules/cli.service.ts`
-- **Classes:**
-    - U: `CliService`
-- **Methods:**
-    - U: `async handleNextTask(): Promise<void>`
+    - U: `async handlePasteTasks(mode: 'overwrite' | 'append' | 'insert' | null, options: { path?: string }): Promise<void>` (Update signature to accept options)
+    - R: `ConfigService.getPasteTasksPath()`
+    - R: `FileSystemService.pathExists()`
+    - R: `UserInputService.askForConfirmation()`
+    - R: `TaskService.writeTasksContent()`
 - **Variables:**
-    - U: Use `displayFilePath`, `displayIndex`, `displayLines` (set in Task 2.3) for calculations and output.
-    - C: `handleNextTask.const fileStats = TaskService.getTaskStatsFromLines(displayLines);`
-    - C: `handleNextTask.const summaryString = TaskService.getSummary(fileStats);`
-    - C: `handleNextTask.const relativePath = path.relative(process.cwd(), displayFilePath);`
-    - C: `handleNextTask.const filePathString = \`(File: ${relativePath})\`;`
+    - C: `handlePasteTasks.overridePath: string | undefined = options.path;`
+    - C: `handlePasteTasks.finalPastePath: string;`
+    - C: `handlePasteTasks.configuredPastePath: string;`
 - **Process:**
-    1. Locate the sections in `handleNextTask` where the task content and summary are printed to the console (e.g., after adding/moving the prefix, or after completing a task and finding the next one, or when all tasks are complete).
-    2. Ensure you have the correct line array (`displayLines`) and file path (`displayFilePath`) for the task being shown (or the last file checked if all complete).
-    3. Calculate stats *only* for `displayLines`: `const fileStats = TaskService.getTaskStatsFromLines(displayLines);`.
-    4. Generate the summary string: `const summaryString = TaskService.getSummary(fileStats);`.
-    5. Calculate the relative path: `const relativePath = path.relative(process.cwd(), displayFilePath);`. Use the `path` module (ensure it's imported: `import * as path from 'path';`).
-    6. Format the file path string: `const filePathString = \`(File: ${relativePath})\`;`.
-    7. Modify the `console.log` calls:
-        - Print the task content as before (using `getContextHeaders`, `getTaskOutputRange` with `displayLines` and `displayIndex`).
-        - Print the `summaryString`.
-        - Print the `filePathString` on a new line immediately after the summary.
-    8. Adapt the "All tasks complete" and "No tasks found" messages to also include the final summary string and file path string (likely from the last file processed).
+    1. Open `src/modules/cli.service.ts`.
+    2. Modify the signature of `handlePasteTasks` to accept the `options` object from Commander, specifically looking for `options.path`.
+    3. Inside the `try` block, before determining the `finalMode`:
+        a. Get the override path: `const overridePath = options.path;`.
+        b. Get the configured default path: `const configuredPastePath = await this.configService.getPasteTasksPath();`.
+        c. Initialize `let finalPastePath: string;`.
+    4. Check if `overridePath` was provided.
+        a. If `overridePath`:
+            i. Check if it exists: `const overrideExists = await this.fileSystemService.pathExists(overridePath);`.
+            ii. If `overrideExists`: Set `finalPastePath = overridePath;`.
+            iii. If `!overrideExists`:
+                1. Prompt the user: `const useDefault = await this.userInputService.askForConfirmation(\`Path '${overridePath}' does not exist. Paste into default '${configuredPastePath}' instead?\`, false);`.
+                2. If `useDefault`: Set `finalPastePath = configuredPastePath;`.
+                3. If `!useDefault`: Log "Paste operation aborted." and `return;`.
+        b. If `!overridePath`: Set `finalPastePath = configuredPastePath;`.
+    5. Remove the old logic that determined the file path using `configService.getTasksPaths()[0]`.
+    6. Ensure the subsequent call to `this.taskService.writeTasksContent` uses `finalPastePath` instead of the old `filePath` variable.
+    7. Update the success message to potentially reflect the final path used, if desired (optional).
 
-### Milestone 3: Implement Integration Tests
-Create integration tests for `CliService.handleNextTask` to verify the new multi-file functionality, including task finding, prefix management, and summary output, using mocks.
+### Milestone 3: Documentation Update
+Update project documentation to reflect the new configuration key and command option.
 
-#### Task 3.1: Set up Integration Test Environment
-- [x] **Do:** Create the integration test file and configure Jest mocks for the filesystem (`fs`), `ConfigService`, and `console.log` to control inputs and capture outputs during tests.
-- **Sequence Diagram:** (N/A - Test setup)
+#### Task 3.1: Update README.md
+- [x] **Do:** Modify `README.md` to include the `paste-tasks` key in the `paths.yaml` example and add the `--path` option to the `pew paste tasks` command description in the table and examples.
+- **Sequence Diagram:** (N/A - Documentation)
 - **Files:**
-    - C: `tests/integration/cli-service.test.ts`
-    - U: `jest.config.js` (Potentially, if specific setup needed)
-- **Classes:**
-    - C: Test suite structure (`describe`, `beforeEach`, `test`)
-- **Methods:**
-    - C: Mock implementations for `fs.promises.readFile`, `fs.promises.writeFile`, `fs.promises.access`, `fs.promises.mkdir`.
-    - C: Mock implementation for `ConfigService.getInstance().getAllTasksPaths`.
-    - C: Mock implementation for `console.log`.
+    - U: `README.md`
+- **Classes:** N/A
+- **Methods:** N/A
+- **Variables:** N/A
 - **Process:**
-    1. Create the directory `tests/integration/` if it doesn't exist.
-    2. Create the file `tests/integration/cli-service.test.ts`.
-    3. Import necessary modules (`CliService`, `ConfigService`, `TaskService`, `fs`, `path`).
-    4. Use `jest.mock('fs', ...)` or similar techniques to provide mock implementations for file system operations. A common pattern is to use an in-memory representation of files.
-    5. Use `jest.mock('../../src/modules/config.service.js', ...)` to mock `ConfigService`. Ensure the mock allows setting the return value for `getAllTasksPaths()` per test case.
-    6. Set up mocking for `console.log` (e.g., `jest.spyOn(console, 'log').mockImplementation(() => {});`) within `beforeEach` or individual tests to capture output. Remember to restore mocks in `afterEach`.
-    7. Instantiate `CliService.getInstance()` within tests or `beforeEach`.
+    1. Open `README.md`.
+    2. Locate the "Configuration" section and the `paths.yaml` structure example. Add the `paste-tasks: path/to/default/paste/target.md` key with a comment.
+    3. Locate the "Commands" table. Update the row for `pew paste tasks`:
+        - Add `--path <value>`: Specify the target file path, overriding config. to the Options column.
+    4. Add or modify examples in the "Paste from Clipboard" section to demonstrate using `--path`.
+    5. Briefly explain the precedence (`--path` > `paste-tasks` > fallback) in the description for `pew paste tasks`.
 
-#### Task 3.2: Write Test for Single File Scenario
-- [x] **Do:** Create a test case verifying `handleNextTask` functions correctly when the mocked `ConfigService` returns only one file path, mimicking the original behavior but using the refactored multi-file code path.
-- **Sequence Diagram:**
-    ```mermaid
-    sequenceDiagram
-        participant Test as JestTest
-        participant M_Config as MockConfigService
-        participant M_FS as MockFileSystem
-        participant CliS as CliService
-        participant M_Console as MockConsole
-
-        Test->>M_Config: Setup getAllTasksPaths() to return ['file1.md']
-        Test->>M_FS: Setup 'file1.md' content (e.g., one unchecked task)
-        Test->>CliS: handleNextTask()
-        CliS->>M_Config: getAllTasksPaths()
-        M_Config-->>CliS: ['file1.md']
-        CliS->>M_FS: readFile('file1.md')
-        M_FS-->>CliS: file content
-        CliS->>M_FS: writeFile('file1.md') # To add prefix
-        M_FS-->>CliS: void
-        CliS->>M_Console: log(...) # Task output, summary, file path
-        Test->>M_Console: Assert correct output captured
-        Test->>M_FS: Assert 'file1.md' content now includes prefix
-    ```
+#### Task 3.2: Update Relevant Tutorial(s)
+- [x] **Do:** Review tutorials like `how-to-set-up-repeatable-workflows-eg-build-steps-qa.md` and update any sections discussing `paths.yaml` or `pew paste tasks` to mention the new `paste-tasks` key and `--path` option.
+- **Sequence Diagram:** (N/A - Documentation)
 - **Files:**
-    - U: `tests/integration/cli-service.test.ts`
+    - U: `tutorials/how-to-set-up-repeatable-workflows-eg-build-steps-qa.md` (or others if applicable)
+- **Classes:** N/A
+- **Methods:** N/A
+- **Variables:** N/A
 - **Process:**
-    1. Create a `test('should handle single file correctly', async () => { ... });` block.
-    2. Configure `MockConfigService` to return `['./.pew/tasks1.md']`.
-    3. Configure `MockFileSystem` with initial content for `./.pew/tasks1.md` (e.g., `# Header
-- [x] Task 1`).
-    4. Call `await CliService.getInstance().handleNextTask();`.
-    5. Assert that `console.log` was called with the expected task output, summary (for Task 1's file), and file path `(File: .pew/tasks1.md)`.
-    6. Assert that the content of `./.pew/tasks1.md` in the `MockFileSystem` was updated to include the `👉` prefix on Task 1.
+    1. Open `tutorials/how-to-set-up-repeatable-workflows-eg-build-steps-qa.md`.
+    2. Review the "Configuration for Multiple Files" section. Add a note about the optional `paste-tasks` key in `paths.yaml` for setting a default paste target.
+    3. Review any examples using `pew paste tasks` and consider adding a variation showing the `--path` option.
+    4. Ensure the tutorial remains clear and accurate regarding the new functionality.
 
-#### Task 3.3: Write Tests for Multi-File Scenarios (Task Finding)
-- [x] **Do:** Create test cases with multiple mocked task files to verify that `handleNextTask` correctly identifies the first available task across different files under various conditions.
-- **Files:**
-    - U: `tests/integration/cli-service.test.ts`
-- **Process:**
-    1. **Scenario 1: First unchecked in File 2:**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `- [x] Done`.
-        - Mock `f2.md` content: `- [ ] Task A`.
-        - Run `handleNextTask`.
-        - Assert output shows Task A.
-        - Assert `f2.md` content has prefix added to Task A.
-    2. **Scenario 2: First unchecked in File 1:**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `- [ ] Task B`.
-        - Mock `f2.md` content: `- [ ] Task C`.
-        - Run `handleNextTask`.
-        - Assert output shows Task B.
-        - Assert `f1.md` content has prefix added to Task B.
-    3. **Scenario 3: All tasks complete:**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `- [x] Done 1`.
-        - Mock `f2.md` content: `- [x] Done 2`.
-        - Run `handleNextTask`.
-        - Assert `console.log` includes "All tasks complete".
-        - Assert summary output reflects stats for `f2.md` (the last file checked).
-    4. **Scenario 4: Empty/No Task Files:**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `# Header only`.
-        - Mock `f2.md` content: `` (empty string).
-        - Run `handleNextTask`.
-        - Assert `console.log` includes "No tasks found".
-    5. **Scenario 5: Unreadable File:**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `- [ ] Task D`.
-        - Mock `fs.readFile` to throw an error when called for `f2.md`.
-        - Mock `console.error` spy.
-        - Run `handleNextTask`.
-        - Assert `console.error` was called with an error message for `f2.md`.
-        - Assert output shows Task D (from `f1.md`).
-        - Assert `f1.md` content has prefix added to Task D.
-
-#### Task 3.4: Write Tests for Multi-File Scenarios (`👉` Prefix)
-- [x] **Do:** Create test cases focusing on the correct addition, removal, and movement of the `👉` prefix across multiple mocked files during task completion and state correction.
-- **Files:**
-    - U: `tests/integration/cli-service.test.ts`
-- **Process:**
-    1. **Scenario 1: Complete Task A (File 1), Next Task B (File 2):**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `👉 - [ ] Task A`.
-        - Mock `f2.md` content: `- [ ] Task B`.
-        - Run `handleNextTask`.
-        - Assert `f1.md` content becomes `- [x] Task A`.
-        - Assert `f2.md` content becomes `👉 - [ ] Task B`.
-        - Assert output shows Task B.
-    2. **Scenario 2: Complete Task C (File 2), Next Task D (File 1 - Wrap Around):**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `- [ ] Task D`.
-        - Mock `f2.md` content: `👉 - [ ] Task C`.
-        - Run `handleNextTask`.
-        - Assert `f2.md` content becomes `- [x] Task C`.
-        - Assert `f1.md` content becomes `👉 - [ ] Task D`.
-        - Assert output shows Task D.
-    3. **Scenario 3: No prefix, First Task E (File 2):**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `- [x] Done`.
-        - Mock `f2.md` content: `- [ ] Task E`.
-        - Run `handleNextTask`.
-        - Assert `f1.md` content remains unchanged.
-        - Assert `f2.md` content becomes `👉 - [ ] Task E`.
-        - Assert output shows Task E.
-    4. **Scenario 4: Incorrect Prefix (Task F, File 1), Correct Task G (File 2):**
-        - Mock `getAllTasksPaths` -> `['f1.md', 'f2.md']`.
-        - Mock `f1.md` content: `👉 - [x] Task F`.
-        - Mock `f2.md` content: `- [ ] Task G`.
-        - Run `handleNextTask`.
-        - Assert `f1.md` content becomes `- [x] Task F`.
-        - Assert `f2.md` content becomes `👉 - [ ] Task G`.
-        - Assert output shows Task G.
-
-#### Task 3.5: Write Tests for Summary Output Accuracy
-- [x] **Do:** Enhance the multi-file test scenarios (from Tasks 3.3 and 3.4) to specifically assert that the `console.log` output for the summary line and the file path line are accurate for the file containing the *currently displayed* task.
-- **Files:**
-    - U: `tests/integration/cli-service.test.ts`
-- **Process:**
-    1. Revisit the test cases created in Tasks 3.3 and 3.4.
-    2. In each test where a task is displayed (not "All complete" or "No tasks"), add assertions against the captured `console.log` output.
-    3. **Example Assertion (Scenario 1 from Task 3.4):**
-        - After running `handleNextTask`, Task B from `f2.md` should be displayed.
-        - Calculate the expected stats for `f2.md` *at that point* (Total: 1, Completed: 0, Remaining: 1).
-        - Calculate the expected summary string: `Total: 1 task(s) | Completed: 0 (0.0%) | Remaining: 1`.
-        - Calculate the expected relative path: `(File: f2.md)`.
-        - Assert that `console.log` was called with the expected summary string.
-        - Assert that `console.log` was called with the expected relative path string on the next line.
-    4. **Example Assertion (Scenario 3 from Task 3.3):**
-        - After running `handleNextTask`, the "All tasks complete" message should be shown.
-        - Calculate expected stats for `f2.md` (the last file checked): Total: 1, Completed: 1, Remaining: 0.
-        - Calculate expected summary: `Total: 1 task(s) | Completed: 1 (100.0%) | Remaining: 0`.
-        - Calculate expected relative path: `(File: f2.md)`.
-        - Assert `console.log` includes the "All tasks complete" message.
-        - Assert `console.log` was called with the expected summary string.
-        - Assert `console.log` was called with the expected relative path string on the next line.
-    5. Apply similar assertions to other relevant test cases, ensuring the stats and path match the file of the task being displayed *after* any modifications within that `handleNextTask` call.
-
-## Test New Task
-
-- [x] This is a new unchecked task in the first file
+# Default Tasks
+- [ ] Default Task 1
+Pasted default content

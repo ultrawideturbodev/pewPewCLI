@@ -79,8 +79,8 @@ For more prompts and examples check out [ultrawideturbodevs.com](https://ultrawi
 | :---------------------- | :-------------------------------------------------------------------- | :----------------- | :----------------------------------------------------------------------------------------------------- |
 | `pew init`              | Initialize the pewPewCLI project structure in the current directory.  | _None_             | `-f, --force`: Force initialization even if `.pew` directory exists.                                    |
 | `pew set path`          | Set a configuration value for a path.                                 | _None_             | `--field <field>`: Field to set (currently only `tasks`).<br>`--value <value>`: Path value to set.<br>`-g, --global`: Set in global config (`~/.pew`). |
-| `pew paste tasks`       | Paste clipboard content into the configured primary tasks file.         | `tasks` (required) | `--overwrite`: Overwrite the entire tasks file.<br>`--append`: Append content to the end.<br>`--insert`: Insert content at the beginning.<br>`--force`: Alias for `--overwrite`. |
-| `pew next task`         | Mark the current task as complete and display the next task.          | `task` (required)  | _None_                                                                                                 |
+| `pew paste tasks`       | Paste clipboard content into the configured primary tasks file.         | `tasks` (required) | `--overwrite`: Overwrite the entire tasks file.<br>`--append`: Append content to the end.<br>`--insert`: Insert content at the beginning.<br>`--path <value>`: Specify target file path, overriding config.<br>`--force`: Alias for `--overwrite`. |
+| `pew next task`         | Marks the current task (`👉`) complete and displays the next task across configured files. | `task` (required)  | _None_                                                                                                 |
 
 ## 📦 Configuration
 
@@ -102,13 +102,14 @@ pew init --force
 
 ```yaml
 tasks:
-  - path/to/your/tasks.md # Can be relative
+  - path/to/your/tasks.md # List of files scanned by 'pew next task'
   # - /absolute/path/to/another/tasks.md # Absolute paths also work
+paste-tasks: path/to/default/paste/target.md # Optional: Default target for 'pew paste tasks'
 ```
 
 ### 📋 Paste from Clipboard
 
-Paste clipboard content into the configured primary tasks file. If no mode flag is provided, you will be prompted to choose.
+Paste clipboard content into the configured primary tasks file. By default, it uses the path specified by `paste-tasks` in `paths.yaml`, falling back to the first path in the `tasks` list if `paste-tasks` is not set. You can override the target path using the `--path` option. If no mode flag is provided, you will be prompted to choose.
 
 Append content:
 
@@ -130,6 +131,12 @@ Insert content at the beginning:
 pew paste tasks --insert
 ```
 
+Paste to a specific file, overriding config:
+
+```bash
+pew paste tasks --path my/other/tasks.md --append
+```
+
 Paste with interactive prompt for mode:
 
 ```bash
@@ -142,7 +149,7 @@ pew paste tasks
 
 ### 🎯 Advance to Next Task
 
-Marks the first uncompleted task (`- [ ]`) in the primary tasks file as complete (`- [x]`) and displays the next uncompleted task along with context (headers) and summary statistics.
+Marks the current task marked with `👉` as complete (`- [x]`) and displays the next available uncompleted task (`- [ ]`). It iterates through the task files listed in `paths.yaml` to find both the current (`👉`) and the next task. If no `👉` prefix exists, it adds it to the first uncompleted task found. If the `👉` is on a completed task, it moves it to the first uncompleted task. The output includes context (headers) and summary statistics specific to the file containing the displayed task, along with its relative path.
 
 ```bash
 pew next task
