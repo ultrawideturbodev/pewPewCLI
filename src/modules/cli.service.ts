@@ -9,6 +9,7 @@ import { ConfigService } from './config.service.js';
 import { UserInputService } from './user-input.service.js';
 import { ClipboardService } from './clipboard.service.js';
 import { TaskService } from './task.service.js';
+import { UpdateService } from './update.service.js';
 import * as path from 'path';
 
 export class CliService {
@@ -21,6 +22,7 @@ export class CliService {
   private userInputService: UserInputService;
   private clipboardService: ClipboardService;
   private taskService: TaskService;
+  private updateService: UpdateService;
   
   // Singleton instance
   private static instance: CliService | null = null;
@@ -38,6 +40,7 @@ export class CliService {
     this.userInputService = new UserInputService();
     this.clipboardService = new ClipboardService();
     this.taskService = new TaskService();
+    this.updateService = new UpdateService();
   }
   
   /**
@@ -112,6 +115,14 @@ export class CliService {
     }
     
     console.log('pewPewCLI initialized successfully.');
+
+    // Run background update check
+    try {
+      await this.updateService.runUpdateCheckAndNotify();
+    } catch (updateError: any) {
+      // Log warning but don't fail the init command
+      console.warn(`Background update check failed: ${updateError.message}`);
+    }
   }
 
   /**
@@ -201,6 +212,14 @@ export class CliService {
       // Success message (reflecting the final path)
       const relativeFinalPath = path.relative(process.cwd(), finalPastePath);
       console.log(`Pasted content to ${relativeFinalPath} (${finalMode}).`);
+
+      // Run background update check
+      try {
+        await this.updateService.runUpdateCheckAndNotify();
+      } catch (updateError: any) {
+        // Log warning but don't fail the paste command
+        console.warn(`Background update check failed: ${updateError.message}`);
+      }
     } catch (error) {
       console.error('Error during paste tasks operation:', error);
     }
@@ -442,6 +461,25 @@ export class CliService {
       }
     } catch (error) {
       console.error('Error processing next task:', error);
+    }
+  }
+
+  /**
+   * Handle update command logic
+   */
+  public async handleUpdate(): Promise<void> {
+    try {
+      const result = await this.updateService.performUpdate();
+      if (!result.success && result.error) {
+        // Error is already logged by performUpdate
+        process.exit(1); // Exit with error code
+      }
+      // Exit cleanly on success or no update needed
+      process.exit(0);
+    } catch (error) {
+      // Catch any unexpected errors during the update handling itself
+      console.error('An unexpected error occurred during the update command:', error);
+      process.exit(1);
     }
   }
 } 

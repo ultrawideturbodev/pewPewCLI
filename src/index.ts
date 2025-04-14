@@ -93,6 +93,14 @@ program
     }
   });
 
+// Update command
+program
+  .command('update')
+  .description('Check for updates and install the latest version of pew-pew-cli')
+  .action(async () => {
+    await cliService.handleUpdate(); 
+  });
+
 program.parse(process.argv);
 
 // Handle case where no command is given

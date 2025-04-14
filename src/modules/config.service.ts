@@ -19,6 +19,8 @@ export class ConfigService {
   private globalPathsFile: string;
   private localPathsData: Record<string, any> = {};
   private globalPathsData: Record<string, any> = {};
+  private globalCoreFile: string;
+  private globalCoreData: Record<string, any> = {};
   private fileSystemService: FileSystemService;
   private yamlService: YamlService;
   private isInitialized: boolean = false;
@@ -34,6 +36,7 @@ export class ConfigService {
     const homeDir = this.fileSystemService.getHomeDirectory();
     this.globalConfigDir = this.fileSystemService.joinPath(homeDir, '.pew');
     this.globalPathsFile = this.fileSystemService.joinPath(this.globalConfigDir, 'config', 'paths.yaml');
+    this.globalCoreFile = this.fileSystemService.joinPath(this.globalConfigDir, 'core.yaml');
   }
 
   /**
@@ -63,6 +66,7 @@ export class ConfigService {
     
     // Load configs
     await this._loadPathsConfig();
+    await this._loadCoreConfig();
     
     this.isInitialized = true;
   }
@@ -111,6 +115,22 @@ export class ConfigService {
     // Load local paths config if available
     if (this.localPathsFile && await this.fileSystemService.pathExists(this.localPathsFile)) {
       this.localPathsData = await this.yamlService.readYamlFile(this.localPathsFile);
+    }
+  }
+
+  /**
+   * Load core configuration from global YAML file
+   */
+  private async _loadCoreConfig(): Promise<void> {
+    if (await this.fileSystemService.pathExists(this.globalCoreFile)) {
+      try {
+        this.globalCoreData = await this.yamlService.readYamlFile(this.globalCoreFile);
+      } catch (error: any) {
+        console.warn(`Warning: Could not read or parse global core config file at ${this.globalCoreFile}. Using default values. Error: ${error.message}`);
+        this.globalCoreData = {}; // Reset to empty on error
+      }
+    } else {
+      this.globalCoreData = {}; // Set to empty if file doesn't exist
     }
   }
 
@@ -285,5 +305,45 @@ export class ConfigService {
 
     // 3. Fallback 2: Default path relative to cwd
     return path.resolve(process.cwd(), '.pew/tasks.md');
+  }
+
+  /**
+   * Get a value from the global core configuration file.
+   * 
+   * @param key The configuration key to retrieve.
+   * @param defaultValue The default value to return if the key is not found.
+   * @returns The value associated with the key, or the defaultValue.
+   */
+  public async getGlobalCoreValue<T>(key: string, defaultValue: T): Promise<T> {
+    await this.initialize(); // Ensure configuration is loaded
+    const value = this.globalCoreData[key];
+    return value !== undefined && value !== null ? value : defaultValue;
+  }
+
+  /**
+   * Set a value in the global core configuration file.
+   * 
+   * @param key The configuration key to set.
+   * @param value The value to associate with the key.
+   */
+  public async setGlobalCoreValue(key: string, value: any): Promise<void> {
+    await this.initialize(); // Ensure configuration is loaded
+
+    // Create a copy to modify and write, preserving the original cache until write succeeds
+    const coreDataToWrite = { ...this.globalCoreData };
+    coreDataToWrite[key] = value;
+
+    try {
+      // Ensure the global config directory exists
+      await this.fileSystemService.ensureDirectoryExists(this.globalConfigDir);
+      // Write the updated data to the core file
+      await this.yamlService.writeYamlFile(this.globalCoreFile, coreDataToWrite);
+      // Update the in-memory cache only after successful write
+      this.globalCoreData = coreDataToWrite;
+    } catch (error: any) {
+      console.error(`Error writing global core config value for key '${key}' to ${this.globalCoreFile}: ${error.message}`);
+      // Optionally re-throw or handle the error more specifically
+      throw new Error(`Failed to set global core value: ${error.message}`);
+    }
   }
 } 

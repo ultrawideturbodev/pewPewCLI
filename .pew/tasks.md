@@ -1,329 +1,618 @@
-# Mode: ACT
-🎯 Main Objective: Modify the `pew paste tasks` command to allow specifying a target file via a new `paste-tasks` config key in `paths.yaml` or a `--path` command-line option, including handling for non-existent paths and updating the `pew init` process.
-
-# Project Plan: Enhanced `pew paste tasks` Target File Specification
+# Project Plan: Pew Pew CLI Update Mechanism
 
 ## 1. Project Overview
-This project enhances the `pew paste tasks` command to provide users more control over the target file. It introduces a new `paste-tasks` configuration key in `paths.yaml` to define a default paste target and adds a `--path` command-line option to override this default. The plan includes updating configuration handling, command-line parsing, the paste logic (including user prompts for non-existent override paths), and the initialization process to set the new configuration key. Documentation will also be updated.
+This project introduces an update mechanism for the `pew-pew-cli` tool. It includes a new `pew update` command to manually check for and install updates from npm. Additionally, it implements an automatic background check for updates after specific commands (`pew init`, `pew paste tasks`) run, notifying the user if a new version is available and it has been more than 24 hours since the last check. The mechanism involves checking the npm registry for the latest version, comparing it with the currently installed version, managing a timestamp for notification frequency in a global configuration file, and executing the update via `npm`.
 - [x] Read the project overview:
-    - Add `paste-tasks: <path>` key to `paths.yaml`.
-    - Add `--path <value>` option to `pew paste tasks`.
-    - Prioritize `--path` over `paste-tasks` config.
-    - Implement fallback logic: `--path` (if exists) -> prompt if `--path` doesn't exist (offer config path) -> `paste-tasks` config path -> first `tasks` path -> default `./.pew/tasks.md`.
-    - Update `pew init` to set both `tasks` list and `paste-tasks` string.
-    - Update documentation.
+    - Implement `pew update` command.
+    - Implement automatic update checks after `pew init` and `pew paste tasks`.
+    - Check npm registry for the latest version.
+    - Compare latest version with the current installed version.
+    - Store and check `lastUpdateCheckTimestamp` in a new global `~/.pew/core.yaml` file.
+    - Notify user if update available and timestamp > 24 hours old.
+    - Execute update using `npm install -g pew-pew-cli@latest`.
 
 ## 2. Requirements Analysis Summary
-A concise summary of the requirements identified for this feature enhancement.
+A concise summary of the requirements identified for the update mechanism.
 - [x] Review the requirements summary:
-    - **👤 Actors & 🧩 Components:** `User`, `pew CLI Application` (`CliService`, `ConfigService`, `TaskService`, `FileSystemService`, `YamlService`, `UserInputService`, `Console Output`, `Commander`), `paths.yaml` (`tasks` key, `paste-tasks` key), Task File, Command Line Interface (`--path` option).
-    - **🎬 Activities:** Get paste tasks path, Set paste tasks path, Handle malformed config, Update `handleInit`, Update `handlePasteTasks`, Parse `--path` option, Determine final paste path, Check path existence, Prompt user, Update documentation.
-    - **🌊 Activity Flows & Scenarios:** Getting paste path (local/global/fallback), `paste tasks` with/without `--path`, Handling existing/non-existing override path, `init` setting both keys.
-    - **📝 Properties:** `paths.yaml.paste-tasks: string`, `options.path: string | undefined`, `defaultPastePath: string`, `finalPastePath: string`.
-    - **🛠️ Behaviours:** Prioritize `--path`, Prompt on non-existent override, Fallback logic chain, `init` sets both keys, Log warning on malformed config.
+    - **👤 Actors & 🧩 Components:** `User`, `pew CLI Application` (`CliService`, `UpdateService`, `ConfigService`, `FileSystemService`, `YamlService`, `child_process`, `Console Output`, `Commander`), `package.json` (local), `core.yaml` (global), `npm Registry`, `latest-version` package.
+    - **🎬 Activities:** Check for updates, Perform update, Get current version, Get latest version, Get/Set last update check timestamp, Read/Write global core config, Notify user of update, Handle `update` command, Handle automatic update check trigger.
+    - **🌊 Activity Flows & Scenarios:** `pew update` (update found/not found/error), Automatic check (notification shown/not shown/check skipped/error).
+    - **📝 Properties:** `core.yaml.lastUpdateCheckTimestamp: number`, `UpdateService.currentVersion: string`, `UpdateService.latestVersion: string`.
+    - **🛠️ Behaviours:** Check frequency (1 day), Notification timing (after specific commands), Update command feedback (success/failure/no update), Error handling (log warnings for background checks, report errors for manual update).
 *(Full detailed analysis follows)*
 
 ## 3. Detailed Requirements
 
 - 👤 **Actors & 🧩 Components:**
-    - [Actor] User (Executes `pew` commands, provides input)
+    - [Actor] User (Executes `pew` commands)
     - [Component] `pew` CLI Application
-        - [Component] `CliService` (Orchestrates commands)
-        - [Component] `ConfigService` (Manages `paths.yaml` access)
-        - [Component] `TaskService` (Writes to task files)
-        - [Component] `FileSystemService` (Checks file existence)
-        - [Component] `YamlService` (Parses/serializes `paths.yaml`)
-        - [Component] `UserInputService` (Handles interactive prompts)
-        - [Component] Console Output (Displays messages, prompts, errors)
-        - [Component] Commander (Library for parsing CLI args/options)
-    - [Component] `paths.yaml` (Configuration file)
-        - [Property] `tasks: string[]` (Existing list of task files)
-        - [Property] `paste-tasks: string` (New: Default path for paste command)
-    - [Component] Task File (Markdown file to be written to)
-    - [Component] Command Line Interface
-        - [Component] `--path <value>` (New option for `pew paste tasks`)
+        - [Component] `CliService` (Orchestrates commands, triggers update checks)
+        - [Component] `UpdateService` (New: Encapsulates update logic: version check, timestamp management, notification, update execution)
+        - [Component] `ConfigService` (Manages configuration access, extended for `core.yaml`)
+        - [Component] `FileSystemService` (Reads files like `package.json`, checks paths)
+        - [Component] `YamlService` (Parses/serializes `core.yaml`)
+        - [Component] `child_process` (Node.js module: Used to execute `npm` commands)
+        - [Component] Console Output (Displays messages, notifications, errors)
+        - [Component] Commander (Library for parsing CLI args/options, defining `update` command)
+        - [Component] `latest-version` (npm package: Fetches latest version from npm registry)
+    - [Component] `package.json` (Local: Source for the currently installed version)
+    - [Component] `core.yaml` (New Global File: Stores `lastUpdateCheckTimestamp`)
+        - [Property] `lastUpdateCheckTimestamp : number` (Unix timestamp in milliseconds)
+    - [Component] npm Registry (External: Source for the latest package version)
 
 - 🎬 **Activities:**
+    - [`UpdateService`]
+        - [Activity] Get current installed version (Read from own `package.json`).
+        - [Activity] Get latest available version (Use `latest-version` package to query npm registry).
+        - [Activity] Compare versions (Check if latest > current).
+        - [Activity] Check if update notification is needed (Compare timestamp from `core.yaml` with current time > 24h).
+        - [Activity] Get last update check timestamp (Read from `core.yaml` via `ConfigService`).
+        - [Activity] Set last update check timestamp (Write to `core.yaml` via `ConfigService`).
+        - [Activity] Notify user of available update (Log formatted message to console).
+        - [Activity] Run update check and notify user if applicable (Combines previous steps, handles errors gracefully for background checks).
+        - [Activity] Perform update installation (Execute `npm install -g pew-pew-cli@latest` via `child_process`, provide feedback).
     - [`ConfigService`]
-        - [Activity] Get resolved paste tasks path (New: `getPasteTasksPath`) - includes fallback logic.
-        - [Activity] Handle malformed `paste-tasks` config value (Log warning, fallback).
-        - [Activity] Set tasks and paste tasks paths (Update: Modify `setTasksPaths` or add related logic for `init`).
+        - [Activity] Read global `core.yaml` file.
+        - [Activity] Write global `core.yaml` file.
+        - [Activity] Get specific value from global `core.yaml` (e.g., `lastUpdateCheckTimestamp`).
+        - [Activity] Set specific value in global `core.yaml`.
     - [`CliService`]
-        - [Activity] Handle `pew init` command (Update: Ensure `paste-tasks` key is set alongside `tasks`).
-        - [Activity] Handle `pew paste tasks` command (Update: Incorporate `--path` option and fallback logic).
-        - [Activity] Parse `--path` option value from Commander context.
-        - [Activity] Determine final paste path based on `--path`, config, existence checks, and user prompts.
-        - [Activity] Check if override path provided via `--path` exists using `FileSystemService`.
-        - [Activity] Prompt user for confirmation if override path doesn't exist using `UserInputService`.
-    - [`UserInputService`]
-        - [Activity] Ask for confirmation (Used for non-existent path scenario).
-    - [`FileSystemService`]
-        - [Activity] Check path existence (Used for `--path` validation).
+        - [Activity] Handle `pew update` command (Call `UpdateService.performUpdate`).
+        - [Activity] Handle `pew init` command (Update: Call `UpdateService.runUpdateCheckAndNotify` after successful init).
+        - [Activity] Handle `pew paste tasks` command (Update: Call `UpdateService.runUpdateCheckAndNotify` after successful paste).
+    - [Commander (`src/index.ts`)]
+        - [Activity] Define `update` command.
     - [User]
+        - [Activity] Execute `pew update`.
         - [Activity] Execute `pew init`.
         - [Activity] Execute `pew paste tasks`.
-        - [Activity] Execute `pew paste tasks --path <path>`.
-        - [Activity] Respond to confirmation prompt.
+        - [Activity] See update notification.
     - [Documentation]
         - [Activity] Update `README.md` command table and descriptions.
-        - [Activity] Update `tutorials/how-to-set-up-repeatable-workflows-eg-build-steps-qa.md` or relevant tutorial.
+        - [Activity] Create `docs/how-to-update.md`.
+        - [Activity] Update `CHANGELOG.md`.
 
 - 🌊 **Activity Flows & Scenarios:**
-    - [Get Paste Path Logic (`ConfigService.getPasteTasksPath`)]
-        - GIVEN `ConfigService` is initialized
-        - WHEN `CliService` calls `getPasteTasksPath`
-        - THEN `ConfigService` checks effective config (local > global) for `paste-tasks` key
-        - AND IF key exists AND value is a non-empty string
-            - THEN Resolve path relative to config source (project root or global dir)
-            - AND Return resolved path
-        - AND IF key exists BUT value is NOT a non-empty string
-            - THEN Log warning "Malformed 'paste-tasks' value in config, using fallback."
-            - AND Proceed to fallback step 1
-        - AND IF key does NOT exist
-            - THEN Proceed to fallback step 1
-        - [Fallback Step 1: First `tasks` path]
-            - THEN Get `tasks` list from effective config
-            - AND IF `tasks` is an array AND has at least one non-empty string element
-                - THEN Resolve the first path relative to config source
-                - AND Return resolved path
-            - ELSE Proceed to fallback step 2
-        - [Fallback Step 2: Default path]
-            - THEN Resolve default path `./.pew/tasks.md` relative to `process.cwd()`
-            - AND Return resolved default path
-    - [`pew paste tasks` (No --path)]
-        - GIVEN User runs `pew paste tasks`
-        - WHEN `CliService.handlePasteTasks` executes
-        - THEN `CliService` gets `options.path` (undefined)
-        - THEN `CliService` calls `ConfigService.getPasteTasksPath` -> returns `configuredPath`
-        - THEN `CliService` sets `finalPastePath = configuredPath`
-        - THEN `CliService` calls `TaskService.writeTasksContent(finalPastePath, ...)`
-    - [`pew paste tasks` (--path exists)]
-        - GIVEN User runs `pew paste tasks --path existing/file.md`
-        - WHEN `CliService.handlePasteTasks` executes
-        - THEN `CliService` gets `options.path = "existing/file.md"`
-        - THEN `CliService` calls `FileSystemService.pathExists("existing/file.md")` -> returns `true`
-        - THEN `CliService` sets `finalPastePath = "existing/file.md"`
-        - THEN `CliService` calls `TaskService.writeTasksContent(finalPastePath, ...)`
-    - [`pew paste tasks` (--path does NOT exist)]
-        - GIVEN User runs `pew paste tasks --path new/file.md`
-        - WHEN `CliService.handlePasteTasks` executes
-        - THEN `CliService` gets `options.path = "new/file.md"`
-        - THEN `CliService` calls `FileSystemService.pathExists("new/file.md")` -> returns `false`
-        - THEN `CliService` calls `ConfigService.getPasteTasksPath` -> returns `configuredPath`
-        - THEN `CliService` calls `UserInputService.askForConfirmation("Path 'new/file.md' does not exist. Paste into default '${configuredPath}' instead?")`
-        - IF User confirms 'yes'
-            - THEN `CliService` sets `finalPastePath = configuredPath`
-            - THEN `CliService` calls `TaskService.writeTasksContent(finalPastePath, ...)`
-        - ELSE (User confirms 'no')
-            - THEN `CliService` logs "Paste operation aborted."
-            - AND `CliService` returns
-    - [`pew init`]
-        - GIVEN User runs `pew init` (not forced)
-        - WHEN `CliService.handleInit` executes
-        - THEN `CliService` prompts for "primary tasks file path" -> user enters `my/tasks.md`
-        - THEN `CliService` calls `ConfigService.setTasksPaths(['my/tasks.md'], false, 'my/tasks.md')` (or similar updated signature/logic)
-        - THEN `ConfigService` writes local `paths.yaml` with `tasks: ['my/tasks.md']` and `paste-tasks: my/tasks.md`
-    - [`pew init --force`]
-        - GIVEN User runs `pew init --force`
-        - WHEN `CliService.handleInit` executes
-        - THEN `CliService` uses default path `.pew/tasks.md`
-        - THEN `CliService` calls `ConfigService.setTasksPaths(['.pew/tasks.md'], false, '.pew/tasks.md')` (or similar updated signature/logic)
-        - THEN `ConfigService` writes local `paths.yaml` with `tasks: ['.pew/tasks.md']` and `paste-tasks: .pew/tasks.md`
+    - [`pew update` (Happy Path - Update Found)]
+        - GIVEN User runs `pew update`
+        - WHEN `CliService.handleUpdate` executes
+        - THEN `CliService` calls `UpdateService.performUpdate`
+        - THEN `UpdateService` calls `getCurrentVersion` -> `currentVersion`
+        - THEN `UpdateService` calls `getLatestVersion` -> `latestVersion`
+        - THEN `UpdateService` compares versions -> `updateAvailable = true`
+        - THEN `UpdateService` logs "Updating pew-pew-cli from vA.B.C to vX.Y.Z..."
+        - THEN `UpdateService` executes `npm install -g pew-pew-cli@latest` via `child_process`
+        - AND IF execution succeeds
+            - THEN `UpdateService` logs "✅ pew-pew-cli updated successfully to vX.Y.Z."
+        - AND `UpdateService` returns success status to `CliService`
+    - [`pew update` (Happy Path - No Update Found)]
+        - GIVEN User runs `pew update`
+        - WHEN `CliService.handleUpdate` executes
+        - THEN `CliService` calls `UpdateService.performUpdate`
+        - THEN `UpdateService` gets `currentVersion` and `latestVersion`
+        - THEN `UpdateService` compares versions -> `updateAvailable = false`
+        - THEN `UpdateService` logs "ℹ️ pew-pew-cli is already up to date (vA.B.C)."
+        - AND `UpdateService` returns success status to `CliService`
+    - [`pew update` (Error Path - npm Fails)]
+        - GIVEN User runs `pew update` and an update is available
+        - WHEN `UpdateService` executes `npm install -g ...`
+        - AND IF execution fails (e.g., permissions, network error)
+            - THEN `UpdateService` logs "❌ Error updating pew-pew-cli: [npm error message]"
+        - AND `UpdateService` returns failure status to `CliService`
+    - [Automatic Update Check (Notification Shown)]
+        - GIVEN User runs `pew init` (or `pew paste tasks`) successfully
+        - AND An update is available (latest > current)
+        - AND Last check timestamp is > 24 hours ago (or doesn't exist)
+        - WHEN `CliService` calls `UpdateService.runUpdateCheckAndNotify` after the command logic
+        - THEN `UpdateService` calls `shouldCheckForUpdate` -> `true`
+        - THEN `UpdateService` calls `isUpdateAvailable` -> `true`
+        - THEN `UpdateService` calls `notifyUserOfUpdate`
+        - THEN Console Output shows "ℹ️ Update available: pew-pew-cli vX.Y.Z is available (current: vA.B.C). Run 'pew update' to install."
+        - THEN `UpdateService` calls `setLastUpdateCheckTimestamp` (updates `core.yaml`)
+    - [Automatic Update Check (Notification Not Shown - Too Soon)]
+        - GIVEN User runs `pew init` successfully
+        - AND An update is available
+        - AND Last check timestamp is < 24 hours ago
+        - WHEN `CliService` calls `UpdateService.runUpdateCheckAndNotify`
+        - THEN `UpdateService` calls `shouldCheckForUpdate` -> `false`
+        - THEN `UpdateService` does not check versions or notify
+        - THEN `UpdateService` does not update timestamp
+    - [Automatic Update Check (Notification Not Shown - No Update)]
+        - GIVEN User runs `pew init` successfully
+        - AND No update is available (latest <= current)
+        - AND Last check timestamp is > 24 hours ago
+        - WHEN `CliService` calls `UpdateService.runUpdateCheckAndNotify`
+        - THEN `UpdateService` calls `shouldCheckForUpdate` -> `true`
+        - THEN `UpdateService` calls `isUpdateAvailable` -> `false`
+        - THEN `UpdateService` does not notify
+        - THEN `UpdateService` calls `setLastUpdateCheckTimestamp`
+    - [Automatic Update Check (Error Path - Check Fails)]
+        - GIVEN User runs `pew init` successfully
+        - AND Last check timestamp is > 24 hours ago
+        - WHEN `UpdateService.runUpdateCheckAndNotify` executes
+        - AND IF `getLatestVersion` fails (e.g., network error)
+            - THEN `UpdateService` logs a warning "⚠️ Could not check for pew-pew-cli updates: [error message]"
+            - THEN `UpdateService` does not notify or update timestamp
 
 - 📝 **Properties:**
-    - [`paths.yaml`]
-        - [tasks : string[]]
-        - [paste-tasks : string] (New)
-    - [`CliService.handlePasteTasks` scope]
-        - [options.path : string | undefined] (From Commander)
-        - [configuredPastePath : string] (Result from `ConfigService.getPasteTasksPath`)
-        - [finalPastePath : string] (Path ultimately used for writing)
-        - [overridePathExists : boolean] (Result from `FileSystemService.pathExists` on `options.path`)
-    - [`ConfigService`]
-        - [localPathsData.paste-tasks : any] (Raw value read from local YAML)
-        - [globalPathsData.paste-tasks : any] (Raw value read from global YAML)
+    - [`core.yaml` (Global)]
+        - [lastUpdateCheckTimestamp : number] (Unix timestamp in ms)
+    - [`UpdateService`]
+        - [currentVersion : string] (Locally stored version, e.g., "0.1.3")
+        - [latestVersion : string] (Version fetched from npm, e.g., "0.2.0")
+        - [kUpdateCheckIntervalMs : number] (Constant: 24 * 60 * 60 * 1000)
+    - [`package.json` (Local)]
+        - [version : string]
 
 - 🛠️ **Behaviours:**
-    - [`ConfigService.getPasteTasksPath`]
-        - Should return the correctly resolved path based on local `paste-tasks` if valid.
-        - Should return the correctly resolved path based on global `paste-tasks` if local is invalid/missing but global is valid.
-        - Should log a warning to console if `paste-tasks` value is found but is not a non-empty string.
-        - Should return the correctly resolved first path from the `tasks` list if `paste-tasks` is invalid/missing in both scopes.
-        - Should return the correctly resolved default `./.pew/tasks.md` path if `paste-tasks` and `tasks` are invalid/missing.
-    - [`CliService.handlePasteTasks`]
-        - Should use the value from the `--path` option as the target file path if provided and the file exists.
-        - If `--path` is provided but the file does *not* exist, should prompt the user whether to use the configured default path instead.
-        - If the user declines the prompt, the paste operation should be aborted with a message.
-        - If `--path` is not provided, should use the path returned by `ConfigService.getPasteTasksPath`.
-    - [`CliService.handleInit`]
-        - When initializing (or force initializing), should write both the `tasks` key (as a single-element list) and the `paste-tasks` key (as a string) to the local `paths.yaml`, using the path provided by the user or the default path.
+    - [`UpdateService.runUpdateCheckAndNotify`]
+        - Should only proceed with version check if `shouldCheckForUpdate` returns true.
+        - Should log a warning and exit gracefully if fetching the latest version fails.
+        - Should only notify the user if an update is available (`isUpdateAvailable` is true).
+        - Should always update the timestamp via `setLastUpdateCheckTimestamp` if the check was performed (regardless of whether an update was found or notification shown), unless an error occurred during the check itself.
+    - [`UpdateService.performUpdate`]
+        - Should clearly indicate when starting the update process.
+        - Should report success with the new version number.
+        - Should report failure clearly, including the error from the `npm` command.
+        - Should report if the tool is already up-to-date.
+    - [`CliService`]
+        - Should call `UpdateService.runUpdateCheckAndNotify` only *after* the primary logic of `handleInit` or `handlePasteTasks` completes successfully.
+        - Should await the completion of the background check, but not block the user significantly or fail the original command if the check itself fails (it should log warnings).
+    - [`ConfigService`]
+        - Should handle the creation of `core.yaml` if it doesn't exist when writing.
+        - Should gracefully handle cases where `core.yaml` is missing or malformed when reading, returning default values (e.g., 0 for timestamp).
 
 ## 4. Milestones and Tasks
 
-### Milestone 1: Update Configuration Handling
-Modify `ConfigService` to read, validate, and fallback for the new `paste-tasks` key, and update the setting logic used by `init`.
+### Milestone 1: Setup & Core Update Logic
+Install dependencies, create the `UpdateService`, implement version fetching/comparison, and add support for the new global `core.yaml` config file.
 
-#### Task 1.1: Implement `ConfigService.getPasteTasksPath`
-- [x] **Do:** Create a new public async method `getPasteTasksPath(): Promise<string>` in `ConfigService` to retrieve the resolved default paste task file path, implementing the specified fallback logic (local `paste-tasks` -> global `paste-tasks` -> first local/global `tasks` -> default `./.pew/tasks.md`) and validation.
+#### Task 1.1: Add Dependencies and Create `UpdateService` Shell
+- [x] **Do:** Add the `latest-version` npm package as a dependency and create the basic structure for the `UpdateService`.
+- **Sequence Diagram:** (N/A - Setup Task)
+- **Files:**
+    - U: `package.json`
+    - C: `src/modules/update.service.ts`
+- **Classes:**
+    - C: `public class UpdateService` (Initial shell with constructor)
+- **Variables:** N/A
+- **Methods:** N/A
+- **Process:**
+    1. Run `npm install latest-version` in the terminal.
+    2. Create the file `src/modules/update.service.ts`.
+    3. Define the basic `UpdateService` class structure:
+       ```typescript
+       import { FileSystemService } from './file-system.service.js';
+       import { ConfigService } from './config.service.js';
+       import latestVersion from 'latest-version';
+       import * as path from 'path';
+       import { fileURLToPath } from 'url';
+       import { exec } from 'child_process';
+       import { promisify } from 'util';
+
+       const execAsync = promisify(exec);
+
+       // Define __dirname for ES Modules
+       const __filename = fileURLToPath(import.meta.url);
+       const __dirname = path.dirname(__filename);
+
+       export class UpdateService {
+           private fileSystemService: FileSystemService;
+           private configService: ConfigService;
+           private currentVersion: string | null = null;
+           private static readonly kUpdateCheckIntervalMs = 24 * 60 * 60 * 1000; // 1 day
+
+           constructor() {
+               this.fileSystemService = new FileSystemService();
+               this.configService = ConfigService.getInstance();
+               // Potentially make UpdateService a singleton if needed later
+           }
+
+           // Methods will be added in subsequent tasks
+       }
+       ```
+
+#### Task 1.2: Implement Version Fetching in `UpdateService`
+- [x] **Do:** Implement methods in `UpdateService` to get the currently installed version from `package.json` and the latest version from the npm registry using `latest-version`.
 - **Sequence Diagram:**
     ```mermaid
     sequenceDiagram
-        participant CliS as CliService
+        participant US as UpdateService
+        participant FSS as FileSystemService
+        participant path as NodeJSPathModule
+        participant lv as latestVersion
+
+        US->>US: getCurrentVersion()
+        alt currentVersion already cached
+            US-->>US: cached currentVersion
+        else Not cached
+            US->>path: resolve(__dirname, '../../package.json') # Adjust path as needed
+            path-->>US: packageJsonPath
+            US->>FSS: readFile(packageJsonPath)
+            FSS-->>US: packageJsonContent (string)
+            US->>JSON: parse(packageJsonContent)
+            JSON-->>US: packageJsonData (object)
+            US->>US: Cache packageJsonData.version
+            US-->>US: currentVersion
+        end
+
+        US->>US: getLatestVersion()
+        US->>lv: latestVersion('pew-pew-cli')
+        lv-->>US: latestVersionString
+        US-->>US: latestVersionString
+    ```
+- **Files:**
+    - U: `src/modules/update.service.ts`
+- **Classes:**
+    - U: `UpdateService`
+- **Variables:**
+    - U: `UpdateService.private currentVersion: string | null = null;` (Add caching)
+- **Methods:**
+    - C: `public async getCurrentVersion(): Promise<string>`
+    - C: `public async getLatestVersion(): Promise<string>`
+- **Process:**
+    1. Open `src/modules/update.service.ts`.
+    2. Implement `getCurrentVersion`:
+        a. Check if `this.currentVersion` is already set; if so, return it.
+        b. Construct the path to the `package.json` file relative to the current module's location (e.g., `path.resolve(__dirname, '../../package.json')` - adjust based on compiled output structure).
+        c. Use `this.fileSystemService.readFile` to read the file content.
+        d. Parse the JSON content.
+        e. Extract the `version` field.
+        f. Store the version in `this.currentVersion` and return it.
+        g. Include error handling (e.g., file not found, parse error). Return a default like '0.0.0' or throw.
+    3. Implement `getLatestVersion`:
+        a. Call `await latestVersion('pew-pew-cli');`.
+        b. Return the result.
+        c. Include error handling (e.g., network error). Throw or return null/empty string.
+
+#### Task 1.3: Implement Version Comparison in `UpdateService`
+- [x] **Do:** Implement a method in `UpdateService` to compare the current and latest versions to determine if an update is available. Use a simple string comparison or a more robust semver comparison library/logic if needed (simple comparison is likely sufficient if versions are standard semver).
+- **Sequence Diagram:**
+    ```mermaid
+    sequenceDiagram
+        participant US as UpdateService
+        US->>US: isUpdateAvailable()
+        US->>US: getCurrentVersion()
+        US-->>US: currentVersion
+        US->>US: getLatestVersion()
+        US-->>US: latestVersion
+        alt currentVersion && latestVersion && latestVersion > currentVersion
+           US-->>US: true
+        else Error or No Update
+           US-->>US: false
+        end
+    ```
+- **Files:**
+    - U: `src/modules/update.service.ts`
+- **Classes:**
+    - U: `UpdateService`
+- **Methods:**
+    - C: `public async isUpdateAvailable(): Promise<boolean>`
+- **Process:**
+    1. Open `src/modules/update.service.ts`.
+    2. Implement `isUpdateAvailable`:
+        a. Call `await this.getCurrentVersion()` and `await this.getLatestVersion()`.
+        b. Handle potential errors from the version fetching methods (e.g., if they return null or throw). Return `false` in case of errors.
+        c. Compare the versions. A simple string comparison (`latest > current`) works for standard semver strings. Consider adding a dedicated semver comparison function/library if more complex scenarios are anticipated.
+        d. Return `true` if `latestVersion` is greater than `currentVersion`, `false` otherwise.
+
+#### Task 1.4: Add Global `core.yaml` Handling to `ConfigService`
+- [x] **Do:** Modify `ConfigService` to support reading from and writing to a new global configuration file `~/.pew/core.yaml`. Add methods to get and set specific keys within this file, ensuring the directory exists.
+- **Sequence Diagram:** (Illustrates setting a value)
+    ```mermaid
+    sequenceDiagram
+        participant Caller as UpdateService
         participant CS as ConfigService
         participant FSS as FileSystemService
         participant YS as YamlService
         participant path as NodeJSPathModule
-        participant console as Console
 
-        CliS->>CS: getPasteTasksPath()
-        CS->>CS: initialize() # If not already initialized
-        CS->>CS: Determine effective config (local or global)
-        alt Local config has 'paste-tasks' key
-            CS->>CS: Get raw value localPathsData.tasks['paste-tasks']
-            alt Value is valid string
-                CS->>path: resolve(localProjectRoot, value)
-                path-->>CS: resolvedPath
-                CS-->>CliS: resolvedPath
-            else Value is invalid
-                CS->>console: warn("Malformed 'paste-tasks'...")
-                CS->>CS: Proceed to Global Check / Fallback 1
-            end
-        else Local config missing 'paste-tasks' key
-             CS->>CS: Proceed to Global Check / Fallback 1
+        Caller->>CS: setGlobalCoreValue('lastUpdateCheckTimestamp', 1678886400000)
+        CS->>CS: initialize() # Ensure global paths are set
+        CS->>CS: globalCoreFile = path.join(globalConfigDir, 'core.yaml')
+        CS->>FSS: pathExists(globalCoreFile)
+        FSS-->>CS: exists (e.g., false)
+        alt File exists
+            CS->>YS: readYamlFile(globalCoreFile)
+            YS-->>CS: coreData (object)
+        else File does not exist
+            CS->>CS: coreData = {}
         end
-        Note over CS: Similar check for global config if local failed
-
-        Note over CS: Fallback 1: Check 'tasks' list
-        CS->>CS: Get effective 'tasks' list (local or global)
-        alt Tasks list is valid array with items
-            CS->>path: resolve(configSourceDir, tasks[0])
-            path-->>CS: resolvedPath
-            CS-->>CliS: resolvedPath
-        else Tasks list invalid/empty
-            CS->>CS: Proceed to Fallback 2
-        end
-
-        Note over CS: Fallback 2: Default path
-        CS->>path: resolve(process.cwd(), './.pew/tasks.md')
-        path-->>CS: resolvedDefaultPath
-        CS-->>CliS: resolvedDefaultPath
-    ```
-- **Files:**
-    - U: `src/modules/config.service.ts`
-- **Classes:**
-    - U: `ConfigService`
-- **Methods:**
-    - C: `public async getPasteTasksPath(): Promise<string>`
-    - R: `initialize()` (called internally)
-    - R: `getTasksPaths()` (potentially reuse parts of its logic for fallback)
-- **Variables:**
-    - C: `getPasteTasksPath.const effectiveConfig = ...` (Determine local or global data source)
-    - C: `getPasteTasksPath.const isLocalSource = ...`
-    - C: `getPasteTasksPath.let pasteTaskPathValue: any = effectiveConfig['paste-tasks'];`
-    - C: `getPasteTasksPath.let resolvedPath: string | null = null;`
-- **Process:**
-    1. Open `src/modules/config.service.ts`.
-    2. Define the new public async method `getPasteTasksPath`.
-    3. Ensure initialization: `await this.initialize();`.
-    4. Determine effective config source (local `this.localPathsData` if `this.localPathsFile` exists and data is not empty, else `this.globalPathsData`). Store the source data and whether it's local.
-    5. Check for `paste-tasks` key in the effective config.
-    6. If the key exists:
-        a. Get the value.
-        b. Check if the value is a non-empty string.
-        c. If valid: Resolve the path based on the source (local resolves relative to project root `path.dirname(this.localConfigDir)`, global resolves relative to `this.globalConfigDir`). Return the resolved path.
-        d. If invalid: Log a warning `console.warn("Malformed 'paste-tasks' value in config file [path], using fallback.");`. Proceed to fallback 1.
-    7. If the key does not exist: Proceed to fallback 1.
-    8. **Fallback 1 (Tasks List):**
-        a. Get the `tasks` list from the effective config.
-        b. Check if it's a valid array with at least one non-empty string element.
-        c. If valid: Resolve the *first* path (`tasks[0]`) based on the source (as in step 6c). Return the resolved path.
-        d. If invalid: Proceed to fallback 2.
-    9. **Fallback 2 (Default):**
-        a. Resolve the default path: `path.resolve(process.cwd(), './.pew/tasks.md')`.
-        b. Return the resolved default path.
-
-#### Task 1.2: Update `ConfigService.setTasksPaths` for `init`
-- [x] **Do:** Modify `ConfigService.setTasksPaths` (or create a related helper/adjust `handleInit`) to ensure that when setting paths during initialization, it writes *both* the `tasks` list (with a single path) and the `paste-tasks` string key to the target `paths.yaml` file.
-- **Sequence Diagram:** (Illustrates the updated save logic)
-    ```mermaid
-    sequenceDiagram
-        participant CliS_Init as CliService.handleInit
-        participant CS as ConfigService
-        participant YS as YamlService
-        participant FSS as FileSystemService
-
-        CliS_Init->>CS: setTasksPaths(['path/to/tasks.md'], false, 'path/to/tasks.md') # Example call signature change
-        CS->>CS: Determine targetFile (localPathsFile) and configData (localPathsData)
-        CS->>FSS: ensureDirectoryExists(path.dirname(targetFile))
+        CS->>CS: coreData['lastUpdateCheckTimestamp'] = 1678886400000 # Update data
+        CS->>FSS: ensureDirectoryExists(path.dirname(globalCoreFile)) # Ensure ~/.pew exists
         FSS-->>CS: void
-        CS->>CS: Create updated config object: { ...configData, tasks: ['path/to/tasks.md'], 'paste-tasks': 'path/to/tasks.md' }
-        CS->>YS: writeYamlFile(targetFile, updatedConfigObject)
-        YS->>FSS: writeFile(targetFile, yamlString)
-        FSS-->>YS: void
+        CS->>YS: writeYamlFile(globalCoreFile, coreData)
         YS-->>CS: void
-        CS->>CS: Update this.localPathsData
-        CS-->>CliS_Init: void
+        CS-->>Caller: void
     ```
 - **Files:**
     - U: `src/modules/config.service.ts`
 - **Classes:**
     - U: `ConfigService`
-- **Methods:**
-    - U: `public async setTasksPaths(paths: string[], global: boolean, pasteTaskPath?: string): Promise<void>` (Proposed signature change, adding optional `pasteTaskPath`)
-    - OR: Keep `setTasksPaths` as is and add a new method like `setInitialPaths(primaryPath: string): Promise<void>` specifically for `init`. Let's modify `setTasksPaths` for simplicity.
 - **Variables:**
-    - U: `setTasksPaths.configData` (Update this object before writing)
+    - C: `ConfigService.private globalCoreFile: string;`
+    - C: `ConfigService.private globalCoreData: Record<string, any> = {};` (Optional cache)
+- **Methods:**
+    - C: `private async _loadCoreConfig(): Promise<void>` (Helper to load/cache `core.yaml`)
+    - C: `public async getGlobalCoreValue<T>(key: string, defaultValue: T): Promise<T>`
+    - C: `public async setGlobalCoreValue(key: string, value: any): Promise<void>`
+    - U: `initialize()` (Update to set `globalCoreFile` path and call `_loadCoreConfig`)
 - **Process:**
     1. Open `src/modules/config.service.ts`.
-    2. Modify the signature of `setTasksPaths` to accept an optional third parameter: `pasteTaskPath?: string`.
-    3. Inside the method, after determining the `targetFile` and cloning `configData`:
-        a. Set `configData.tasks = paths;`.
-        b. **New:** If `pasteTaskPath` is provided (and not empty), set `configData['paste-tasks'] = pasteTaskPath;`.
-        c. If `pasteTaskPath` is *not* provided or is empty, consider removing the key: `delete configData['paste-tasks'];` (or decide if it should default to `paths[0]`). For the `init` case, it *will* be provided.
-    4. Proceed with writing the updated `configData` to the `targetFile` using `YamlService`.
-    5. Update the in-memory cache (`this.globalPathsData` or `this.localPathsData`) with the modified `configData`.
+    2. Add the `globalCoreFile` private property.
+    3. In the `constructor` or `initialize`, set `this.globalCoreFile = this.fileSystemService.joinPath(this.globalConfigDir, 'core.yaml');`.
+    4. Implement `_loadCoreConfig`: Reads `globalCoreFile` using `YamlService` if it exists, storing the result (e.g., in `globalCoreData`). Handle file not found/parse errors gracefully (default to empty object `{}`). Call this method within `initialize` after paths are set.
+    5. Implement `getGlobalCoreValue`: Ensures config is loaded (`await this.initialize()`), retrieves the value for `key` from the loaded core data (e.g., `this.globalCoreData[key]`), returning `defaultValue` if the key is not found or data is invalid.
+    6. Implement `setGlobalCoreValue`: Ensures config is loaded, reads the current `core.yaml` content (or starts with `{}` if non-existent), updates the specific `key` with the new `value`, ensures the directory (`this.globalConfigDir`) exists using `FileSystemService.ensureDirectoryExists`, and writes the updated data back to `globalCoreFile` using `YamlService.writeYamlFile`. Update the cache (`this.globalCoreData`) if using one.
 
-### Milestone 2: Update CLI Command Handling
-Modify `CliService` and `index.ts` to handle the new option, logic, and prompts for `paste tasks` and ensure `init` uses the updated config setting.
-
-#### Task 2.1: Add `--path` Option to `pew paste tasks`
-- [x] **Do:** Modify `src/index.ts` to define the optional `--path <value>` argument for the `pew paste tasks` command using `commander`.
-- **Sequence Diagram:** (N/A - Configuration update)
-- **Files:**
-    - U: `src/index.ts`
-- **Classes:**
-    - N/A
-- **Methods:**
-    - N/A (Updating command definition)
-- **Variables:**
-    - N/A
-- **Process:**
-    1. Open `src/index.ts`.
-    2. Locate the `.command('paste')` definition.
-    3. Add a new `.option('--path <value>', 'Specify the target file path, overriding config')` line before the `.action(...)` call.
-    4. Ensure the `options` object passed into the `action` function will now potentially contain a `path` property.
-
-#### Task 2.2: Update `CliService.handleInit` Call
-- [x] **Do:** Modify `CliService.handleInit` to call the updated `ConfigService.setTasksPaths` method, passing the determined task path as both the single element in the `paths` array and as the new `pasteTaskPath` argument.
+#### Task 1.5: Implement Timestamp Check in `UpdateService`
+- [x] **Do:** Implement the `shouldCheckForUpdate` method in `UpdateService` using the new `ConfigService` methods to read the `lastUpdateCheckTimestamp` from `core.yaml` and compare it against the configured interval (1 day).
 - **Sequence Diagram:**
     ```mermaid
     sequenceDiagram
-        participant CliS as CliService
-        participant UIS as UserInputService
+        participant US as UpdateService
         participant CS as ConfigService
+        participant Date as GlobalDate
 
-        Note over CliS: Inside handleInit
-        alt Not flags.force
-            CliS->>UIS: askForPath('Enter primary tasks file path:', '.pew/tasks.md')
-            UIS-->>CliS: taskPath (e.g., 'user/tasks.md')
-        else flags.force
-            CliS->>CliS: taskPath = '.pew/tasks.md'
+        US->>US: shouldCheckForUpdate()
+        US->>CS: getGlobalCoreValue('lastUpdateCheckTimestamp', 0)
+        CS-->>US: lastCheckTimestamp (number)
+        US->>Date: now()
+        Date-->>US: currentTimestamp (number)
+        alt lastCheckTimestamp === 0 OR (currentTimestamp - lastCheckTimestamp) > kUpdateCheckIntervalMs
+            US-->>US: true
+        else Check interval not elapsed
+            US-->>US: false
         end
-        CliS->>CS: initialize()
-        CS-->>CliS: void
-        CliS->>CS: setTasksPaths([taskPath], false, taskPath) # Pass taskPath twice
-        CS-->>CliS: void
-        Note over CliS: Continue with file creation etc.
+    ```
+- **Files:**
+    - U: `src/modules/update.service.ts`
+- **Classes:**
+    - U: `UpdateService`
+- **Variables:**
+    - R: `UpdateService.kUpdateCheckIntervalMs`
+- **Methods:**
+    - C: `private async getLastUpdateCheckTimestamp(): Promise<number>` (Helper using `ConfigService`)
+    - C: `public async shouldCheckForUpdate(): Promise<boolean>`
+- **Process:**
+    1. Open `src/modules/update.service.ts`.
+    2. Implement `getLastUpdateCheckTimestamp`: Calls `this.configService.getGlobalCoreValue<number>('lastUpdateCheckTimestamp', 0)` and returns the result.
+    3. Implement `shouldCheckForUpdate`:
+        a. Call `await this.getLastUpdateCheckTimestamp()`.
+        b. Get the current time: `Date.now()`.
+        c. Compare: Return `true` if `lastCheckTimestamp` is 0 (never checked) or if `currentTime - lastCheckTimestamp > UpdateService.kUpdateCheckIntervalMs`. Otherwise, return `false`.
+        d. Include basic error handling if `getLastUpdateCheckTimestamp` throws (though `ConfigService` should handle gracefully).
+
+### Milestone 2: Update Execution & Notification
+Implement the actual update execution, user notification logic, and the combined background check method in `UpdateService`.
+
+#### Task 2.1: Implement Update Execution in `UpdateService`
+- [x] **Do:** Implement the `performUpdate` method in `UpdateService` to execute `npm install -g pew-pew-cli@latest` using `child_process.exec` (promisified). Provide console feedback during the process and handle success/error outcomes.
+- **Sequence Diagram:**
+    ```mermaid
+    sequenceDiagram
+        participant US as UpdateService
+        participant console as Console
+        participant cp as NodeJSChildProcess
+
+        US->>US: performUpdate()
+        US->>console: log("Checking for updates...")
+        US->>US: isUpdateAvailable()
+        US-->>US: updateAvailable (boolean)
+
+        alt updateAvailable is true
+            US->>US: getCurrentVersion()
+            US-->>US: currentVersion
+            US->>US: getLatestVersion()
+            US-->>US: latestVersion
+            US->>console: log(`Updating pew-pew-cli from v${currentVersion} to v${latestVersion}...`)
+            US->>cp: execAsync('npm install -g pew-pew-cli@latest')
+            alt npm install succeeds
+                cp-->>US: { stdout, stderr }
+                US->>console: log(`✅ pew-pew-cli updated successfully to v${latestVersion}.`)
+                US-->>US: { success: true }
+            else npm install fails
+                cp-->>US: Error (e.g., permission denied)
+                US->>console: error(`❌ Error updating pew-pew-cli: ${error.message}`)
+                US-->>US: { success: false, error: error }
+            end
+        else updateAvailable is false
+            US->>US: getCurrentVersion()
+            US-->>US: currentVersion
+            US->>console: log(`ℹ️ pew-pew-cli is already up to date (v${currentVersion}).`)
+            US-->>US: { success: true, noUpdateNeeded: true }
+        end
+        else Error checking version
+             US->>console: error(`❌ Could not check for updates: ${error.message}`)
+             US-->>US: { success: false, error: error }
+        end
+
+    ```
+- **Files:**
+    - U: `src/modules/update.service.ts`
+- **Classes:**
+    - U: `UpdateService`
+- **Methods:**
+    - C: `public async performUpdate(): Promise<{success: boolean, error?: Error, noUpdateNeeded?: boolean}>`
+    - R: `isUpdateAvailable()`
+    - R: `getCurrentVersion()`
+    - R: `getLatestVersion()`
+- **Process:**
+    1. Open `src/modules/update.service.ts`.
+    2. Implement `performUpdate`:
+        a. Log "Checking for updates...".
+        b. Call `await this.isUpdateAvailable()`. Handle potential errors during the check (log error, return `{ success: false, error }`).
+        c. If `false` (no update needed): Log "ℹ️ pew-pew-cli is already up to date (v{currentVersion})." and return `{ success: true, noUpdateNeeded: true }`.
+        d. If `true` (update available):
+            i. Get current and latest versions again (or reuse if cached).
+            ii. Log `Updating pew-pew-cli from v${currentVersion} to v${latestVersion}...`.
+            iii. Define the command: `const command = 'npm install -g pew-pew-cli@latest';`.
+            iv. Execute the command using `await execAsync(command);`.
+            v. Use a `try...catch` block to handle execution errors.
+            vi. On success: Log `✅ pew-pew-cli updated successfully to v${latestVersion}.` and return `{ success: true }`.
+            vii. On failure (catch block): Log `❌ Error updating pew-pew-cli: ${error.message}` and return `{ success: false, error }`.
+
+#### Task 2.2: Implement Notification Logic in `UpdateService`
+- [x] **Do:** Implement the `notifyUserOfUpdate` method and the timestamp update method (`setLastUpdateCheckTimestamp`) in `UpdateService`.
+- **Sequence Diagram:** (Illustrates notification and timestamp update)
+    ```mermaid
+    sequenceDiagram
+        participant US as UpdateService
+        participant console as Console
+        participant CS as ConfigService
+        participant Date as GlobalDate
+
+        US->>US: notifyUserOfUpdate(currentVersion, latestVersion)
+        US->>console: log(`ℹ️ Update available: pew-pew-cli v${latestVersion} is available (current: v${currentVersion}). Run 'pew update' to install.`)
+        US-->>US: void
+
+        US->>US: setLastUpdateCheckTimestamp()
+        US->>Date: now()
+        Date-->>US: currentTimestamp
+        US->>CS: setGlobalCoreValue('lastUpdateCheckTimestamp', currentTimestamp)
+        CS-->>US: void
+        US-->>US: void
+    ```
+- **Files:**
+    - U: `src/modules/update.service.ts`
+- **Classes:**
+    - U: `UpdateService`
+- **Methods:**
+    - C: `private notifyUserOfUpdate(currentVersion: string, latestVersion: string): void`
+    - C: `private async setLastUpdateCheckTimestamp(): Promise<void>`
+- **Process:**
+    1. Open `src/modules/update.service.ts`.
+    2. Implement `notifyUserOfUpdate`: Takes `currentVersion` and `latestVersion` as arguments. Logs the formatted message to the console (e.g., `console.log(\`ℹ️ Update available: pew-pew-cli v${latestVersion} is available (current: v${currentVersion}). Run 'pew update' to install.\`);`).
+    3. Implement `setLastUpdateCheckTimestamp`: Gets the current timestamp using `Date.now()`. Calls `await this.configService.setGlobalCoreValue('lastUpdateCheckTimestamp', timestamp);`. Include error handling (log warning if setting fails).
+
+#### Task 2.3: Implement Combined Background Check Method in `UpdateService`
+- [x] **Do:** Implement the public `runUpdateCheckAndNotify` method in `UpdateService` that orchestrates the background check: checks if enough time has passed, checks if an update is available, notifies the user if both are true, and updates the timestamp. Handle errors gracefully (log warnings, don't throw).
+- **Sequence Diagram:**
+    ```mermaid
+    sequenceDiagram
+        participant US as UpdateService
+        participant console as Console
+
+        US->>US: runUpdateCheckAndNotify()
+        US->>US: shouldCheckForUpdate()
+        US-->>US: shouldCheck (boolean)
+
+        alt shouldCheck is true
+            US->>US: isUpdateAvailable()
+            alt Update check succeeds
+                US-->>US: updateAvailable (boolean)
+                alt updateAvailable is true
+                    US->>US: getCurrentVersion()
+                    US-->>US: currentVersion
+                    US->>US: getLatestVersion()
+                    US-->>US: latestVersion
+                    US->>US: notifyUserOfUpdate(currentVersion, latestVersion)
+                end
+                US->>US: setLastUpdateCheckTimestamp() # Update timestamp if check ran
+            else Update check fails (e.g., network error)
+                 US-->>US: Error
+                 US->>console: warn("⚠️ Could not check for pew-pew-cli updates: ...")
+                 Note over US: Do not update timestamp on error
+            end
+        else shouldCheck is false
+             Note over US: Check interval not elapsed, do nothing.
+        end
+        US-->>US: void
+    ```
+- **Files:**
+    - U: `src/modules/update.service.ts`
+- **Classes:**
+    - U: `UpdateService`
+- **Methods:**
+    - C: `public async runUpdateCheckAndNotify(): Promise<void>`
+    - R: `shouldCheckForUpdate()`
+    - R: `isUpdateAvailable()`
+    - R: `notifyUserOfUpdate()`
+    - R: `setLastUpdateCheckTimestamp()`
+    - R: `getCurrentVersion()`
+    - R: `getLatestVersion()`
+- **Process:**
+    1. Open `src/modules/update.service.ts`.
+    2. Implement `runUpdateCheckAndNotify`:
+        a. Use a `try...catch` block to wrap the main logic.
+        b. Call `await this.shouldCheckForUpdate()`. If `false`, return early.
+        c. If `true`, proceed:
+            i. Call `await this.isUpdateAvailable()`.
+            ii. If `true`, get current/latest versions and call `this.notifyUserOfUpdate(currentVersion, latestVersion);`.
+            iii. **Crucially:** Call `await this.setLastUpdateCheckTimestamp();` *after* successfully checking versions (regardless of whether an update was found), but *before* the end of the `try` block.
+        d. In the `catch` block: Log a warning to the console: `console.warn(\`⚠️ Could not check for pew-pew-cli updates: ${error.message}\`);`. Do *not* re-throw the error. Do *not* update the timestamp if an error occurred during the check.
+
+### Milestone 3: CLI Integration
+Integrate the `UpdateService` into the `CliService` and define the new `update` command.
+
+#### Task 3.1: Add `update` Command to `index.ts`
+- [x] **Do:** Define the new `pew update` command in `src/index.ts` using `commander`.
+- **Sequence Diagram:** (N/A - Configuration update)
+- **Files:**
+    - U: `src/index.ts`
+- **Classes:** N/A
+- **Methods:** N/A
+- **Variables:** N/A
+- **Process:**
+    1. Open `src/index.ts`.
+    2. Add a new command definition:
+       ```typescript
+       program
+         .command('update')
+         .description('Check for updates and install the latest version of pew-pew-cli')
+         .action(async () => {
+           await cliService.handleUpdate(); // Assumes handleUpdate exists in CliService
+         });
+       ```
+    3. Ensure `cliService` instance is available in this scope.
+
+#### Task 3.2: Implement `handleUpdate` in `CliService`
+- [x] **Do:** Add the `handleUpdate` method to `CliService` which instantiates (if not singleton) and calls the `performUpdate` method of `UpdateService`.
+- **Sequence Diagram:**
+    ```mermaid
+    sequenceDiagram
+        participant Commander as index.ts
+        participant CliS as CliService
+        participant US as UpdateService
+
+        Commander->>CliS: handleUpdate()
+        CliS->>US: new UpdateService() # Or getInstance() if singleton
+        US-->>CliS: updateServiceInstance
+        CliS->>US: performUpdate()
+        US-->>CliS: result ({success: boolean, ...})
+        alt result.success is false and result.error
+             CliS->>process: exit(1) # Exit with error code
+        else Success or No Update Needed
+             CliS->>process: exit(0) # Exit cleanly
+        end
+    ```
+- **Files:**
+    - U: `src/modules/cli.service.ts`
+- **Classes:**
+    - U: `CliService`
+- **Methods:**
+    - C: `public async handleUpdate(): Promise<void>`
+    - R: `UpdateService.performUpdate()` (via instance)
+- **Process:**
+    1. Open `src/modules/cli.service.ts`.
+    2. Add a private field for `UpdateService` if making it a dependency: `private updateService: UpdateService;` and initialize it in the constructor: `this.updateService = new UpdateService();`. (Alternatively, instantiate it directly within `handleUpdate`).
+    3. Implement the new public async method `handleUpdate`:
+        a. Call `const result = await this.updateService.performUpdate();`.
+        b. Check `result.success`. If `false` and `result.error` exists, potentially exit the process with an error code: `process.exit(1);`. Otherwise, exit cleanly: `process.exit(0);`.
+
+#### Task 3.3: Integrate Automatic Checks into `CliService` Handlers
+- [x] **Do:** Modify `CliService.handleInit` and `CliService.handlePasteTasks` to call `UpdateService.runUpdateCheckAndNotify` after their primary logic completes successfully.
+- **Sequence Diagram:** (Illustrates `handleInit` integration)
+    ```mermaid
+    sequenceDiagram
+        participant CliS as CliService
+        participant US as UpdateService
+
+        Note over CliS: Inside handleInit, after main logic succeeds...
+        CliS->>console: log("pewPewCLI initialized successfully.") # Example success log
+        CliS->>US: runUpdateCheckAndNotify() # Call the background check
+        US-->>CliS: void # Background check runs, logs warnings on error
+        Note over CliS: handleInit completes
     ```
 - **Files:**
     - U: `src/modules/cli.service.ts`
@@ -331,96 +620,19 @@ Modify `CliService` and `index.ts` to handle the new option, logic, and prompts 
     - U: `CliService`
 - **Methods:**
     - U: `async handleInit(flags: { force: boolean }): Promise<void>`
-- **Variables:**
-    - U: `handleInit.taskPath` (Use this value for both arguments)
+    - U: `async handlePasteTasks(mode: 'overwrite' | 'append' | 'insert' | null, options: { path?: string }): Promise<void>`
+    - R: `UpdateService.runUpdateCheckAndNotify()` (via instance)
 - **Process:**
     1. Open `src/modules/cli.service.ts`.
-    2. Locate the `handleInit` method.
-    3. Find the line where `this.configService.setTasksPaths([taskPath], false);` is called.
-    4. Modify the call to pass `taskPath` as the third argument: `await this.configService.setTasksPaths([taskPath], false, taskPath);`.
+    2. Ensure `UpdateService` instance is available (e.g., `this.updateService` initialized in constructor).
+    3. In `handleInit`: Locate the end of the successful execution path (e.g., after the final `console.log`). Add `await this.updateService.runUpdateCheckAndNotify();`. Wrap this call in a `try...catch` that only logs the error (`console.warn`) to prevent the background check failure from crashing the main command.
+    4. In `handlePasteTasks`: Locate the end of the successful execution path (e.g., after the final `console.log`). Add `await this.updateService.runUpdateCheckAndNotify();`. Wrap similarly in a non-throwing `try...catch`.
 
-#### Task 2.3: Implement New Logic in `CliService.handlePasteTasks`
-- [x] **Do:** Update `CliService.handlePasteTasks` to read the `--path` option, get the configured default path, check for override path existence, prompt the user if the override path doesn't exist, determine the final path, and call `TaskService.writeTasksContent` accordingly.
-- **Sequence Diagram:** (Illustrates --path non-existent scenario)
-    ```mermaid
-    sequenceDiagram
-        participant CliS as CliService
-        participant options as CommanderOptions
-        participant FSS as FileSystemService
-        participant CS as ConfigService
-        participant UIS as UserInputService
-        participant TS as TaskService
-        participant console as Console
+### Milestone 4: Documentation
+Update project documentation to reflect the new update command and automatic checks.
 
-        Note over CliS: Start handlePasteTasks(mode, options)
-        CliS->>options: Read options.path (e.g., 'new/file.md')
-        alt options.path is provided
-            CliS->>FSS: pathExists(options.path)
-            FSS-->>CliS: false
-            CliS->>CS: getPasteTasksPath()
-            CS-->>CliS: configuredPath (e.g., 'default/tasks.md')
-            CliS->>UIS: askForConfirmation("Path 'new/file.md' does not exist. Paste into default 'default/tasks.md' instead?")
-            UIS-->>CliS: userConfirmation (e.g., false)
-            alt userConfirmation is false
-                CliS->>console: log("Paste operation aborted.")
-                CliS-->>: return
-            else userConfirmation is true
-                CliS->>CliS: finalPastePath = configuredPath
-            end
-        else options.path is provided AND exists
-             CliS->>FSS: pathExists(options.path)
-             FSS-->>CliS: true
-             CliS->>CliS: finalPastePath = options.path
-        end
-        else options.path is NOT provided
-            CliS->>CS: getPasteTasksPath()
-            CS-->>CliS: configuredPath
-            CliS->>CliS: finalPastePath = configuredPath
-        end
-
-        CliS->>TS: writeTasksContent(finalPastePath, clipboardContent, finalMode)
-        TS-->>CliS: void
-        CliS->>console: log("Pasted content to tasks file...")
-    ```
-- **Files:**
-    - U: `src/modules/cli.service.ts`
-- **Classes:**
-    - U: `CliService`
-- **Methods:**
-    - U: `async handlePasteTasks(mode: 'overwrite' | 'append' | 'insert' | null, options: { path?: string }): Promise<void>` (Update signature to accept options)
-    - R: `ConfigService.getPasteTasksPath()`
-    - R: `FileSystemService.pathExists()`
-    - R: `UserInputService.askForConfirmation()`
-    - R: `TaskService.writeTasksContent()`
-- **Variables:**
-    - C: `handlePasteTasks.overridePath: string | undefined = options.path;`
-    - C: `handlePasteTasks.finalPastePath: string;`
-    - C: `handlePasteTasks.configuredPastePath: string;`
-- **Process:**
-    1. Open `src/modules/cli.service.ts`.
-    2. Modify the signature of `handlePasteTasks` to accept the `options` object from Commander, specifically looking for `options.path`.
-    3. Inside the `try` block, before determining the `finalMode`:
-        a. Get the override path: `const overridePath = options.path;`.
-        b. Get the configured default path: `const configuredPastePath = await this.configService.getPasteTasksPath();`.
-        c. Initialize `let finalPastePath: string;`.
-    4. Check if `overridePath` was provided.
-        a. If `overridePath`:
-            i. Check if it exists: `const overrideExists = await this.fileSystemService.pathExists(overridePath);`.
-            ii. If `overrideExists`: Set `finalPastePath = overridePath;`.
-            iii. If `!overrideExists`:
-                1. Prompt the user: `const useDefault = await this.userInputService.askForConfirmation(\`Path '${overridePath}' does not exist. Paste into default '${configuredPastePath}' instead?\`, false);`.
-                2. If `useDefault`: Set `finalPastePath = configuredPastePath;`.
-                3. If `!useDefault`: Log "Paste operation aborted." and `return;`.
-        b. If `!overridePath`: Set `finalPastePath = configuredPastePath;`.
-    5. Remove the old logic that determined the file path using `configService.getTasksPaths()[0]`.
-    6. Ensure the subsequent call to `this.taskService.writeTasksContent` uses `finalPastePath` instead of the old `filePath` variable.
-    7. Update the success message to potentially reflect the final path used, if desired (optional).
-
-### Milestone 3: Documentation Update
-Update project documentation to reflect the new configuration key and command option.
-
-#### Task 3.1: Update README.md
-- [x] **Do:** Modify `README.md` to include the `paste-tasks` key in the `paths.yaml` example and add the `--path` option to the `pew paste tasks` command description in the table and examples.
+#### Task 4.1: Update README.md
+- [x] **Do:** Modify `README.md` to add the `pew update` command to the command table and briefly explain the automatic update notification mechanism.
 - **Sequence Diagram:** (N/A - Documentation)
 - **Files:**
     - U: `README.md`
@@ -429,26 +641,44 @@ Update project documentation to reflect the new configuration key and command op
 - **Variables:** N/A
 - **Process:**
     1. Open `README.md`.
-    2. Locate the "Configuration" section and the `paths.yaml` structure example. Add the `paste-tasks: path/to/default/paste/target.md` key with a comment.
-    3. Locate the "Commands" table. Update the row for `pew paste tasks`:
-        - Add `--path <value>`: Specify the target file path, overriding config. to the Options column.
-    4. Add or modify examples in the "Paste from Clipboard" section to demonstrate using `--path`.
-    5. Briefly explain the precedence (`--path` > `paste-tasks` > fallback) in the description for `pew paste tasks`.
+    2. Locate the "Commands" table. Add a new row for `pew update`:
+        | Command       | Description                                                      | Arguments | Options |
+        | :------------ | :--------------------------------------------------------------- | :-------- | :------ |
+        | `pew update`  | Check for updates and install the latest version of pew-pew-cli. | _None_    | _None_  |
+    3. Add a sentence or short paragraph in the main description or a new "Updates" section explaining that the tool automatically checks for updates periodically after certain commands and notifies the user, mentioning the `pew update` command for manual installation.
 
-#### Task 3.2: Update Relevant Tutorial(s)
-- [x] **Do:** Review tutorials like `how-to-set-up-repeatable-workflows-eg-build-steps-qa.md` and update any sections discussing `paths.yaml` or `pew paste tasks` to mention the new `paste-tasks` key and `--path` option.
+#### Task 4.2: Create `how-to-update.md`
+- [x] **Do:** Create a new documentation file explaining how the update mechanism works, how to use `pew update`, and how the automatic checks behave.
 - **Sequence Diagram:** (N/A - Documentation)
 - **Files:**
-    - U: `tutorials/how-to-set-up-repeatable-workflows-eg-build-steps-qa.md` (or others if applicable)
+    - C: `docs/how-to-update.md`
 - **Classes:** N/A
 - **Methods:** N/A
 - **Variables:** N/A
 - **Process:**
-    1. Open `tutorials/how-to-set-up-repeatable-workflows-eg-build-steps-qa.md`.
-    2. Review the "Configuration for Multiple Files" section. Add a note about the optional `paste-tasks` key in `paths.yaml` for setting a default paste target.
-    3. Review any examples using `pew paste tasks` and consider adding a variation showing the `--path` option.
-    4. Ensure the tutorial remains clear and accurate regarding the new functionality.
+    1. Create the file `docs/how-to-update.md`.
+    2. Write content explaining:
+        *   The purpose of keeping the CLI updated.
+        *   How to manually check and install updates using `pew update`. Include example output for update found, no update needed, and error scenarios.
+        *   How the automatic background check works (triggered after `init`/`paste`, frequency of 1 day, notification message).
+        *   Mention where the timestamp is stored (`~/.pew/core.yaml`) for informational purposes.
 
-# Default Tasks
-- [ ] Default Task 1
-Pasted default content
+#### Task 4.3: Update CHANGELOG.md
+- [x] **Do:** Add entries to `CHANGELOG.md` under a new version (e.g., v0.3.0) detailing the added update features.
+- **Sequence Diagram:** (N/A - Documentation)
+- **Files:**
+    - U: `CHANGELOG.md`
+- **Classes:** N/A
+- **Methods:** N/A
+- **Variables:** N/A
+- **Process:**
+    1. Open `CHANGELOG.md`.
+    2. Add a new version heading (e.g., `## v0.3.0`).
+    3. Add today's date.
+    4. Under `#### ✨ Features`, add items like:
+        *   Added `pew update` command to check for and install the latest version from npm.
+        *   Implemented automatic background update checks (daily) after `pew init` and `pew paste tasks` commands.
+        *   Added user notification for available updates.
+    5. Under `#### 🛠️ Improvements`, add items like:
+        *   Created `UpdateService` to handle update logic.
+        *   Added support for global `core.yaml` configuration file in `ConfigService`.

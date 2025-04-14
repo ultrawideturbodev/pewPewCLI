@@ -14,7 +14,14 @@ npm install -g pew-pew-cli
 pew init
 pew paste tasks
 pew next task
+pew update # Keep your CLI up-to-date!
 ```
+
+## Updates
+
+The CLI includes a mechanism to help you stay updated:
+*   **Automatic Checks:** After running `pew init` or `pew paste tasks`, the CLI will automatically check for a newer version in the background (at most once per day). If an update is found, you'll see a notification message.
+*   **Manual Update:** You can manually check for and install the latest version at any time using the `pew update` command.
 
 ## 💬 Prompt
 
@@ -81,6 +88,7 @@ For more prompts and examples check out [ultrawideturbodevs.com](https://ultrawi
 | `pew set path`          | Set a configuration value for a path.                                 | _None_             | `--field <field>`: Field to set (currently only `tasks`).<br>`--value <value>`: Path value to set.<br>`-g, --global`: Set in global config (`~/.pew`). |
 | `pew paste tasks`       | Paste clipboard content into the configured primary tasks file.         | `tasks` (required) | `--overwrite`: Overwrite the entire tasks file.<br>`--append`: Append content to the end.<br>`--insert`: Insert content at the beginning.<br>`--path <value>`: Specify target file path, overriding config.<br>`--force`: Alias for `--overwrite`. |
 | `pew next task`         | Marks the current task (`👉`) complete and displays the next task across configured files. | `task` (required)  | _None_                                                                                                 |
+| `pew update`            | Check for updates and install the latest version of pew-pew-cli.      | _None_             | _None_                                                                                                 |
 
 ## 📦 Configuration
 
