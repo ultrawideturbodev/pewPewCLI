@@ -15,6 +15,9 @@ All notable changes to pewPewCLI will be documented in this file.
 - Added `--path <value>` option to `pew paste tasks` command to override the configured or default target file.
 - Implemented logic in `pew paste tasks` to handle non-existent paths provided via `--path` by prompting the user.
 - Updated `pew init` command to automatically configure the `paste-tasks` key alongside the `tasks` key in `paths.yaml`.
+- Added `pew update` command to check for and install the latest version from npm.
+- Implemented automatic background update checks (daily) after `pew init` and `pew paste tasks` commands.
+- Added user notification for available updates.
 
 #### 🛠️ Improvements
 - Refactored `ConfigService` to provide a list of all configured task file paths.
@@ -24,6 +27,8 @@ All notable changes to pewPewCLI will be documented in this file.
 - Modified `ConfigService.setTasksPaths` to handle setting both `tasks` and `paste-tasks` keys.
 - Updated `CliService.handlePasteTasks` to use the new configuration and option logic.
 - Updated documentation (`README.md`, tutorials) to reflect the new `paste-tasks` functionality.
+- Created `UpdateService` to handle update logic.
+- Added support for global `core.yaml` configuration file in `ConfigService` to store update check timestamps.
 
 ## v0.1.3
 
