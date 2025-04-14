@@ -178,29 +178,45 @@ export class ConfigService {
   /**
    * Set tasks paths in config
    */
-  public async setTasksPaths(paths: string[], global: boolean = false): Promise<void> {
+  public async setTasksPaths(
+    paths: string[],
+    global: boolean = false,
+    pasteTaskPath?: string
+  ): Promise<void> {
     await this.initialize();
-    
+
     // Determine target file and config data
     const targetFile = global ? this.globalPathsFile : this.localPathsFile;
-    let configData = global ? this.globalPathsData : this.localPathsData;
-    
-    // Create config dirs if needed
+    let configData = global ? { ...this.globalPathsData } : { ...this.localPathsData };
+
+    // Throw error if no target file could be determined (e.g., no local .pew and trying to write locally)
     if (!targetFile) {
-      throw new Error('No config file available');
+      // Provide a more specific error based on the context
+      const errorContext = global
+        ? "Cannot determine global config file path."
+        : "Cannot determine local config file path. Run 'pew init' first or specify --global.";
+      throw new Error(`No config file available: ${errorContext}`);
     }
-    
+
     // Ensure target directory exists
     const configDir = path.dirname(targetFile);
     await this.fileSystemService.ensureDirectoryExists(configDir);
-    
+
     // Update config data
-    configData = { ...configData };
     configData.tasks = paths;
-    
+
+    // Set or remove the paste-tasks path based on the provided argument
+    if (pasteTaskPath && pasteTaskPath.trim().length > 0) {
+      configData['paste-tasks'] = pasteTaskPath.trim();
+    } else {
+      // Remove the key if no valid path is provided
+      // This ensures clean-up if the user removes the paste target later
+      delete configData['paste-tasks'];
+    }
+
     // Save config
     await this.yamlService.writeYamlFile(targetFile, configData);
-    
+
     // Update in-memory data
     if (global) {
       this.globalPathsData = configData;
@@ -221,5 +237,53 @@ export class ConfigService {
    */
   public getGlobalConfigDir(): string {
     return this.globalConfigDir;
+  }
+
+  /**
+   * Get the resolved path for the default paste tasks file.
+   * Follows fallback logic: local 'paste-tasks' -> global 'paste-tasks' ->
+   * first local/global 'tasks' -> default './.pew/tasks.md'.
+   */
+  public async getPasteTasksPath(): Promise<string> {
+    await this.initialize();
+
+    let effectiveConfig: Record<string, any>;
+    let isLocalSource: boolean;
+    let configSourceDir: string;
+    let configFilePath: string | null;
+
+    // Determine effective config source (prefer local)
+    if (this.localPathsFile && Object.keys(this.localPathsData).length > 0) {
+      effectiveConfig = this.localPathsData;
+      isLocalSource = true;
+      // Local config paths are relative to the project root (parent of .pew)
+      configSourceDir = this.localConfigDir ? path.dirname(this.localConfigDir) : process.cwd();
+      configFilePath = this.localPathsFile;
+    } else {
+      effectiveConfig = this.globalPathsData;
+      isLocalSource = false;
+      // Global config paths are relative to the global .pew directory
+      configSourceDir = this.globalConfigDir;
+      configFilePath = this.globalPathsFile;
+    }
+
+    // 1. Check 'paste-tasks' key in effective config
+    const pasteTaskPathValue = effectiveConfig['paste-tasks'];
+    if (typeof pasteTaskPathValue === 'string' && pasteTaskPathValue.trim().length > 0) {
+      return path.resolve(configSourceDir, pasteTaskPathValue.trim());
+    } else if (pasteTaskPathValue !== undefined && pasteTaskPathValue !== null) {
+      // Key exists but is malformed
+      const sourceName = configFilePath || (isLocalSource ? 'local' : 'global');
+      console.warn(`Malformed 'paste-tasks' value in config file [${sourceName}], using fallback.`);
+    }
+
+    // 2. Fallback 1: Check 'tasks' list in effective config
+    const tasksList = effectiveConfig.tasks;
+    if (Array.isArray(tasksList) && tasksList.length > 0 && typeof tasksList[0] === 'string' && tasksList[0].trim().length > 0) {
+      return path.resolve(configSourceDir, tasksList[0].trim());
+    }
+
+    // 3. Fallback 2: Default path relative to cwd
+    return path.resolve(process.cwd(), '.pew/tasks.md');
   }
 } 

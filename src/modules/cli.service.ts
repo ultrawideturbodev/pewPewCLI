@@ -101,7 +101,7 @@ export class CliService {
     }
     
     // Save config
-    await this.configService.setTasksPaths([taskPath], false); // Always local
+    await this.configService.setTasksPaths([taskPath], false, taskPath);
     
     // Create empty tasks file if it doesn't exist
     const taskFilePath = taskPath;
@@ -146,17 +146,46 @@ export class CliService {
   /**
    * Handle paste tasks command logic
    */
-  async handlePasteTasks(mode: 'overwrite' | 'append' | 'insert' | null = null): Promise<void> {
+  async handlePasteTasks(
+    mode: 'overwrite' | 'append' | 'insert' | null = null,
+    options: { path?: string } = {} // Update signature to accept options
+  ): Promise<void> {
     try {
       // Read from clipboard
       const clipboardContent = await this.clipboardService.readFromClipboard();
-      
+
       // Check if clipboard is empty
       if (!clipboardContent.trim()) {
         console.log('Clipboard is empty. Nothing to paste.');
         return;
       }
-      
+
+      // Determine the target paste path
+      await this.configService.initialize();
+      const overridePath = options.path;
+      const configuredPastePath = await this.configService.getPasteTasksPath();
+      let finalPastePath: string;
+
+      if (overridePath) {
+        const overrideExists = await this.fileSystemService.pathExists(overridePath);
+        if (overrideExists) {
+          finalPastePath = overridePath;
+        } else {
+          const useDefault = await this.userInputService.askForConfirmation(
+            `Path '${overridePath}' does not exist. Paste into default '${configuredPastePath}' instead?`,
+            false
+          );
+          if (useDefault) {
+            finalPastePath = configuredPastePath;
+          } else {
+            console.log('Paste operation aborted.');
+            return;
+          }
+        }
+      } else {
+        finalPastePath = configuredPastePath;
+      }
+
       // Use provided mode or ask user for paste mode
       let finalMode = mode;
       if (finalMode === null) {
@@ -165,17 +194,13 @@ export class CliService {
           ['overwrite', 'append', 'insert']
         );
       }
-      
-      // Get the primary tasks file path
-      await this.configService.initialize();
-      const tasksPaths = await this.configService.getTasksPaths(false);
-      const filePath = tasksPaths.length > 0 ? tasksPaths[0] : './.pew/tasks.md';
-      
-      // Write content to tasks file
-      await this.taskService.writeTasksContent(filePath, clipboardContent, finalMode);
-      
-      // Success message
-      console.log(`Pasted content to tasks file (${finalMode}).`);
+
+      // Write content to the determined tasks file
+      await this.taskService.writeTasksContent(finalPastePath, clipboardContent, finalMode);
+
+      // Success message (reflecting the final path)
+      const relativeFinalPath = path.relative(process.cwd(), finalPastePath);
+      console.log(`Pasted content to ${relativeFinalPath} (${finalMode}).`);
     } catch (error) {
       console.error('Error during paste tasks operation:', error);
     }
