@@ -4,6 +4,7 @@
  * Tests for the TaskService parsing utilities implemented in Milestone 1.
  */
 import { TaskService } from '../../src/modules/task.service.js';
+import { describe, test, expect } from '@jest/globals';
 
 describe('TaskService Parsing Utilities', () => {
   describe('Basic Checkers', () => {
@@ -115,30 +116,30 @@ describe('Task Statistics and Summary', () => {
     'Some more text'
   ];
   
-  test('getTaskStats should correctly count tasks', () => {
-    const stats = TaskService.getTaskStats(mockTaskLines);
+  test('getTaskStatsFromLines should correctly count tasks', () => {
+    const stats = TaskService.getTaskStatsFromLines(mockTaskLines);
     
     expect(stats.total).toBe(4);
     expect(stats.completed).toBe(2);
     expect(stats.remaining).toBe(2);
   });
   
-  test('getTaskStats should handle empty input', () => {
-    const stats = TaskService.getTaskStats([]);
+  test('getTaskStatsFromLines should handle empty input', () => {
+    const stats = TaskService.getTaskStatsFromLines([]);
     
     expect(stats.total).toBe(0);
     expect(stats.completed).toBe(0);
     expect(stats.remaining).toBe(0);
   });
   
-  test('getTaskStats should handle input with no tasks', () => {
+  test('getTaskStatsFromLines should handle input with no tasks', () => {
     const noTaskLines = [
       '# Header 1',
       'Some description',
       'Some more text'
     ];
     
-    const stats = TaskService.getTaskStats(noTaskLines);
+    const stats = TaskService.getTaskStatsFromLines(noTaskLines);
     
     expect(stats.total).toBe(0);
     expect(stats.completed).toBe(0);

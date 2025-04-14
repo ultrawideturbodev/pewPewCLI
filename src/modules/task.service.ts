@@ -19,12 +19,10 @@ export class TaskService {
   private static readonly PEW_PREFIX: string = "👉 ";
   private static readonly PEW_PREFIX_REGEX: RegExp = /^👉\s+/;
 
-  private tasksFilePath: string;
   private configService: ConfigService;
   private fileSystemService: FileSystemService;
 
   constructor() {
-    this.tasksFilePath = '';
     this.configService = ConfigService.getInstance();
     this.fileSystemService = new FileSystemService();
   }
@@ -182,27 +180,10 @@ export class TaskService {
   }
 
   /**
-   * Get primary tasks file path from configuration
-   */
-  async getPrimaryTasksFilePath(): Promise<string> {
-    await this.configService.initialize();
-    const tasksPaths = await this.configService.getTasksPaths(false);
-    
-    if (!tasksPaths || tasksPaths.length === 0) {
-      return './.pew/tasks.md'; // Default path if none found
-    }
-    
-    return tasksPaths[0]; // Return the first path as primary
-  }
-
-  /**
    * Write content to tasks file with specified mode
    */
-  async writeTasksContent(content: string, mode: 'overwrite' | 'append' | 'insert'): Promise<void> {
+  async writeTasksContent(filePath: string, content: string, mode: 'overwrite' | 'append' | 'insert'): Promise<void> {
     try {
-      // Get the tasks file path from config
-      const filePath = await this.getPrimaryTasksFilePath();
-      
       // Process content - replace escaped newlines with actual newlines
       const processedContent = content.replace(/\\n/g, '\n');
       
@@ -458,14 +439,11 @@ export class TaskService {
   /**
    * Write an array of lines to the task file
    * 
-   * Takes an array of strings (lines) and writes them to the primary tasks file,
+   * Takes an array of strings (lines) and writes them to the specified task file,
    * overwriting the existing content.
    */
-  async writeTaskLines(lines: string[]): Promise<void> {
+  async writeTaskLines(filePath: string, lines: string[]): Promise<void> {
     try {
-      // Get the tasks file path
-      const filePath = await this.getPrimaryTasksFilePath();
-      
       // Join the lines with newlines
       const content = lines.join('\n');
       
@@ -482,15 +460,12 @@ export class TaskService {
   }
   
   /**
-   * Read task lines from the primary tasks file
+   * Read task lines from the specified task file
    * 
-   * Reads the primary task file and returns its content as an array of lines.
+   * Reads the task file at the given path and returns its content as an array of lines.
    */
-  async readTaskLines(): Promise<string[]> {
+  async readTaskLines(filePath: string): Promise<string[]> {
     try {
-      // Get the tasks file path
-      const filePath = await this.getPrimaryTasksFilePath();
-      
       // Check if file exists
       const fileExists = await this.fileSystemService.pathExists(filePath);
       if (!fileExists) {
