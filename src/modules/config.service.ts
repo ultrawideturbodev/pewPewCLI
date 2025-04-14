@@ -10,10 +10,8 @@ import { LoggerService } from './logger.service.js';
  * Implemented as a lazy singleton.
  */
 export class ConfigService {
-  // Singleton instance
   private static instance: ConfigService | null = null;
 
-  // Properties
   private localConfigDir: string | null = null;
   private globalConfigDir: string;
   private localPathsFile: string | null = null;
@@ -37,7 +35,6 @@ export class ConfigService {
     this.yamlService = new YamlService(this.fileSystemService);
     this.logger = LoggerService.getInstance();
     
-    // Set global config paths
     const homeDir = this.fileSystemService.getHomeDirectory();
     this.globalConfigDir = this.fileSystemService.joinPath(homeDir, '.pew');
     this.globalPathsFile = this.fileSystemService.joinPath(this.globalConfigDir, 'config', 'paths.yaml');
@@ -51,7 +48,6 @@ export class ConfigService {
    */
   public static getInstance(): ConfigService {
     if (!ConfigService.instance) {
-      // Provide the FileSystemService when creating the singleton instance
       const fileSystem = new FileSystemService(); 
       ConfigService.instance = new ConfigService(fileSystem);
     }

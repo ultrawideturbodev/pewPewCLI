@@ -78,11 +78,9 @@ export class CliService {
    * @returns {Promise<void>} A promise that resolves when initialization is complete or aborted.
    */
   async handleInit(flags: { force: boolean } = { force: false }): Promise<void> {
-    // Get local config directory
     await this.configService.initialize();
     const localPewDir = this.configService.getLocalConfigDir();
     
-    // Check if .pew exists and if we need confirmation to overwrite
     if (localPewDir && !flags.force) {
       const confirmation = await this.userInputService.askForConfirmation(
         'Overwrite existing .pew configuration?',
@@ -95,13 +93,11 @@ export class CliService {
       }
     }
     
-    // Ensure .pew/config directory exists
     const localPewPath = './.pew';
     const configPath = `${localPewPath}/config`;
     await this.fileSystemService.ensureDirectoryExists(configPath);
     
-    // Determine task path (default or from user input)
-    let taskPath = '.pew/tasks.md'; // Default
+    let taskPath = '.pew/tasks.md';
     
     if (!flags.force) {
       taskPath = await this.userInputService.askForText(
@@ -110,10 +106,8 @@ export class CliService {
       );
     }
     
-    // Save config
     await this.configService.setTasksPaths([taskPath], false, taskPath);
     
-    // Create empty tasks file if it doesn't exist
     const taskFilePath = taskPath;
     const taskFileExists = await this.fileSystemService.pathExists(taskFilePath);
     
@@ -123,11 +117,9 @@ export class CliService {
     
     this.logger.success('pewPewCLI initialized successfully.');
 
-    // Run background update check
     try {
       await this.updateService.runUpdateCheckAndNotify();
     } catch (updateError: any) {
-      // Log warning but don't fail the init command
       this.logger.warn(`Background update check failed: ${updateError.message}`);
     }
   }
@@ -144,31 +136,26 @@ export class CliService {
    * @returns {Promise<void>} A promise that resolves when the path is set.
    */
   async handleSetPath(field?: string, value?: string, flags: { global: boolean } = { global: false }): Promise<void> {
-    // Get field if not provided
     let finalField = field;
     if (!finalField) {
       finalField = await this.userInputService.askForText('Enter field to set (e.g., tasks):');
     }
     
-    // Validate field is 'tasks' (only supported field for now)
     if (finalField !== 'tasks') {
       this.logger.error(`Invalid field '${finalField}' for set path. Only 'tasks' is supported.`);
       return;
     }
     
-    // Get value if not provided
     let finalValue = value;
     if (!finalValue) {
       finalValue = await this.userInputService.askForText(`Enter value for ${finalField}:`);
     }
 
-    // Add check for undefined finalValue after prompt
     if (typeof finalValue !== 'string' || finalValue.trim() === '') {
       this.logger.error(`Invalid value provided for ${finalField}. Aborting.`);
       return;
     }
     
-    // Save to config
     await this.configService.initialize();
     await this.configService.setTasksPaths([finalValue], flags.global);
     
@@ -192,16 +179,13 @@ export class CliService {
     options: { path?: string } = {}
   ): Promise<void> {
     try {
-      // Read from clipboard
       const clipboardContent = await this.clipboardService.readFromClipboard();
 
-      // Check if clipboard is empty
       if (!clipboardContent.trim()) {
         this.logger.log('Clipboard is empty. Nothing to paste.');
         return;
       }
 
-      // Determine the target paste path
       await this.configService.initialize();
       const overridePath = options.path;
       const configuredPastePath = await this.configService.getPasteTasksPath();
@@ -227,7 +211,6 @@ export class CliService {
         finalPastePath = configuredPastePath;
       }
 
-      // Use provided mode or ask user for paste mode
       let finalMode = mode;
       if (finalMode === null) {
         finalMode = await this.userInputService.askForSelection<'overwrite' | 'append' | 'insert'>(
@@ -236,18 +219,14 @@ export class CliService {
         );
       }
 
-      // Write content to the determined tasks file
       await this.taskService.writeTasksContent(finalPastePath, clipboardContent, finalMode);
 
-      // Success message (reflecting the final path)
       const relativeFinalPath = path.relative(process.cwd(), finalPastePath);
       this.logger.success(`Pasted content to ${relativeFinalPath} (${finalMode}).`);
 
-      // Run background update check
       try {
         await this.updateService.runUpdateCheckAndNotify();
       } catch (updateError: any) {
-        // Log warning but don't fail the paste command
         this.logger.warn(`Background update check failed: ${updateError.message}`);
       }
     } catch (error) {
@@ -272,10 +251,8 @@ export class CliService {
         return;
       }
 
-      // Delegate core logic to TaskService
       const result: NextTaskResult = await this.taskService.processNextTaskState(filePaths);
 
-      // Display results based on the status returned by TaskService
       if (result.message) {
         this.logger.log(`\n${result.message}`);
       }
@@ -340,14 +317,12 @@ export class CliService {
         return;
       }
 
-      // Get summaries and existence status from TaskService
       const fileSummaries: TaskFileSummary[] = await this.taskService.getTaskFileSummaries(configuredPaths);
 
       const existingPaths = fileSummaries.filter(s => s.exists && !s.disabled).map(s => s.filePath);
       const ignoredPaths = fileSummaries.filter(s => !s.exists).map(s => s.relativePath);
       const errorPaths = fileSummaries.filter(s => s.exists && s.disabled).map(s => s.relativePath);
 
-      // Notify user about ignored/error paths
       if (ignoredPaths.length > 0) {
         this.logger.warn(`⚠️ Ignored non-existent task file(s): ${ignoredPaths.join(', ')}`);
       }
@@ -355,13 +330,11 @@ export class CliService {
           this.logger.warn(`⚠️ Could not read or process file(s): ${errorPaths.join(', ')}`);
       }
 
-      // Check if any valid files remain
       if (existingPaths.length === 0) {
         this.logger.info('ℹ️ No existing and readable task files found in configuration. Nothing to reset.');
         return;
       }
 
-      // Prepare choices for inquirer, using summaries and disabled status
       const promptChoices = fileSummaries.map(summary => ({
           name: `${summary.relativePath} (${summary.summary})`,
           value: summary.filePath,
@@ -380,7 +353,6 @@ export class CliService {
         return;
       }
 
-      // Handle reset execution
       if (selectedPaths.length === 0) {
         this.logger.info('ℹ️ No files selected for reset.');
       } else {
@@ -402,7 +374,6 @@ export class CliService {
           }
         }
 
-        // Final summary message
         if (errorCount === 0) {
           this.logger.success(`\n✅ Successfully reset ${totalActualResets} tasks in ${successCount} file(s).`);
         } else {

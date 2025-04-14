@@ -16,13 +16,11 @@ import { LoggerService } from './logger.service.js';
  * reading/writing task files, and managing task context (headers, display ranges).
  */
 export class TaskService {
-  // Static regex patterns for task identification
   private static readonly TASK_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*[xX\s]*\s*\]/;
   private static readonly UNCHECKED_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*\]/;
   private static readonly CHECKED_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*[xX]\s*\]/;
   private static readonly HEADER_PATTERN: RegExp = /^(#{1,6})\s+(.+)$/;
   
-  // Constants for [pew] prefix
   private static readonly PEW_PREFIX: string = "👉 ";
   private static readonly PEW_PREFIX_REGEX: RegExp = /^👉\s+/;
 
@@ -234,39 +232,29 @@ export class TaskService {
    */
   async writeTasksContent(filePath: string, content: string, mode: 'overwrite' | 'append' | 'insert'): Promise<void> {
     try {
-      // Process content - replace escaped newlines with actual newlines
-      const processedContent = content.replace(/\\n/g, '\n');
+      const processedContent = content.replace(/\\\\n/g, '\n');
       
-      // Ensure directory exists
       const dirPath = path.dirname(filePath);
       await this.fileSystemService.ensureDirectoryExists(dirPath);
       
-      // Check if file exists
       const fileExists = await this.fileSystemService.pathExists(filePath);
       
-      // Handle overwrite mode
       if (mode === 'overwrite') {
-        // In overwrite mode, simply write the processed content to the file
         await this.fileSystemService.writeFile(filePath, processedContent);
       }
-      // Handle append and insert modes
       else if (mode === 'append' || mode === 'insert') {
-        // Get existing content if file exists
         let existingContent = '';
         if (fileExists) {
           existingContent = await this.fileSystemService.readFile(filePath);
         }
         
-        // Determine final content based on mode
         let finalContent = '';
         if (mode === 'append') {
-          // For append mode, add content to the end
           finalContent = existingContent ? `${existingContent}\n${processedContent}` : processedContent;
         } else {
           finalContent = existingContent ? `${processedContent}\n${existingContent}` : processedContent;
         }
         
-        // Write the final content to the file
         await this.fileSystemService.writeFile(filePath, finalContent);
       }
     } catch (error) {
@@ -463,16 +451,13 @@ export class TaskService {
    */
   async readTaskLines(filePath: string): Promise<string[]> {
     try {
-      // Check if file exists
       const fileExists = await this.fileSystemService.pathExists(filePath);
       if (!fileExists) {
         throw new Error(`Task file not found: ${filePath}`);
       }
       
-      // Read the file content
       const content = await this.fileSystemService.readFile(filePath);
       
-      // Split into lines
       return content.split('\n');
     } catch (error) {
       this.logger.error('Error reading task lines:', error);
@@ -488,19 +473,14 @@ export class TaskService {
    * @throws {Error} If reading or writing the file fails.
    */
   public async resetTaskFile(filePath: string): Promise<number> {
-    // Read the original lines from the file
     const originalLines = await this.readTaskLines(filePath);
 
-    // Get the modified lines and the count of tasks reset
     const { modifiedLines, resetCount } = TaskService.uncheckTasksInLines(originalLines);
 
-    // Write the modified lines back to the file only if changes were made
-    // Although writing the same content is often harmless, this avoids unnecessary I/O
     if (resetCount > 0) {
       await this.writeTaskLines(filePath, modifiedLines);
     }
 
-    // Return the count of reset tasks
     return resetCount;
   }
 
@@ -729,7 +709,7 @@ export class TaskService {
       let summaryResult: TaskFileSummary = {
         filePath: filePath,
         relativePath: relativePath,
-        summary: '(File not found or empty)', // Default summary
+        summary: '(File not found or empty)',
         exists: false,
         error: null,
         disabled: false,

@@ -68,7 +68,7 @@ export class LoggerService {
   public error(message: string, error?: any): void {
     console.error(chalk.red(message));
     if (error) {
-      console.error(error); 
+      
     }
   }
 

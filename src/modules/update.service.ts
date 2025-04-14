@@ -9,11 +9,9 @@ import { LoggerService } from './logger.service.js';
 
 const execAsync = promisify(exec);
 
-// Define __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Constants
 const kPackageName = 'pew-pew-cli';
 const kNpmInstallCommand = `npm install -g ${kPackageName}@latest`;
 
