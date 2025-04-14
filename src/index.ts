@@ -55,32 +55,26 @@ program
   .option('--force', 'Force overwrite (alias for --overwrite)')
   .action(async (target: string, options: PasteOptions) => {
     if (target === 'tasks') {
-      // Initialize mode
-      let mode: PasteMode = null;
-      
-      // Collect active mode flags
-      const modeFlags: string[] = [];
-      if (options.overwrite) modeFlags.push('--overwrite');
-      if (options.append) modeFlags.push('--append');
-      if (options.insert) modeFlags.push('--insert');
-      if (options.force) modeFlags.push('--force');
-      
-      // Check for mutually exclusive flags
-      if (modeFlags.length > 1) {
-        console.error(`Error: Options ${modeFlags.join(' and ')} are mutually exclusive.`);
+      const modeFlags: { flag: PasteMode, value: boolean | undefined }[] = [
+        { flag: 'overwrite', value: options.overwrite || options.force }, // Treat force as overwrite
+        { flag: 'append', value: options.append },
+        { flag: 'insert', value: options.insert },
+      ];
+
+      const activeModes = modeFlags.filter(f => f.value);
+
+      if (activeModes.length > 1) {
+        const flagNames = activeModes.map(f => `--${f.flag}`);
+        // Add --force back to the message if it was used alongside another flag
+        if (options.force && !options.overwrite && activeModes.some(f => f.flag !== 'overwrite')) {
+          flagNames.push('--force');
+        }
+        console.error(`Error: Options ${flagNames.join(' and ')} are mutually exclusive.`);
         return;
       }
-      
-      // Determine mode based on flags
-      if (options.overwrite || options.force) {
-        mode = 'overwrite';
-      } else if (options.append) {
-        mode = 'append';
-      } else if (options.insert) {
-        mode = 'insert';
-      }
-      
-      // Call the service method with the determined mode and options
+
+      const mode: PasteMode = activeModes.length === 1 ? activeModes[0].flag : null;
+
       await cliService.handlePasteTasks(mode, { path: options.path });
     } else {
       console.error(`Invalid target '${target}' for paste. Valid targets: tasks`);
@@ -111,7 +105,7 @@ program
   .description('Uncheck all completed tasks in specified task files')
   .action(async (target: string) => {
     if (target === 'tasks') {
-      await cliService.handleResetTasks(); // New handler method
+      await cliService.handleResetTasks();
     } else {
       console.error(`Invalid target '${target}' for reset. Valid targets: tasks`);
       process.exit(1);

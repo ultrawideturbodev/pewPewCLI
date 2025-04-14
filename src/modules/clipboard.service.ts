@@ -8,7 +8,6 @@ import clipboardy from 'clipboardy';
 
 export class ClipboardService {
   constructor() {
-    // Initialize service
   }
 
   /**
@@ -27,6 +26,5 @@ export class ClipboardService {
    * Write text to clipboard
    */
   async writeToClipboard(text: string): Promise<void> {
-    // Implementation stub
   }
 } 

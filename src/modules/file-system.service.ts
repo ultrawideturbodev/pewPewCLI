@@ -10,7 +10,6 @@ import * as os from 'os';
 
 export class FileSystemService {
   constructor() {
-    // Initialize service if needed
   }
 
   /**

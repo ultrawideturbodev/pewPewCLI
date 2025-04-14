@@ -12,6 +12,12 @@ import { TaskService } from './task.service.js';
 import { UpdateService } from './update.service.js';
 import * as path from 'path';
 
+/**
+ * @class CliService
+ * @description Orchestrates command execution for the pew CLI.
+ * Parses commands, manages service instances, and dispatches execution to appropriate handler methods.
+ * Implemented as a lazy singleton.
+ */
 export class CliService {
   private command: string;
   private subCommand: string | null;
@@ -28,7 +34,8 @@ export class CliService {
   private static instance: CliService | null = null;
   
   /**
-   * Private constructor for singleton pattern
+   * Private constructor to enforce singleton pattern.
+   * Initializes required service instances.
    */
   private constructor() {
     this.command = '';
@@ -39,12 +46,14 @@ export class CliService {
     this.configService = ConfigService.getInstance();
     this.userInputService = new UserInputService();
     this.clipboardService = new ClipboardService();
-    this.taskService = new TaskService();
-    this.updateService = new UpdateService();
+    this.taskService = new TaskService(this.configService, this.fileSystemService);
+    this.updateService = new UpdateService(this.fileSystemService, this.configService);
   }
   
   /**
-   * Get singleton instance
+   * Gets the singleton instance of CliService.
+   * Creates the instance if it doesn't exist.
+   * @returns {CliService} The singleton instance.
    */
   public static getInstance(): CliService {
     if (!CliService.instance) {
@@ -54,21 +63,15 @@ export class CliService {
   }
 
   /**
-   * Parse command string
-   */
-  parseCommand(input: string): void {
-    // Implementation stub
-  }
-
-  /**
-   * Dispatch command to appropriate service
-   */
-  async dispatchCommand(): Promise<void> {
-    // Implementation stub
-  }
-
-  /**
-   * Handle init command logic
+   * Handles the initialization logic for the pew CLI in the current directory.
+   * Creates necessary configuration files and directories (.pew/).
+   * Prompts user for confirmation and task file path unless --force is used.
+   * Creates an empty task file if it doesn't exist.
+   * Runs a background update check after initialization.
+   *
+   * @param {{ force: boolean }} [flags={ force: false }] - Flags passed to the init command.
+   * @param {boolean} flags.force - If true, overwrites existing config without prompting.
+   * @returns {Promise<void>} A promise that resolves when initialization is complete or aborted.
    */
   async handleInit(flags: { force: boolean } = { force: false }): Promise<void> {
     // Get local config directory
@@ -97,7 +100,7 @@ export class CliService {
     let taskPath = '.pew/tasks.md'; // Default
     
     if (!flags.force) {
-      taskPath = await this.userInputService.askForPath(
+      taskPath = await this.userInputService.askForText(
         'Enter primary tasks file path:',
         taskPath
       );
@@ -126,7 +129,15 @@ export class CliService {
   }
 
   /**
-   * Handle set path command logic
+   * Handles setting configuration paths (currently only 'tasks').
+   * Prompts the user for the field and value if not provided.
+   * Saves the path to either local or global configuration based on the --global flag.
+   *
+   * @param {string} [field] - The configuration field to set (e.g., 'tasks').
+   * @param {string} [value] - The path value to set.
+   * @param {{ global: boolean }} [flags={ global: false }] - Flags passed to the set path command.
+   * @param {boolean} flags.global - If true, sets the path in the global config.
+   * @returns {Promise<void>} A promise that resolves when the path is set.
    */
   async handleSetPath(field?: string, value?: string, flags: { global: boolean } = { global: false }): Promise<void> {
     // Get field if not provided
@@ -144,7 +155,13 @@ export class CliService {
     // Get value if not provided
     let finalValue = value;
     if (!finalValue) {
-      finalValue = await this.userInputService.askForPath(`Enter value for ${finalField}:`);
+      finalValue = await this.userInputService.askForText(`Enter value for ${finalField}:`);
+    }
+
+    // Add check for undefined finalValue after prompt
+    if (typeof finalValue !== 'string' || finalValue.trim() === '') {
+      console.error(`Invalid value provided for ${finalField}. Aborting.`);
+      return;
     }
     
     // Save to config
@@ -155,7 +172,16 @@ export class CliService {
   }
 
   /**
-   * Handle paste tasks command logic
+   * Handles pasting tasks from the clipboard into a specified or default task file.
+   * Reads clipboard content, determines the target file path (handling overrides and non-existent paths),
+   * prompts the user for the paste mode (overwrite, append, insert) if not provided,
+   * and writes the content using the TaskService.
+   * Runs a background update check after pasting.
+   *
+   * @param {('overwrite' | 'append' | 'insert' | null)} [mode=null] - The paste mode to use.
+   * @param {{ path?: string }} [options={}] - Options for the paste command.
+   * @param {string} [options.path] - An optional specific file path to paste into, overriding the default/configured path.
+   * @returns {Promise<void>} A promise that resolves when the paste operation is complete or aborted.
    */
   async handlePasteTasks(
     mode: 'overwrite' | 'append' | 'insert' | null = null,
@@ -226,7 +252,14 @@ export class CliService {
   }
 
   /**
-   * Handle next task command logic
+   * Handles the logic for displaying and advancing the current task.
+   * Reads all configured task files, identifies the next incomplete task, and manages the `[pew]` prefix.
+   * If a task with `[pew]` is complete, it marks it done (`[x]`), removes the prefix, and adds the prefix to the next incomplete task.
+   * If no task has `[pew]`, it adds it to the first incomplete task found.
+   * Displays the current task with context headers and a summary.
+   * Handles cases for no tasks, all tasks completed, and errors during file processing.
+   *
+   * @returns {Promise<void>} A promise that resolves when the next task logic is processed and displayed.
    */
   async handleNextTask(): Promise<void> {
     try {
@@ -465,7 +498,12 @@ export class CliService {
   }
 
   /**
-   * Handle reset tasks command logic
+   * Handles resetting tasks in specified task files.
+   * Retrieves configured task files, checks for their existence, and prompts the user to select which files to reset.
+   * For selected files, it calls TaskService.resetTaskFile to uncheck completed tasks (`[x] -> [ ]`) and remove the `[pew]` prefix.
+   * Reports the number of tasks reset in each file and provides a summary.
+   *
+   * @returns {Promise<void>} A promise that resolves when the reset operation is complete, potentially exiting the process on error.
    */
   public async handleResetTasks(): Promise<void> {
     try {
@@ -589,7 +627,11 @@ export class CliService {
   }
 
   /**
-   * Handle update command logic
+   * Handles the explicit update check command.
+   * Calls the UpdateService to check for new versions and perform an update if available.
+   * Exits the process with appropriate codes based on the update result (success, failure, no update needed).
+   *
+   * @returns {Promise<void>} A promise that resolves when the update check is complete, although the process typically exits before resolution.
    */
   public async handleUpdate(): Promise<void> {
     try {

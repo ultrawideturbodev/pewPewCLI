@@ -8,6 +8,12 @@ import { ConfigService } from './config.service.js';
 import { FileSystemService } from './file-system.service.js';
 import * as path from 'path';
 
+/**
+ * @class TaskService
+ * @description Provides services for interacting with Markdown-based task files.
+ * Includes parsing lines, manipulating task status ([ ], [x], 👉), calculating statistics,
+ * reading/writing task files, and managing task context (headers, display ranges).
+ */
 export class TaskService {
   // Static regex patterns for task identification
   private static readonly TASK_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*[xX\s]*\s*\]/;
@@ -22,34 +28,50 @@ export class TaskService {
   private configService: ConfigService;
   private fileSystemService: FileSystemService;
 
-  constructor() {
-    this.configService = ConfigService.getInstance();
-    this.fileSystemService = new FileSystemService();
+  /**
+   * Constructor for TaskService.
+   * @param {ConfigService} configService - Instance of ConfigService.
+   * @param {FileSystemService} fileSystemService - Instance of FileSystemService.
+   */
+  constructor(configService: ConfigService, fileSystemService: FileSystemService) {
+    this.configService = configService;
+    this.fileSystemService = fileSystemService;
   }
 
   /**
-   * Check if a line is a task (checked or unchecked)
+   * Checks if a line represents a Markdown task item (checked or unchecked).
+   * Accounts for optional `👉` prefix.
+   * @param {string} line - The line to check.
+   * @returns {boolean} True if the line matches the task pattern, false otherwise.
    */
   public static isTask(line: string): boolean {
     return this.TASK_PATTERN.test(line);
   }
 
   /**
-   * Check if a line is an unchecked task
+   * Checks if a line represents an unchecked Markdown task item (`- [ ]`).
+   * Accounts for optional `👉` prefix.
+   * @param {string} line - The line to check.
+   * @returns {boolean} True if the line matches the unchecked task pattern, false otherwise.
    */
   public static isUncheckedTask(line: string): boolean {
     return this.UNCHECKED_PATTERN.test(line);
   }
 
   /**
-   * Check if a line is a checked task
+   * Checks if a line represents a checked Markdown task item (`- [x]` or `- [X]`).
+   * Accounts for optional `👉` prefix.
+   * @param {string} line - The line to check.
+   * @returns {boolean} True if the line matches the checked task pattern, false otherwise.
    */
   public static isCheckedTask(line: string): boolean {
     return this.CHECKED_PATTERN.test(line);
   }
 
   /**
-   * Check if a line is a header
+   * Checks if a line represents a Markdown header (`#` to `######`).
+   * @param {string} line - The line to check.
+   * @returns {boolean} True if the line matches the header pattern, false otherwise.
    */
   public static isHeader(line: string): boolean {
     return this.HEADER_PATTERN.test(line);
@@ -65,7 +87,7 @@ export class TaskService {
     
     const match = this.HEADER_PATTERN.exec(line);
     if (match && match[1]) {
-      return match[1].length; // Return the number of # characters
+      return match[1].length;
     }
     
     return 0;
@@ -79,22 +101,27 @@ export class TaskService {
   }
 
   /**
-   * Check if a line has the [pew] prefix
+   * Checks if a line contains the `👉 ` prefix used to indicate the current task.
+   * @param {string} line - The line to check.
+   * @returns {boolean} True if the line starts with the prefix, false otherwise.
    */
   public static lineHasPewPrefix(line: string): boolean {
     return this.PEW_PREFIX_REGEX.test(line);
   }
 
   /**
-   * Get line content without the [pew] prefix if it exists
+   * Removes the `👉 ` prefix from a line if it exists.
+   * @param {string} line - The line to process.
+   * @returns {string} The line without the prefix.
    */
   public static getLineWithoutPewPrefix(line: string): string {
     return line.replace(this.PEW_PREFIX_REGEX, '');
   }
 
   /**
-   * Find task with [pew] prefix in the given lines
-   * Returns the index of the first task with [pew] prefix, or -1 if none found
+   * Finds the index of the first task line containing the `👉 ` prefix.
+   * @param {string[]} lines - An array of lines to search.
+   * @returns {number} The 0-based index of the line with the prefix, or -1 if not found.
    */
   public static findTaskWithPewPrefix(lines: string[]): number {
     for (let i = 0; i < lines.length; i++) {
@@ -106,17 +133,18 @@ export class TaskService {
   }
 
   /**
-   * Add [pew] prefix to a specific line
-   * Returns a new array with the modified line
+   * Adds the `👉 ` prefix to the line at the specified index, if it doesn't already have it.
+   * @param {string[]} lines - The array of lines.
+   * @param {number} index - The index of the line to modify.
+   * @returns {string[]} A new array with the modified line.
    */
   public static addPewPrefix(lines: string[], index: number): string[] {
     if (index < 0 || index >= lines.length) {
-      return [...lines]; // Return copy of original if index is invalid
+      return [...lines];
     }
     
-    const newLines = [...lines]; // Create a copy of the array
+    const newLines = [...lines];
     
-    // Only add prefix if it doesn't already exist
     if (!this.lineHasPewPrefix(newLines[index])) {
       newLines[index] = this.PEW_PREFIX + newLines[index];
     }
@@ -125,17 +153,18 @@ export class TaskService {
   }
 
   /**
-   * Remove [pew] prefix from a specific line
-   * Returns a new array with the modified line
+   * Removes the `👉 ` prefix from the line at the specified index, if it exists.
+   * @param {string[]} lines - The array of lines.
+   * @param {number} index - The index of the line to modify.
+   * @returns {string[]} A new array with the modified line.
    */
   public static removePewPrefix(lines: string[], index: number): string[] {
     if (index < 0 || index >= lines.length) {
-      return [...lines]; // Return copy of original if index is invalid
+      return [...lines];
     }
     
-    const newLines = [...lines]; // Create a copy of the array
+    const newLines = [...lines];
     
-    // Only remove if prefix exists
     if (this.lineHasPewPrefix(newLines[index])) {
       newLines[index] = this.getLineWithoutPewPrefix(newLines[index]);
     }
@@ -144,7 +173,9 @@ export class TaskService {
   }
 
   /**
-   * Find the first unchecked task in the given lines
+   * Finds the index of the first unchecked task (`- [ ]`) in an array of lines.
+   * @param {string[]} lines - The array of lines to search.
+   * @returns {number} The 0-based index of the first unchecked task, or -1 if none found.
    */
   public static findFirstUncheckedTask(lines: string[]): number {
     for (let i = 0; i < lines.length; i++) {
@@ -156,7 +187,10 @@ export class TaskService {
   }
 
   /**
-   * Find the next unchecked task after the given start index
+   * Finds the index of the next unchecked task (`- [ ]`) after a given starting index.
+   * @param {string[]} lines - The array of lines to search.
+   * @param {number} startIndex - The index to start searching after.
+   * @returns {number} The 0-based index of the next unchecked task, or -1 if none found.
    */
   public static findNextUncheckedTask(lines: string[], startIndex: number): number {
     for (let i = startIndex + 1; i < lines.length; i++) {
@@ -168,7 +202,9 @@ export class TaskService {
   }
 
   /**
-   * Find the first task (checked or unchecked) in the given lines
+   * Finds the index of the first task (checked or unchecked) in an array of lines.
+   * @param {string[]} lines - The array of lines to search.
+   * @returns {number} The 0-based index of the first task, or -1 if none found.
    */
   public static findFirstTask(lines: string[]): number {
     for (let i = 0; i < lines.length; i++) {
@@ -180,7 +216,18 @@ export class TaskService {
   }
 
   /**
-   * Write content to tasks file with specified mode
+   * Writes content to a task file, supporting different modes.
+   * Ensures the target directory exists before writing.
+   * Processes content by replacing escaped newlines (`\n`) with actual newlines.
+   *
+   * @param {string} filePath - The absolute path to the target task file.
+   * @param {string} content - The content to write.
+   * @param {('overwrite' | 'append' | 'insert')} mode - The writing mode:
+   *   - `overwrite`: Replaces the entire file content.
+   *   - `append`: Adds the content to the end of the file.
+   *   - `insert`: Adds the content to the beginning of the file.
+   * @returns {Promise<void>} A promise that resolves when writing is complete.
+   * @throws {Error} If writing to the file fails.
    */
   async writeTasksContent(filePath: string, content: string, mode: 'overwrite' | 'append' | 'insert'): Promise<void> {
     try {
@@ -212,8 +259,7 @@ export class TaskService {
         if (mode === 'append') {
           // For append mode, add content to the end
           finalContent = existingContent ? `${existingContent}\n${processedContent}` : processedContent;
-        } else { // insert mode
-          // For insert mode, add content to the beginning
+        } else {
           finalContent = existingContent ? `${processedContent}\n${existingContent}` : processedContent;
         }
         
@@ -227,73 +273,10 @@ export class TaskService {
   }
 
   /**
-   * Read tasks from file
-   */
-  async readTasks(): Promise<string[]> {
-    // Implementation stub
-    return [];
-  }
-
-  /**
-   * Write tasks to file
-   */
-  async writeTasks(tasks: string[]): Promise<void> {
-    // Implementation stub
-  }
-
-  /**
-   * Parse task lines to determine completion status
-   */
-  parseTasks(taskLines: string[]): { completed: number; total: number; tasks: Array<{ text: string; isComplete: boolean }> } {
-    // Implementation stub
-    return {
-      completed: 0,
-      total: 0,
-      tasks: []
-    };
-  }
-
-  /**
-   * Find the next uncompleted task
-   */
-  findNextTask(tasks: Array<{ text: string; isComplete: boolean }>): { text: string; index: number } | null {
-    // Implementation stub
-    return null;
-  }
-
-  /**
-   * Mark a task as complete
-   */
-  markTaskComplete(tasks: string[], index: number): string[] {
-    // Implementation stub
-    return tasks;
-  }
-
-  /**
-   * Add content to tasks file
-   */
-  async addContentToTasksFile(content: string, mode: 'overwrite' | 'append' | 'insert'): Promise<void> {
-    // Implementation stub
-  }
-
-  /**
-   * Get task statistics
-   */
-  public static getTaskStats(tasks: Array<{ text: string; isComplete: boolean }>): { total: number; completed: number; remaining: number; percentComplete: number } {
-    // Implementation stub
-    return {
-      total: 0,
-      completed: 0,
-      remaining: 0,
-      percentComplete: 0
-    };
-  }
-
-  /**
-   * Get task statistics from lines
-   * 
-   * Takes an array of lines and returns statistics about the tasks in them
-   * (total count, completed count, remaining count)
+   * Calculates statistics (total, completed, remaining) based on task lines.
+   * Iterates through lines, identifying tasks and their completion status.
+   * @param {string[]} lines - An array of lines from a task file.
+   * @returns {{ total: number, completed: number, remaining: number }} An object containing the task counts.
    */
   public static getTaskStatsFromLines(lines: string[]): { total: number, completed: number, remaining: number } {
     let completedTasks = 0;
@@ -319,10 +302,10 @@ export class TaskService {
   }
 
   /**
-   * Generate a formatted summary string from task statistics
-   * 
-   * Takes a task statistics object and returns a formatted string
-   * showing total, completed (with percentage), and remaining tasks
+   * Generates a formatted summary string from task statistics.
+   * Example: "Total: 10 task(s) | Completed: 5 (50.0%) | Remaining: 5"
+   * @param {{ total: number, completed: number, remaining: number }} stats - The statistics object.
+   * @returns {string} A formatted summary string.
    */
   public static getSummary(stats: { total: number, completed: number, remaining: number }): string {
     const { total, completed, remaining } = stats;
@@ -332,10 +315,11 @@ export class TaskService {
   }
 
   /**
-   * Get context headers for a task
-   * 
-   * Takes an array of lines and a task index, searches backwards for up to two header lines,
-   * and returns them formatted as a single string (e.g., "Header 1 - Header 2")
+   * Finds the nearest preceding Markdown headers (up to two levels) for context.
+   * Searches backwards from the task index.
+   * @param {string[]} lines - The array of lines from the task file.
+   * @param {number} taskIndex - The 0-based index of the task line.
+   * @returns {string} A formatted string of the context headers (e.g., "Header 1 - Subheader A"), or an empty string if no headers found.
    */
   public static getContextHeaders(lines: string[], taskIndex: number): string {
     if (taskIndex < 0 || taskIndex >= lines.length) {
@@ -344,17 +328,13 @@ export class TaskService {
 
     const headers: string[] = [];
     
-    // Search backwards from the task index
     for (let i = taskIndex - 1; i >= 0; i--) {
       if (this.isHeader(lines[i])) {
-        // Extract the header text using HEADER_PATTERN
         const match = this.HEADER_PATTERN.exec(lines[i]);
         if (match && match[2]) {
           const headerText = match[2].trim();
-          // Add header to the beginning of the array to maintain correct order
           headers.unshift(headerText);
           
-          // Stop if we've found 2 headers
           if (headers.length === 2) {
             break;
           }
@@ -362,24 +342,21 @@ export class TaskService {
       }
     }
     
-    // Join headers with " - " and return
     return headers.join(' - ');
   }
 
   /**
-   * Determine the output range for displaying a task
-   * 
-   * Takes an array of lines and a task index, determines the start and end line indices
-   * for displaying the task (including context, sub-tasks, descriptions).
-   * Returns an object with startIndex and endIndex.
+   * Determines the line range to display for a specific task, including its context.
+   * Finds the nearest preceding header and the next task or header of the same/higher level.
+   * @param {string[]} lines - The array of lines from the task file.
+   * @param {number} taskIndex - The 0-based index of the task line.
+   * @returns {{ startIndex: number, endIndex: number }} An object containing the 0-based start and end indices (exclusive) for the display range.
    */
   public static getTaskOutputRange(lines: string[], taskIndex: number): { startIndex: number, endIndex: number } {
-    // Handle invalid task index
     if (taskIndex < 0 || taskIndex >= lines.length) {
       return { startIndex: 0, endIndex: 0 };
     }
 
-    // Find the governing header level for the task
     let governingLevel = 0;
     for (let i = taskIndex - 1; i >= 0; i--) {
       const headerLevel = this.getLineHeaderLevel(lines[i]);
@@ -389,7 +366,6 @@ export class TaskService {
       }
     }
 
-    // Find startIndex by scanning backwards for a header
     let startIndex = 0;
     for (let i = taskIndex - 1; i >= 0; i--) {
       if (this.isHeader(lines[i])) {
@@ -398,7 +374,6 @@ export class TaskService {
       }
     }
 
-    // Find endIndex by scanning forwards for a task or a header with level <= governingLevel
     let endIndex = lines.length;
     for (let i = taskIndex + 1; i < lines.length; i++) {
       if (this.isTask(lines[i]) || 
@@ -412,46 +387,42 @@ export class TaskService {
   }
 
   /**
-   * Mark a task as complete
-   * 
-   * Takes a task line string, finds the unchecked task marker (- [ ]),
-   * and replaces it with the checked marker (- [x]), preserving indentation,
-   * surrounding text, and the [pew] prefix if present.
+   * Marks an unchecked task line as complete by changing `[ ]` to `[x]`.
+   * Preserves indentation and the optional `👉` prefix.
+   * Does nothing if the line is not an unchecked task.
+   * @param {string} line - The task line to modify.
+   * @returns {string} The modified line with the task marked as complete, or the original line if no change was needed.
    */
   public static markTaskComplete(line: string): string {
     if (!this.isUncheckedTask(line)) {
       return line;
     }
     
-    // Check if line has [pew] prefix
     const hasPewPrefix = this.lineHasPewPrefix(line);
     
-    // Get line without prefix if it exists
     const lineWithoutPrefix = hasPewPrefix ? this.getLineWithoutPewPrefix(line) : line;
     
-    // Replace the unchecked marker with checked marker
     const modifiedLineWithoutPrefix = lineWithoutPrefix.replace(/-\s*\[\s*\]/, (match) => match.replace('[ ]', '[x]'));
     
-    // Return line with prefix if it had one
     return hasPewPrefix ? this.PEW_PREFIX + modifiedLineWithoutPrefix : modifiedLineWithoutPrefix;
   }
 
   /**
-   * Write an array of lines to the task file
-   * 
-   * Takes an array of strings (lines) and writes them to the specified task file,
-   * overwriting the existing content.
+   * Writes an array of lines to a specified file path, overwriting existing content.
+   * Ensures the directory exists before writing.
+   * Joins lines with newline characters.
+   * @param {string} filePath - The absolute path to the target file.
+   * @param {string[]} lines - An array of strings representing the lines to write.
+   * @returns {Promise<void>} A promise that resolves when the file has been written.
+   * @throws {Error} If writing to the file fails.
    */
   async writeTaskLines(filePath: string, lines: string[]): Promise<void> {
     try {
-      // Join the lines with newlines
       const content = lines.join('\n');
       
-      // Ensure directory exists
       const dirPath = path.dirname(filePath);
       await this.fileSystemService.ensureDirectoryExists(dirPath);
       
-      // Write the content to the file
       await this.fileSystemService.writeFile(filePath, content);
     } catch (error) {
       console.error('Error writing task lines:', error);
@@ -460,8 +431,10 @@ export class TaskService {
   }
   
   /**
-   * Replaces `- [x]` or `- [X]` with `- [ ]` while preserving indentation and prefixes.
-   * Returns the modified lines and the count of tasks reset.
+   * Unchecks all completed tasks (`- [x]` or `- [X]`) within an array of lines.
+   * Preserves indentation and prefixes.
+   * @param {string[]} lines - The array of lines to process.
+   * @returns {{ modifiedLines: string[]; resetCount: number }} An object containing the modified array of lines and the number of tasks that were reset.
    */
   public static uncheckTasksInLines(lines: string[]): { modifiedLines: string[]; resetCount: number } {
     let resetCount = 0;
@@ -482,9 +455,11 @@ export class TaskService {
   }
 
   /**
-   * Read task lines from the specified task file
-   * 
-   * Reads the task file at the given path and returns its content as an array of lines.
+   * Reads the content of a file and returns it as an array of lines.
+   * Throws an error if the file doesn't exist or cannot be read.
+   * @param {string} filePath - The absolute path to the file.
+   * @returns {Promise<string[]>} A promise that resolves with an array of strings, each representing a line.
+   * @throws {Error} If the file is not found or reading fails.
    */
   async readTaskLines(filePath: string): Promise<string[]> {
     try {
@@ -506,9 +481,11 @@ export class TaskService {
   }
 
   /**
-   * Resets all completed tasks in a specified file.
-   * Reads the file, unchecks tasks, and writes the changes back.
-   * Returns the number of tasks that were reset.
+   * Resets all completed tasks (`- [x]`) in a specified file back to incomplete (`- [ ]`).
+   * Reads the file, processes lines using `uncheckTasksInLines`, and writes back if changes were made.
+   * @param {string} filePath - The absolute path to the task file.
+   * @returns {Promise<number>} A promise that resolves with the number of tasks that were reset in the file.
+   * @throws {Error} If reading or writing the file fails.
    */
   public async resetTaskFile(filePath: string): Promise<number> {
     // Read the original lines from the file

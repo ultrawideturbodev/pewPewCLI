@@ -1,8 +1,8 @@
 /**
- * ConfigService
- * 
- * Manages loading and saving YAML configurations.
- * Handles configuration keys, values, and scopes (local vs global).
+ * @class ConfigService
+ * @description Manages loading, saving, and accessing YAML configurations for the pew CLI.
+ * Handles configuration keys, values, and scopes (local vs global project settings).
+ * Implemented as a lazy singleton.
  */
 import * as path from 'path';
 import { FileSystemService } from './file-system.service.js';
@@ -26,11 +26,14 @@ export class ConfigService {
   private isInitialized: boolean = false;
 
   /**
-   * Private constructor to enforce singleton pattern
+   * Private constructor to enforce singleton pattern.
+   * Initializes paths for global configuration files.
+   * @param {FileSystemService} fileSystemService - Instance of FileSystemService.
    */
-  private constructor() {
-    this.fileSystemService = new FileSystemService();
-    this.yamlService = new YamlService();
+  private constructor(fileSystemService: FileSystemService) {
+    this.fileSystemService = fileSystemService;
+    // YamlService now requires FileSystemService injected
+    this.yamlService = new YamlService(this.fileSystemService);
     
     // Set global config paths
     const homeDir = this.fileSystemService.getHomeDirectory();
@@ -40,33 +43,37 @@ export class ConfigService {
   }
 
   /**
-   * Get singleton instance
+   * Gets the singleton instance of ConfigService.
+   * Creates the instance if it doesn't exist.
+   * @returns {ConfigService} The singleton instance.
    */
   public static getInstance(): ConfigService {
     if (!ConfigService.instance) {
-      ConfigService.instance = new ConfigService();
+      // Provide the FileSystemService when creating the singleton instance
+      const fileSystem = new FileSystemService(); 
+      ConfigService.instance = new ConfigService(fileSystem);
     }
     return ConfigService.instance;
   }
 
   /**
-   * Initialize the service
+   * Initializes the ConfigService instance.
+   * Finds the local .pew directory, loads path and core configurations.
+   * Should be called before accessing configuration values.
+   * @returns {Promise<void>} A promise that resolves when initialization is complete.
    */
   public async initialize(): Promise<void> {
     if (this.isInitialized) return;
     
-    // Find local .pew directory
-    const localPewDir = await this._findLocalPewDir(process.cwd());
+    const localPewDir = await this.findLocalPewDir(process.cwd());
     
-    // Set local config paths if found
     if (localPewDir) {
       this.localConfigDir = localPewDir;
       this.localPathsFile = this.fileSystemService.joinPath(localPewDir, 'config', 'paths.yaml');
     }
     
-    // Load configs
-    await this._loadPathsConfig();
-    await this._loadCoreConfig();
+    await this.loadPathsConfig();
+    await this.loadCoreConfig();
     
     this.isInitialized = true;
   }
@@ -74,10 +81,9 @@ export class ConfigService {
   /**
    * Find local .pew directory by searching upwards from current directory
    */
-  private async _findLocalPewDir(startPath: string): Promise<string | null> {
+  private async findLocalPewDir(startPath: string): Promise<string | null> {
     let currentPath = startPath;
     
-    // Limit the search to avoid infinite loops
     const maxDepth = 10;
     let depth = 0;
     
@@ -88,10 +94,8 @@ export class ConfigService {
         return pewPath;
       }
       
-      // Move up one directory
       const parentPath = path.dirname(currentPath);
       
-      // If we've reached the root, stop searching
       if (parentPath === currentPath) {
         break;
       }
@@ -106,13 +110,11 @@ export class ConfigService {
   /**
    * Load paths configuration from YAML files
    */
-  private async _loadPathsConfig(): Promise<void> {
-    // Load global paths config
+  private async loadPathsConfig(): Promise<void> {
     if (await this.fileSystemService.pathExists(this.globalPathsFile)) {
       this.globalPathsData = await this.yamlService.readYamlFile(this.globalPathsFile);
     }
     
-    // Load local paths config if available
     if (this.localPathsFile && await this.fileSystemService.pathExists(this.localPathsFile)) {
       this.localPathsData = await this.yamlService.readYamlFile(this.localPathsFile);
     }
@@ -121,16 +123,16 @@ export class ConfigService {
   /**
    * Load core configuration from global YAML file
    */
-  private async _loadCoreConfig(): Promise<void> {
+  private async loadCoreConfig(): Promise<void> {
     if (await this.fileSystemService.pathExists(this.globalCoreFile)) {
       try {
         this.globalCoreData = await this.yamlService.readYamlFile(this.globalCoreFile);
       } catch (error: any) {
         console.warn(`Warning: Could not read or parse global core config file at ${this.globalCoreFile}. Using default values. Error: ${error.message}`);
-        this.globalCoreData = {}; // Reset to empty on error
+        this.globalCoreData = {};
       }
     } else {
-      this.globalCoreData = {}; // Set to empty if file doesn't exist
+      this.globalCoreData = {};
     }
   }
 
@@ -140,25 +142,18 @@ export class ConfigService {
   public async getTasksPaths(global: boolean = false): Promise<string[]> {
     await this.initialize();
     
-    // Determine which config to use
     const config = global ? this.globalPathsData : (this.localPathsFile ? this.localPathsData : this.globalPathsData);
     
-    // Get raw paths from config or use default
     const rawPaths = config.tasks && Array.isArray(config.tasks) ? config.tasks : ['.pew/tasks.md'];
     
-    // Determine if we're using the global config source
     const isGlobalSource = global || config === this.globalPathsData;
     
-    // Resolve paths based on their source
     if (isGlobalSource) {
-      // For global paths, resolve relative to the global config directory
       return rawPaths.map(p => path.resolve(this.globalConfigDir, p));
     } else if (this.localConfigDir) {
-      // For local paths, resolve relative to the project root (parent of .pew)
       const projectRoot = path.dirname(this.localConfigDir);
       return rawPaths.map(p => path.resolve(projectRoot, p));
     } else {
-      // Fallback if no config exists at all (using default)
       return rawPaths.map(p => path.resolve(process.cwd(), p));
     }
   }
@@ -170,33 +165,33 @@ export class ConfigService {
   public async getAllTasksPaths(): Promise<string[]> {
     await this.initialize();
     
-    // Determine the effective configuration data
     const config = this.localPathsFile && Object.keys(this.localPathsData).length > 0
       ? this.localPathsData
       : this.globalPathsData;
     
-    // Get raw paths from config or use default
     const rawPaths = config.tasks && Array.isArray(config.tasks) ? config.tasks : ['.pew/tasks.md'];
     
-    // Determine if we're using the global config source
     const isGlobalSource = config === this.globalPathsData;
     
-    // Resolve paths based on their source
     if (isGlobalSource) {
-      // For global paths, resolve relative to the global config directory
       return rawPaths.map(p => path.resolve(this.globalConfigDir, p));
     } else if (this.localConfigDir) {
-      // For local paths, resolve relative to the project root (parent of .pew)
       const projectRoot = path.dirname(this.localConfigDir);
       return rawPaths.map(p => path.resolve(projectRoot, p));
     } else {
-      // Fallback if no config exists at all (using default)
       return rawPaths.map(p => path.resolve(process.cwd(), p));
     }
   }
 
   /**
-   * Set tasks paths in config
+   * Sets the list of task file paths in the configuration.
+   * Optionally sets the dedicated path for 'paste' tasks.
+   *
+   * @param {string[]} paths - An array of paths to task files.
+   * @param {boolean} [global=false] - If true, saves to the global config; otherwise, saves to local config.
+   * @param {string} [pasteTaskPath] - Optional dedicated path for the file to paste tasks into. If empty or undefined, removes the 'paste-tasks' key.
+   * @returns {Promise<void>} A promise that resolves when the configuration is saved.
+   * @throws {Error} If the target configuration file (local or global) cannot be determined or written to.
    */
   public async setTasksPaths(
     paths: string[],
@@ -205,39 +200,29 @@ export class ConfigService {
   ): Promise<void> {
     await this.initialize();
 
-    // Determine target file and config data
     const targetFile = global ? this.globalPathsFile : this.localPathsFile;
     let configData = global ? { ...this.globalPathsData } : { ...this.localPathsData };
 
-    // Throw error if no target file could be determined (e.g., no local .pew and trying to write locally)
     if (!targetFile) {
-      // Provide a more specific error based on the context
       const errorContext = global
         ? "Cannot determine global config file path."
         : "Cannot determine local config file path. Run 'pew init' first or specify --global.";
       throw new Error(`No config file available: ${errorContext}`);
     }
 
-    // Ensure target directory exists
     const configDir = path.dirname(targetFile);
     await this.fileSystemService.ensureDirectoryExists(configDir);
 
-    // Update config data
     configData.tasks = paths;
 
-    // Set or remove the paste-tasks path based on the provided argument
     if (pasteTaskPath && pasteTaskPath.trim().length > 0) {
       configData['paste-tasks'] = pasteTaskPath.trim();
     } else {
-      // Remove the key if no valid path is provided
-      // This ensures clean-up if the user removes the paste target later
       delete configData['paste-tasks'];
     }
 
-    // Save config
     await this.yamlService.writeYamlFile(targetFile, configData);
 
-    // Update in-memory data
     if (global) {
       this.globalPathsData = configData;
     } else {
@@ -246,23 +231,29 @@ export class ConfigService {
   }
 
   /**
-   * Get local config directory
+   * Gets the path to the local project-specific configuration directory (.pew).
+   * @returns {string | null} The absolute path to the local .pew directory, or null if not found.
    */
   public getLocalConfigDir(): string | null {
     return this.localConfigDir;
   }
 
   /**
-   * Get global config directory
+   * Gets the path to the global user-level configuration directory (~/.pew).
+   * @returns {string} The absolute path to the global .pew directory.
    */
   public getGlobalConfigDir(): string {
     return this.globalConfigDir;
   }
 
   /**
-   * Get the resolved path for the default paste tasks file.
-   * Follows fallback logic: local 'paste-tasks' -> global 'paste-tasks' ->
-   * first local/global 'tasks' -> default './.pew/tasks.md'.
+   * Gets the resolved absolute path for the file where new tasks should be pasted by default.
+   * Fallback logic:
+   * 1. Checks local config for 'paste-tasks'.
+   * 2. Checks global config for 'paste-tasks'.
+   * 3. Uses the first path from the effective 'tasks' list (local first, then global).
+   * 4. Defaults to './.pew/tasks.md' relative to the current working directory if no other path is found.
+   * @returns {Promise<string>} A promise that resolves with the absolute path to the paste tasks file.
    */
   public async getPasteTasksPath(): Promise<string> {
     await this.initialize();
@@ -272,77 +263,70 @@ export class ConfigService {
     let configSourceDir: string;
     let configFilePath: string | null;
 
-    // Determine effective config source (prefer local)
     if (this.localPathsFile && Object.keys(this.localPathsData).length > 0) {
       effectiveConfig = this.localPathsData;
       isLocalSource = true;
-      // Local config paths are relative to the project root (parent of .pew)
       configSourceDir = this.localConfigDir ? path.dirname(this.localConfigDir) : process.cwd();
       configFilePath = this.localPathsFile;
     } else {
       effectiveConfig = this.globalPathsData;
       isLocalSource = false;
-      // Global config paths are relative to the global .pew directory
       configSourceDir = this.globalConfigDir;
       configFilePath = this.globalPathsFile;
     }
 
-    // 1. Check 'paste-tasks' key in effective config
     const pasteTaskPathValue = effectiveConfig['paste-tasks'];
     if (typeof pasteTaskPathValue === 'string' && pasteTaskPathValue.trim().length > 0) {
       return path.resolve(configSourceDir, pasteTaskPathValue.trim());
     } else if (pasteTaskPathValue !== undefined && pasteTaskPathValue !== null) {
-      // Key exists but is malformed
       const sourceName = configFilePath || (isLocalSource ? 'local' : 'global');
       console.warn(`Malformed 'paste-tasks' value in config file [${sourceName}], using fallback.`);
     }
 
-    // 2. Fallback 1: Check 'tasks' list in effective config
     const tasksList = effectiveConfig.tasks;
     if (Array.isArray(tasksList) && tasksList.length > 0 && typeof tasksList[0] === 'string' && tasksList[0].trim().length > 0) {
       return path.resolve(configSourceDir, tasksList[0].trim());
     }
 
-    // 3. Fallback 2: Default path relative to cwd
     return path.resolve(process.cwd(), '.pew/tasks.md');
   }
 
   /**
-   * Get a value from the global core configuration file.
-   * 
-   * @param key The configuration key to retrieve.
-   * @param defaultValue The default value to return if the key is not found.
-   * @returns The value associated with the key, or the defaultValue.
+   * Get a value from the global core configuration file (core.yaml).
+   * Ensures the service is initialized before reading.
+   *
+   * @template T
+   * @param {string} key - The configuration key to retrieve.
+   * @param {T} defaultValue - The value to return if the key is not found or the file doesn't exist.
+   * @returns {Promise<T>} A promise that resolves with the configuration value or the default value.
    */
   public async getGlobalCoreValue<T>(key: string, defaultValue: T): Promise<T> {
-    await this.initialize(); // Ensure configuration is loaded
+    await this.initialize();
     const value = this.globalCoreData[key];
     return value !== undefined && value !== null ? value : defaultValue;
   }
 
   /**
-   * Set a value in the global core configuration file.
-   * 
-   * @param key The configuration key to set.
-   * @param value The value to associate with the key.
+   * Set a value in the global core configuration file (core.yaml).
+   * Ensures the service is initialized before writing. Creates directories if needed.
+   *
+   * @param {string} key - The configuration key to set.
+   * @param {any} value - The value to associate with the key.
+   * @returns {Promise<void>} A promise that resolves when the configuration is saved.
+   * @throws {Error} If writing to the core configuration file fails.
    */
   public async setGlobalCoreValue(key: string, value: any): Promise<void> {
-    await this.initialize(); // Ensure configuration is loaded
+    await this.initialize();
 
-    // Create a copy to modify and write, preserving the original cache until write succeeds
     const coreDataToWrite = { ...this.globalCoreData };
     coreDataToWrite[key] = value;
 
     try {
-      // Ensure the global config directory exists
       await this.fileSystemService.ensureDirectoryExists(this.globalConfigDir);
-      // Write the updated data to the core file
       await this.yamlService.writeYamlFile(this.globalCoreFile, coreDataToWrite);
-      // Update the in-memory cache only after successful write
       this.globalCoreData = coreDataToWrite;
     } catch (error: any) {
       console.error(`Error writing global core config value for key '${key}' to ${this.globalCoreFile}: ${error.message}`);
-      // Optionally re-throw or handle the error more specifically
       throw new Error(`Failed to set global core value: ${error.message}`);
     }
   }

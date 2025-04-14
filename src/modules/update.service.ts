@@ -12,27 +12,43 @@ const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Constants
+const kPackageName = 'pew-pew-cli';
+const kNpmInstallCommand = `npm install -g ${kPackageName}@latest`;
+
+/**
+ * @class UpdateService
+ * @description Handles checking for, notifying about, and performing updates for the pew-pew-cli package.
+ * Interacts with npm to fetch version information and execute installation commands.
+ */
 export class UpdateService {
     private fileSystemService: FileSystemService;
     private configService: ConfigService;
     private currentVersion: string | null = null;
     private static readonly kUpdateCheckIntervalMs = 24 * 60 * 60 * 1000; // 1 day
 
-    constructor() {
-        this.fileSystemService = new FileSystemService();
-        this.configService = ConfigService.getInstance();
-        // Potentially make UpdateService a singleton if needed later
+    /**
+     * Constructor for UpdateService.
+     * @param {FileSystemService} fileSystemService - Instance of FileSystemService.
+     * @param {ConfigService} configService - Instance of ConfigService.
+     */
+    constructor(fileSystemService: FileSystemService, configService: ConfigService) {
+        this.fileSystemService = fileSystemService;
+        this.configService = configService;
     }
 
-    // Methods will be added in subsequent tasks
+    /**
+     * Gets the currently installed version of the CLI package from package.json.
+     * Caches the result after the first read.
+     * @returns {Promise<string>} A promise that resolves with the current package version.
+     * @throws {Error} If package.json cannot be read or the version field is missing.
+     */
     public async getCurrentVersion(): Promise<string> {
         if (this.currentVersion) {
             return this.currentVersion;
         }
 
         try {
-            // Assuming the compiled output is in dist/ and src/ is sibling to dist/
-            // Adjust this path based on your actual build output structure
             const packageJsonPath = path.resolve(__dirname, '../../package.json');
             const packageJsonContent = await this.fileSystemService.readFile(packageJsonPath);
             const packageJsonData = JSON.parse(packageJsonContent);
@@ -43,32 +59,36 @@ export class UpdateService {
             return this.currentVersion;
         } catch (error: any) {
             console.error('Error reading current version:', error.message);
-            // Consider throwing the error or returning a default/null
             throw new Error(`Failed to get current version: ${error.message}`);
         }
     }
 
+    /**
+     * Gets the latest available version of the CLI package from the npm registry.
+     * @returns {Promise<string>} A promise that resolves with the latest package version.
+     * @throws {Error} If fetching the latest version from npm fails.
+     */
     public async getLatestVersion(): Promise<string> {
         try {
-            const latest = await latestVersion('pew-pew-cli');
+            const latest = await latestVersion(kPackageName);
             return latest;
         } catch (error: any) {
             console.error('Error fetching latest version:', error.message);
-            // Consider throwing the error or returning a default/null
             throw new Error(`Failed to get latest version from npm: ${error.message}`);
         }
     }
 
+    /**
+     * Checks if a newer version of the package is available on npm compared to the current version.
+     * @returns {Promise<boolean>} A promise that resolves with true if an update is available, false otherwise.
+     */
     public async isUpdateAvailable(): Promise<boolean> {
         try {
             const currentVersion = await this.getCurrentVersion();
             const latestVersion = await this.getLatestVersion();
 
-            // Simple string comparison, assumes standard semver format where lexicographical order works
-            // For more robust comparison, consider using a library like 'semver'
             return latestVersion > currentVersion;
         } catch (error: any) {
-            // Log the error but return false, as we can't determine if an update is available
             console.error('Error checking if update is available:', error.message);
             return false;
         }
@@ -79,22 +99,34 @@ export class UpdateService {
             return await this.configService.getGlobalCoreValue<number>('lastUpdateCheckTimestamp', 0);
         } catch (error: any) {
             console.warn(`Warning: Could not read last update check timestamp. Assuming check is needed. Error: ${error.message}`);
-            // Return 0 to ensure the check runs if reading fails
             return 0;
         }
     }
 
+    /**
+     * Determines if an update check should be performed based on the configured interval.
+     * Reads the timestamp of the last check from global config.
+     * @returns {Promise<boolean>} A promise that resolves with true if a check is due, false otherwise.
+     */
     public async shouldCheckForUpdate(): Promise<boolean> {
         const lastCheckTimestamp = await this.getLastUpdateCheckTimestamp();
         const currentTimestamp = Date.now();
 
         if (lastCheckTimestamp === 0) {
-            return true; // Always check if never checked before or if reading failed
+            return true;
         }
 
         return (currentTimestamp - lastCheckTimestamp) > UpdateService.kUpdateCheckIntervalMs;
     }
 
+    /**
+     * Performs the update process: checks for updates, and if available, attempts to install the latest version using npm.
+     * Logs progress and results to the console.
+     * @returns {Promise<{success: boolean, error?: Error, noUpdateNeeded?: boolean}>} A promise that resolves with an object indicating the outcome:
+     *  - `success`: true if the update completed successfully or no update was needed.
+     *  - `error`: An Error object if the update check or installation failed.
+     *  - `noUpdateNeeded`: true if the package was already up to date.
+     */
     public async performUpdate(): Promise<{success: boolean, error?: Error, noUpdateNeeded?: boolean}> {
         console.log("Checking for updates...");
         let isAvailable = false;
@@ -102,13 +134,11 @@ export class UpdateService {
         let latestVersion = 'unknown';
 
         try {
-            // Use Promise.all to fetch versions concurrently, potentially faster
             [currentVersion, latestVersion] = await Promise.all([
                 this.getCurrentVersion(),
                 this.getLatestVersion()
             ]);
 
-            // Compare versions after fetching both
             isAvailable = latestVersion > currentVersion;
 
         } catch (error: any) {
@@ -117,33 +147,28 @@ export class UpdateService {
         }
 
         if (!isAvailable) {
-            console.log(`ℹ️ pew-pew-cli is already up to date (v${currentVersion}).`);
+            console.log(`ℹ️ ${kPackageName} is already up to date (v${currentVersion}).`);
             return { success: true, noUpdateNeeded: true };
         }
 
-        console.log(`Updating pew-pew-cli from v${currentVersion} to v${latestVersion}...`);
-        const command = 'npm install -g pew-pew-cli@latest';
+        console.log(`Updating ${kPackageName} from v${currentVersion} to v${latestVersion}...`);
 
         try {
-            // Consider adding a spinner here for better UX during install
-            const { stdout, stderr } = await execAsync(command);
+            const { stdout, stderr } = await execAsync(kNpmInstallCommand);
             if (stderr && !stderr.toLowerCase().includes('warn')) {
-                // Treat non-warning stderr as an error
                 throw new Error(stderr);
             }
-            // Fetch the *actually* installed version after update for confirmation
-            const updatedVersion = await this.getLatestVersion(); // Re-fetch latest as confirmation
-            console.log(`✅ pew-pew-cli updated successfully to v${updatedVersion}.`);
+            const updatedVersion = await this.getLatestVersion();
+            console.log(`✅ ${kPackageName} updated successfully to v${updatedVersion}.`);
             return { success: true };
         } catch (error: any) {
-            console.error(`❌ Error updating pew-pew-cli: ${error.message}`);
+            console.error(`❌ Error updating ${kPackageName}: ${error.message}`);
             return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
         }
     }
 
     private notifyUserOfUpdate(currentVersion: string, latestVersion: string): void {
-        // Use console.info or a dedicated logging service if available
-        console.info(`\nℹ️ Update available: pew-pew-cli v${latestVersion} is available (current: v${currentVersion}). Run 'pew update' to install.\n`);
+        console.info(`\nℹ️ Update available: ${kPackageName} v${latestVersion} is available (current: v${currentVersion}). Run 'pew update' to install.\n`);
     }
 
     private async setLastUpdateCheckTimestamp(): Promise<void> {
@@ -151,48 +176,46 @@ export class UpdateService {
         try {
             await this.configService.setGlobalCoreValue('lastUpdateCheckTimestamp', timestamp);
         } catch (error: any) {
-            // Log warning but don't block execution
             console.warn(`Warning: Could not set last update check timestamp. Error: ${error.message}`);
         }
     }
 
+    /**
+     * Runs the update check logic based on the configured interval and notifies the user if an update is available.
+     * This is typically run in the background after other commands complete.
+     * Updates the last check timestamp regardless of whether an update was found (unless checking fails).
+     * @returns {Promise<void>} A promise that resolves when the check and notification process is complete.
+     */
     public async runUpdateCheckAndNotify(): Promise<void> {
         try {
             const shouldCheck = await this.shouldCheckForUpdate();
             if (!shouldCheck) {
-                return; // Not enough time has passed
+                return;
             }
 
-            // Variables to store versions if needed for notification
             let currentVersion = 'unknown';
             let latestVersion = 'unknown';
             let updateAvailable = false;
 
             try {
-                 // Fetch versions first
                 [currentVersion, latestVersion] = await Promise.all([
                     this.getCurrentVersion(),
                     this.getLatestVersion()
                 ]);
                 updateAvailable = latestVersion > currentVersion;
 
-                // Set timestamp *after* successful check, regardless of update availability
-                await this.setLastUpdateCheckTimestamp(); 
+                await this.setLastUpdateCheckTimestamp();
 
             } catch (checkError: any) {
-                // Log error during check but don't notify or update timestamp
-                console.warn(`⚠️ Could not check for pew-pew-cli updates: ${checkError.message}`);
-                // Do not proceed to notification or timestamp update if the check fails
+                console.warn(`⚠️ Could not check for ${kPackageName} updates: ${checkError.message}`);
                 return;
             }
 
-            // Notify only if an update is actually available
             if (updateAvailable) {
                 this.notifyUserOfUpdate(currentVersion, latestVersion);
             }
 
         } catch (error: any) {
-            // Catch unexpected errors in the outer logic (e.g., shouldCheckForUpdate fails critically)
             console.warn(`⚠️ An unexpected error occurred during the update check process: ${error.message}`);
         }
     }
