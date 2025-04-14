@@ -144,6 +144,38 @@ export class ConfigService {
   }
 
   /**
+   * Get all tasks paths from config
+   * Returns a resolved list of all task file paths
+   */
+  public async getAllTasksPaths(): Promise<string[]> {
+    await this.initialize();
+    
+    // Determine the effective configuration data
+    const config = this.localPathsFile && Object.keys(this.localPathsData).length > 0
+      ? this.localPathsData
+      : this.globalPathsData;
+    
+    // Get raw paths from config or use default
+    const rawPaths = config.tasks && Array.isArray(config.tasks) ? config.tasks : ['.pew/tasks.md'];
+    
+    // Determine if we're using the global config source
+    const isGlobalSource = config === this.globalPathsData;
+    
+    // Resolve paths based on their source
+    if (isGlobalSource) {
+      // For global paths, resolve relative to the global config directory
+      return rawPaths.map(p => path.resolve(this.globalConfigDir, p));
+    } else if (this.localConfigDir) {
+      // For local paths, resolve relative to the project root (parent of .pew)
+      const projectRoot = path.dirname(this.localConfigDir);
+      return rawPaths.map(p => path.resolve(projectRoot, p));
+    } else {
+      // Fallback if no config exists at all (using default)
+      return rawPaths.map(p => path.resolve(process.cwd(), p));
+    }
+  }
+
+  /**
    * Set tasks paths in config
    */
   public async setTasksPaths(paths: string[], global: boolean = false): Promise<void> {
