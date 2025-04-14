@@ -1,6 +1,6 @@
 # pewPewCLI ❤️ Agents' Fav Dev Tool 🔫
 
-[![Brought to you by ultrawideturbodevs.com](https://img.shields.io/badge/Brought%20to%20you%20by-ultrawideturbodevs.com-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0xIDE1aC0ydi0yaDJ2MnptMC00aC0yVjdoMnY2eiIvPjwvc3ZnPg==)](https://ultrawideturbodevs.com)
+[![Built to you by ultrawideturbodevs.com](https://img.shields.io/badge/Built%20to%20you%20by-ultrawideturbodevs.com-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0xIDE1aC0ydi0yaDJ2MnptMC00aC0yVjdoMnY2eiIvPjwvc3ZnPg==)](https://ultrawideturbodevs.com)
 
 [![npm version](https://badge.fury.io/js/pew-pew-cli.svg)](https://badge.fury.io/js/pew-pew-cli)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/username/pew-pew-cli/actions) <!-- Placeholder -->
@@ -80,14 +80,14 @@ pew next task
 
 Here's a summary of available commands:
 
-| Command             | Description                                                                 | Options                                                                                                                               |
-| :------------------ | :-------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-| `pew init`          | Initialize the `pewPewCLI` project structure in the current directory.      | `-f, --force`: Force initialization even if `.pew` directory exists.                                                                   |
-| `pew set path`      | Set a configuration value for a path (currently only `tasks`).              | `--field <field>`: Field to set (only `tasks`).<br>`--value <value>`: Path value to set.<br>`-g, --global`: Set in global config (`~/.pew`). |
-| `pew paste tasks`   | Paste clipboard content into the configured task file.                      | `--mode <mode>`: Paste mode (`overwrite`, `append`, `insert`). Prompts if omitted.<br>`--path <value>`: Specify target file path, overriding config. |
-| `pew next task`     | Marks the current task (`👉`) complete and displays the next available task. | _None_                                                                                                                                |
-| `pew reset tasks`   | Uncheck all completed tasks (`[x]`) in configured task files interactively. | _None_                                                                                                                                |
-| `pew update`        | Check for updates and install the latest version of `pew-pew-cli`.          | _None_                                                                                                                                |
+| Command           | Description                                                                  | Options                                                                                                                                              |
+|:------------------|:-----------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pew init`        | Initialize the `pewPewCLI` project structure in the current directory.       | `-f, --force`: Force initialization even if `.pew` directory exists.                                                                                 |
+| `pew set path`    | Set a configuration value for a path (currently only `tasks`).               | `--field <field>`: Field to set (only `tasks`).<br>`--value <value>`: Path value to set.<br>`-g, --global`: Set in global config (`~/.pew`).         |
+| `pew paste tasks` | Paste clipboard content into the configured task file.                       | `--mode <mode>`: Paste mode (`overwrite`, `append`, `insert`). Prompts if omitted.<br>`--path <value>`: Specify target file path, overriding config. |
+| `pew next task`   | Marks the current task (`👉`) complete and displays the next available task. | _None_                                                                                                                                               |
+| `pew reset tasks` | Uncheck all completed tasks (`[x]`) in configured task files interactively.  | _None_                                                                                                                                               |
+| `pew update`      | Check for updates and install the latest version of `pew-pew-cli`.           | _None_                                                                                                                                               |
 
 ### 📂 `pew init`
 
@@ -115,7 +115,7 @@ pew set path --field tasks --value /path/to/my/global/tasks.md -g
 # Note: 'paste-tasks' must currently be set by editing the paths.yaml file directly.
 ```
 
-###📋 `pew paste tasks`
+### 📋 `pew paste tasks`
 
 Reads content from your system clipboard and writes it to a task file. By default, it targets the file specified by `paste-tasks` in `paths.yaml` (or falls back to the first file under `tasks:`). You can specify the mode (`overwrite`, `append`, `insert`) or the target path using options. If no mode is specified, it will prompt interactively.
 
