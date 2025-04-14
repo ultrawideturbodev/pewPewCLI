@@ -27,7 +27,7 @@
     "ai-coding-assistant"
   ],
   "author": "ultrawideturbodev <brian@ultrawideturbodev.com>",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "description": "pewPewCLI - agents fav dev tool",
   "files": [
     "dist",

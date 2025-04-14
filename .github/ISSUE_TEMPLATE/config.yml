@@ -1,0 +1,6 @@
+# .github/ISSUE_TEMPLATE/config.yml
+blank_issues_enabled: false # Disable blank issues
+contact_links:
+  - name: Ask a Question (Usage Support)
+    url: https://github.com/ultrawideturbodev/pew-pew-cli/discussions # Link to Discussions if enabled, or other support channel
+    about: Please ask and answer questions here. 

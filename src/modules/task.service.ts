@@ -460,6 +460,28 @@ export class TaskService {
   }
   
   /**
+   * Replaces `- [x]` or `- [X]` with `- [ ]` while preserving indentation and prefixes.
+   * Returns the modified lines and the count of tasks reset.
+   */
+  public static uncheckTasksInLines(lines: string[]): { modifiedLines: string[]; resetCount: number } {
+    let resetCount = 0;
+    // Regex to capture: 
+    // 1: Leading whitespace and '- [' 
+    // 2: The closing ']' and the rest of the line (after the [x])
+    const checkedPattern = /^(\s*-\s*\[)[xX](\].*)$/i;
+    
+    const modifiedLines = lines.map(line => {
+      const replacedLine = line.replace(checkedPattern, `$1 $2`); // Reconstruct with group 1 (prefix) and group 2 (suffix)
+      if (replacedLine !== line) { // Check if a replacement actually occurred
+        resetCount++;
+      }
+      return replacedLine;
+    });
+
+    return { modifiedLines, resetCount };
+  }
+
+  /**
    * Read task lines from the specified task file
    * 
    * Reads the task file at the given path and returns its content as an array of lines.
@@ -481,5 +503,27 @@ export class TaskService {
       console.error('Error reading task lines:', error);
       throw error;
     }
+  }
+
+  /**
+   * Resets all completed tasks in a specified file.
+   * Reads the file, unchecks tasks, and writes the changes back.
+   * Returns the number of tasks that were reset.
+   */
+  public async resetTaskFile(filePath: string): Promise<number> {
+    // Read the original lines from the file
+    const originalLines = await this.readTaskLines(filePath);
+
+    // Get the modified lines and the count of tasks reset
+    const { modifiedLines, resetCount } = TaskService.uncheckTasksInLines(originalLines);
+
+    // Write the modified lines back to the file only if changes were made
+    // Although writing the same content is often harmless, this avoids unnecessary I/O
+    if (resetCount > 0) {
+      await this.writeTaskLines(filePath, modifiedLines);
+    }
+
+    // Return the count of reset tasks
+    return resetCount;
   }
 } 

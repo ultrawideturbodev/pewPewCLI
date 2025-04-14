@@ -2,6 +2,22 @@
 
 All notable changes to pewPewCLI will be documented in this file.
 
+## v0.3.0
+
+### April 14, 2025
+
+#### ✨ Features
+- Added `pew reset tasks` command to uncheck all completed tasks in selected configured task files via an interactive prompt.
+
+#### 🛠️ Improvements
+- Added `TaskService.uncheckTasksInLines` static utility method.
+- Enhanced `CliService.handleResetTasks` to filter file paths and handle interactive multi-selection prompts.
+- Updated `UserInputService.askForMultipleSelections` to correctly handle checkbox choice objects.
+- Enhanced `pew reset tasks` prompt to show per-file task summaries.
+
+#### 🐛 Bug fixes:
+- Fixed `TaskService.uncheckTasksInLines` to preserve task text when unchecking completed tasks.
+
 ## v0.2.0
 
 ### April 14, 2025

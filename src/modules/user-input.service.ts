@@ -93,16 +93,18 @@ export class UserInputService {
   }
 
   /**
-   * Ask for multiple selections from a list of choices
+   * Ask for multiple selections from a list of choices using checkboxes.
+   * Choices should be objects with name, value, and optional checked status.
+   * Returns an array of the 'value' fields from the selected choices.
    */
-  async askForMultipleSelections<T>(message: string, choices: T[]): Promise<T[]> {
+  async askForMultipleSelections(message: string, choices: Array<{ name: string, value: string, checked?: boolean }>): Promise<string[]> {
     try {
-      const response = await inquirer.prompt([
+      const response = await inquirer.prompt<{ value: string[] }>([
         {
           type: 'checkbox',
           name: 'value',
           message,
-          choices
+          choices // Pass the array of choice objects directly
         }
       ]);
       return response.value;

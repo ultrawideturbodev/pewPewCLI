@@ -465,6 +465,130 @@ export class CliService {
   }
 
   /**
+   * Handle reset tasks command logic
+   */
+  public async handleResetTasks(): Promise<void> {
+    try {
+      // Initialize ConfigService if not already done (assuming it might be)
+      await this.configService.initialize();
+
+      // Get configured task file paths
+      const configuredPaths = await this.configService.getAllTasksPaths();
+      if (!configuredPaths || configuredPaths.length === 0) {
+        console.log('ℹ️ No task files configured. Use `pew set path --field tasks --value <path>`.');
+        return;
+      }
+
+      // Filter paths, check existence
+      const existingPaths: string[] = [];
+      const ignoredPaths: string[] = [];
+
+      for (const configPath of configuredPaths) {
+        if (await this.fileSystemService.pathExists(configPath)) {
+          existingPaths.push(configPath);
+        } else {
+          ignoredPaths.push(configPath);
+        }
+      }
+
+      // Notify user about ignored paths
+      if (ignoredPaths.length > 0) {
+        const relativeIgnored = ignoredPaths.map(p => path.relative(process.cwd(), p));
+        console.warn(`⚠️ Ignored non-existent task file(s): ${relativeIgnored.join(', ')}`);
+      }
+
+      // Check if any valid files remain
+      if (existingPaths.length === 0) {
+        console.log('ℹ️ No existing task files found in configuration. Nothing to reset.');
+        return; // Exit gracefully
+      }
+
+      // Dynamically prepare choices with task summaries
+      const choicePromises = existingPaths.map(async (filePath) => {
+        const relativePath = path.relative(process.cwd(), filePath);
+        try {
+          const lines = await this.taskService.readTaskLines(filePath);
+          const stats = TaskService.getTaskStatsFromLines(lines);
+          const summary = TaskService.getSummary(stats); // Reuse existing summary logic
+          const displayName = `${relativePath} (${summary})`;
+          return { name: displayName, value: filePath, checked: true }; // Default color, default indicator
+        } catch (readError: any) {
+          console.warn(`⚠️ Could not read file ${relativePath} to generate summary: ${readError.message}`);
+          const errorName = `${relativePath} (Error reading file)`;
+          // Return a disabled choice for files that couldn't be read
+          return { name: errorName, value: filePath, checked: false, disabled: 'Error reading file' };
+        }
+      });
+
+      const promptChoices = await Promise.all(choicePromises);
+
+      // Filter out disabled choices for the active selection logic, 
+      // though inquirer should handle displaying them correctly.
+      const enabledChoices = promptChoices.filter(choice => !choice.disabled);
+
+      // Check if there are any enabled choices left
+      if (enabledChoices.length === 0) {
+        console.log('ℹ️ No readable task files found or all encountered errors during summary generation.');
+        return;
+      }
+
+      let selectedPaths: string[] = [];
+      try {
+        // Use a simple prompt message now
+        const promptMessage = 'Select task files to reset:';
+        selectedPaths = await this.userInputService.askForMultipleSelections(
+          promptMessage,
+          promptChoices // Pass the full choices array (including disabled ones) to inquirer
+        );
+      } catch (error) {
+        // Assuming cancellation throws an error or returns a specific signal
+        // Depending on UserInputService implementation, adjust error handling
+        console.log('\nℹ️ Operation aborted by user.');
+        return; // Exit gracefully on cancellation
+      }
+
+      // Handle reset execution
+      if (selectedPaths.length === 0) {
+        console.log('ℹ️ No files selected for reset. 0 files reset.');
+      } else {
+        console.log(`\nAttempting to reset tasks in ${selectedPaths.length} selected file(s)...`);
+        let successCount = 0;
+        let errorCount = 0;
+        let totalActualResets = 0; // Track total resets
+
+        for (const filePath of selectedPaths) {
+          const relativePath = path.relative(process.cwd(), filePath);
+          try {
+            // Call the TaskService method and get the count of resets for this file
+            const countForFile = await this.taskService.resetTaskFile(filePath);
+            totalActualResets += countForFile; // Add to total
+            console.log(`   Resetting tasks in ${relativePath}... Done (${countForFile} tasks reset).`);
+            successCount++;
+          } catch (error: any) {
+            console.error(`❌ Error resetting file ${relativePath}: ${error.message}`);
+            errorCount++;
+            // Decide whether to continue or stop on error - continuing for now
+          }
+        }
+
+        // Final summary message
+        if (errorCount === 0) {
+          console.log(`\n✅ Successfully reset ${totalActualResets} tasks in ${successCount} file(s).`);
+        } else {
+          console.log(`\n⚠️ Completed reset with ${errorCount} error(s). Successfully reset ${totalActualResets} tasks in ${successCount} of ${selectedPaths.length} selected file(s).`);
+        }
+      }
+
+      // Optionally, ensure clean exit (though not strictly necessary if no errors)
+      // process.exit(0); 
+
+    } catch (error) {
+      console.error('❌ Error during reset tasks operation:', error);
+      process.exit(1); // Exit with error code
+    }
+  }
+
+  /**
    * Handle update command logic
    */
   public async handleUpdate(): Promise<void> {

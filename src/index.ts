@@ -12,23 +12,21 @@ program
   .description('pewPewCLI - agents fav dev tool')
   .version('0.1.3');
 
-// Initialize command
 program
   .command('init')
   .description('Initialize the pewPewCLI project structure')
   .option('-f, --force', 'Force initialization even if .pew directory exists')
-  .action(async (options) => {
+  .action(async (options: { force?: boolean }) => {
     await cliService.handleInit({ force: options.force || false });
   });
 
-// Set command with path subcommand
 program
   .command('set <subcommand>')
   .description('Set a configuration value')
   .option('--field <field>', 'Field to set (e.g., "tasks")')
   .option('--value <value>', 'Value to set')
   .option('-g, --global', 'Set in global config')
-  .action(async (subcommand, options) => {
+  .action(async (subcommand: string, options: { field?: string; value?: string; global?: boolean }) => {
     if (subcommand === 'path') {
       await cliService.handleSetPath(options.field, options.value, { global: options.global || false });
     } else {
@@ -36,7 +34,16 @@ program
     }
   });
 
-// Paste command
+interface PasteOptions {
+  overwrite?: boolean;
+  append?: boolean;
+  insert?: boolean;
+  force?: boolean;
+  path?: string;
+}
+
+type PasteMode = 'overwrite' | 'append' | 'insert' | null;
+
 program
   .command('paste')
   .argument('<target>', 'Target to paste to (e.g., "tasks")')
@@ -46,10 +53,10 @@ program
   .option('--insert', 'Insert content at the beginning of the tasks file')
   .option('--path <value>', 'Specify the target file path, overriding config')
   .option('--force', 'Force overwrite (alias for --overwrite)')
-  .action(async (target, options) => {
+  .action(async (target: string, options: PasteOptions) => {
     if (target === 'tasks') {
       // Initialize mode
-      let mode: 'overwrite' | 'append' | 'insert' | null = null;
+      let mode: PasteMode = null;
       
       // Collect active mode flags
       const modeFlags: string[] = [];
@@ -80,12 +87,11 @@ program
     }
   });
 
-// Next command
 program
   .command('next')
   .argument('<itemType>', 'Type of item to advance (e.g., "task")')
   .description('Advance to the next item')
-  .action(async (itemType) => {
+  .action(async (itemType: string) => {
     if (itemType === 'task') {
       await cliService.handleNextTask();
     } else {
@@ -93,7 +99,6 @@ program
     }
   });
 
-// Update command
 program
   .command('update')
   .description('Check for updates and install the latest version of pew-pew-cli')
@@ -101,9 +106,20 @@ program
     await cliService.handleUpdate(); 
   });
 
+program
+  .command('reset <target>')
+  .description('Uncheck all completed tasks in specified task files')
+  .action(async (target: string) => {
+    if (target === 'tasks') {
+      await cliService.handleResetTasks(); // New handler method
+    } else {
+      console.error(`Invalid target '${target}' for reset. Valid targets: tasks`);
+      process.exit(1);
+    }
+  });
+
 program.parse(process.argv);
 
-// Handle case where no command is given
 if (!process.argv.slice(2).length) {
   program.outputHelp();
 } 

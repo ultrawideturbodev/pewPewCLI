@@ -70,4 +70,6 @@ npm-debug.log
 yarn.lock
 
 # Debug
-.nyc_output/ 
+.nyc_output/
+
+content
