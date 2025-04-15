@@ -6,7 +6,7 @@
 
 Lightweight CLI tool that enables collaborative local task file management between developers and AI agents.
 
-![pew-next-task-flow.gif](assets/gifs/pew-next-task-flow.gif)
+![pew-next-task-flow.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-next-task-flow.gif)
 
 ## 💻 Install
 
@@ -51,9 +51,9 @@ pew init
 pew init --force
 ```
 
-![pew-init-demo.gif](assets/gifs/pew-init-demo.gif)
+![pew-init-demo.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-init-demo.gif)
 
-### 📋 `pew paste tasks`
+### �� `pew paste tasks`
 
 Reads content from your system clipboard and writes it to a task file. By default, it targets the file specified by `paste-tasks` in `paths.yaml` (or falls back to the first file under `tasks:`). You can specify the mode (`overwrite`, `append`, `insert`) or the target path using options. If no mode is specified, it will prompt interactively.
 
@@ -68,7 +68,7 @@ pew paste tasks --path specific/project/tasks.md --append
 pew paste tasks
 ```
 
-![pew-paste-task-demo.gif](assets/gifs/pew-paste-task-demo.gif)
+![pew-paste-task-demo.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-paste-task-demo.gif)
 
 ### 👉 `pew next task`
 
@@ -79,9 +79,9 @@ This is the core command for progressing through your task lists. It finds the c
 pew next task
 ```
 
-![pew-next-task-demo-small.gif](assets/gifs/pew-next-task-demo-small.gif)
+![pew-next-task-demo-small.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-next-task-demo-small.gif)
 
-### 🔄 `pew reset tasks`
+### �� `pew reset tasks`
 
 Resets completed tasks within your configured checklists. This command interactively prompts you to select which of the task files listed in your `paths.yaml` you want to reset. For each selected file, it changes all completed task markers (`- [x]` or `- [X]`) back to incomplete (`- [ ]`) and removes the `👉` prefix if present.
 
@@ -94,7 +94,7 @@ pew reset tasks
 
 The prompt will show a summary of tasks within each file to help you select.
 
-![pew-reset-tasks-demo.gif](assets/gifs/pew-reset-tasks-demo.gif)
+![pew-reset-tasks-demo.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-reset-tasks-demo.gif)
 
 ### ✨ `pew update`
 
@@ -113,7 +113,7 @@ You can manage different checklists across multiple files (e.g., main dev tasks,
 2. **Run `pew next task`:** pewPewCLI processes tasks sequentially through the files listed.
 3. **Reset Checklists:** Use `pew reset tasks` to uncheck completed items when you want to restart a workflow (like the QA checklist).
 
-![pew-next-task-flow.gif](assets/gifs/pew-next-task-flow.gif)
+![pew-next-task-flow.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-next-task-flow.gif)
 
 ---
 
