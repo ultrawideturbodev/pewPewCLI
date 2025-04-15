@@ -4,9 +4,9 @@
 
 [![npm version](https://badge.fury.io/js/pew-pew-cli.svg)](https://badge.fury.io/js/pew-pew-cli)
 
-Lightweight CLI tool that enables collaborative local task file management between developers and AI agents.
+![hero.png](assets/pngs/hero.png)
 
-![pew-next-task-flow.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-next-task-flow.gif)
+Lightweight CLI tool that enables collaborative local task file management between developers and AI agents.
 
 ## 💻 Install
 
@@ -35,9 +35,6 @@ tasks:
 # If omitted, defaults to the first path listed under 'tasks:'.
 paste-tasks: .pew/tasks.md
 ```
-
-![hero.png](assets/pngs/hero.png)
-
 
 ### 📂 `pew init`
 
