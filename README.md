@@ -53,7 +53,7 @@ pew init --force
 
 ![pew-init-demo.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-init-demo.gif)
 
-### �� `pew paste tasks`
+### 📂 `pew paste tasks`
 
 Reads content from your system clipboard and writes it to a task file. By default, it targets the file specified by `paste-tasks` in `paths.yaml` (or falls back to the first file under `tasks:`). You can specify the mode (`overwrite`, `append`, `insert`) or the target path using options. If no mode is specified, it will prompt interactively.
 
@@ -81,7 +81,7 @@ pew next task
 
 ![pew-next-task-demo-small.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-next-task-demo-small.gif)
 
-### �� `pew reset tasks`
+### 📂 `pew reset tasks`
 
 Resets completed tasks within your configured checklists. This command interactively prompts you to select which of the task files listed in your `paths.yaml` you want to reset. For each selected file, it changes all completed task markers (`- [x]` or `- [X]`) back to incomplete (`- [ ]`) and removes the `👉` prefix if present.
 
@@ -158,7 +158,7 @@ We adhere to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
 
 This project is proprietary software, owned and distributed by Ultra Wide Turbo Company. All rights reserved.
 
-Usage is subject to the terms outlined in the [LICENSE](LICENSE) file and requires a separate commercial agreement for any commercial use. Please review the [LICENSE](LICENSE) file for details.
+Usage is subject to the terms outlined in the [LICENSE](https://github.com/ultrawideturbodev/pewPewCLI/blob/main/LICENSE.md) file and requires a separate commercial agreement for any commercial use. Please review the [LICENSE](https://github.com/ultrawideturbodev/pewPewCLI/blob/main/LICENSE.md) file for details.
 
 ---
 
