@@ -13,6 +13,7 @@ import { UpdateService } from './update.service.js';
 import { TaskStatus, NextTaskResult, TaskFileSummary } from './task.service.js';
 import { LoggerService } from './logger.service.js';
 import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * @class CliService
@@ -79,9 +80,9 @@ export class CliService {
    */
   async handleInit(flags: { force: boolean } = { force: false }): Promise<void> {
     await this.configService.initialize();
-    const localPewDir = this.configService.getLocalConfigDir();
-    
-    if (localPewDir && !flags.force) {
+    const localPewDirPath = path.join(process.cwd(), '.pew');
+
+    if (!flags.force && fs.existsSync(localPewDirPath)) {
       const confirmation = await this.userInputService.askForConfirmation(
         'Overwrite existing .pew configuration?',
         false
@@ -93,11 +94,10 @@ export class CliService {
       }
     }
     
-    const localPewPath = './.pew';
-    const configPath = `${localPewPath}/config`;
+    const configPath = path.join(localPewDirPath, 'config');
     await this.fileSystemService.ensureDirectoryExists(configPath);
     
-    let taskPath = '.pew/tasks.md';
+    let taskPath = path.join('.pew', 'tasks.md');
     
     if (!flags.force) {
       taskPath = await this.userInputService.askForText(
