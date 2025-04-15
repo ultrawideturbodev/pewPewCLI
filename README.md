@@ -4,7 +4,7 @@
 
 [![npm version](https://badge.fury.io/js/pew-pew-cli.svg)](https://badge.fury.io/js/pew-pew-cli)
 
-![hero.png](assets/pngs/hero.png)
+![hero.png](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/pngs/hero.png)
 
 Lightweight CLI tool that enables collaborative local task file management between developers and AI agents.
 
@@ -35,6 +35,17 @@ tasks:
 # If omitted, defaults to the first path listed under 'tasks:'.
 paste-tasks: .pew/tasks.md
 ```
+
+## 📝 Commands
+
+| Command           | Description                                                                  | Options                                                                                                                                         |
+|:------------------|:-----------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pew init`        | Initialize the `pewPewCLI` project structure in the current directory.       | `-f, --force`: Force initialization even if `.pew` directory exists.                                                                            |
+| `pew set path`    | Set a configuration value for a path (currently only `tasks`).               | `--field <field>`: Field to set (only `tasks`).<br>`--value <value>`: Path value to set.<br>`-g, --global`: Set in global config (`~/.pew`).    |
+| `pew paste tasks` | Paste clipboard content into the configured task file.                       | <mode> Paste mode (`--override`, `--append`, `--insert`). Prompts if omitted.<br>`--path <value>`: Specify target file path, overriding config. |
+| `pew next task`   | Marks the current task (`👉`) complete and displays the next available task. | _None_                                                                                                                                          |
+| `pew reset tasks` | Uncheck all completed tasks (`[x]`) in configured task files interactively.  | _None_                                                                                                                                          |
+| `pew update`      | Check for updates and install the latest version of `pew-pew-cli`.           | _None_                                                                                                                                          |
 
 ### 📂 `pew init`
 
@@ -112,22 +123,6 @@ You can manage different checklists across multiple files (e.g., main dev tasks,
 
 ![pew-next-task-flow.gif](https://raw.githubusercontent.com/ultrawideturbodev/pewPewCLI/main/assets/gifs/pew-next-task-flow.gif)
 
----
-
-## 📝 Commands Reference
-
-Summary of available commands:
-
-| Command           | Description                                                                  | Options                                                                                                                                         |
-|:------------------|:-----------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------|
-| `pew init`        | Initialize the `pewPewCLI` project structure in the current directory.       | `-f, --force`: Force initialization even if `.pew` directory exists.                                                                            |
-| `pew set path`    | Set a configuration value for a path (currently only `tasks`).               | `--field <field>`: Field to set (only `tasks`).<br>`--value <value>`: Path value to set.<br>`-g, --global`: Set in global config (`~/.pew`).    |
-| `pew paste tasks` | Paste clipboard content into the configured task file.                       | <mode> Paste mode (`--override`, `--append`, `--insert`). Prompts if omitted.<br>`--path <value>`: Specify target file path, overriding config. |
-| `pew next task`   | Marks the current task (`👉`) complete and displays the next available task. | _None_                                                                                                                                          |
-| `pew reset tasks` | Uncheck all completed tasks (`[x]`) in configured task files interactively.  | _None_                                                                                                                                          |
-| `pew update`      | Check for updates and install the latest version of `pew-pew-cli`.           | _None_                                                                                                                                          |
-
-
 ## 📦 Dependencies
 
 Key dependencies include:
@@ -139,8 +134,6 @@ Key dependencies include:
 *   [latest-version](https://github.com/sindresorhus/latest-version): Fetches the latest version of an npm package.
 *   [chalk](https://github.com/chalk/chalk): Terminal string styling (used indirectly).
 
----
-
 ## 🤝 Contributing
 
 Contributions are welcome! We appreciate bug reports, feature suggestions, documentation improvements, and code contributions.
@@ -149,15 +142,11 @@ Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for detailed guideli
 
 We adhere to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
 
----
-
 ## 📄 License
 
 This project is proprietary software, owned and distributed by Ultra Wide Turbo Company. All rights reserved.
 
 Usage is subject to the terms outlined in the [LICENSE](https://github.com/ultrawideturbodev/pewPewCLI/blob/main/LICENSE.md) file and requires a separate commercial agreement for any commercial use. Please review the [LICENSE](https://github.com/ultrawideturbodev/pewPewCLI/blob/main/LICENSE.md) file for details.
-
----
 
 ## 📞 Contact & Support
 
@@ -166,13 +155,9 @@ Usage is subject to the terms outlined in the [LICENSE](https://github.com/ultra
 *   **Security Vulnerabilities:** Please report privately according to the [SECURITY.md](SECURITY.md) policy.
 *   **General Info:** Visit [ultrawideturbodevs.com](https://ultrawideturbodevs.com) for more context.
 
----
-
 ## 🏢 Ownership
 
 `pew-pew-cli` is owned and maintained by the Ultra Wide Turbo Company.
-
----
 
 ## 🤖 Example Agent Prompt
 
