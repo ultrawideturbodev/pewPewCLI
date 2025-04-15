@@ -1,0 +1,69 @@
+---
+description: Apply this rule when defining commands, subcommands, and options for a TypeScript CLI tool. It promotes using robust parsing libraries (like Commander.js or Yargs), adhering to POSIX conventions, providing clear descriptions, and separating parsing logic from command implementation for better maintainability and testability.
+globs:
+alwaysApply: false
+---
+
+# TypeScript CLI Command Definition and Parsing
+
+## Critical Rules
+
+-   Use a robust command-line parsing library (e.g., Commander.js, Yargs) with TypeScript support.
+-   Define commands, subcommands, and options explicitly.
+-   Follow POSIX-style flag conventions: short (`-f`) and long (`--flag`), combinable short flags (`-abc`).
+-   Provide descriptive names for commands (e.g., `init`, `generate`).
+-   Include a one-line description for each command and option in the help output.
+-   Use standard notation for arguments in help text: `<required>` and `[optional]`.
+-   Encapsulate command implementation logic in separate functions or classes (e.g., in `src/commands/`).
+-   Keep parsing definitions (using Commander/Yargs) separate from the core implementation logic; parsing layer should delegate to implementation functions.
+-   Consider a default command or show help for unknown commands.
+
+## Examples
+
+<example>
+  ```typescript
+  // Using Commander.js to define a command and delegate
+  import { Command } from 'commander';
+  import { initProject } from '../commands/init'; // Implementation logic
+
+  const program = new Command();
+
+  program
+    .command('init <projectName>')
+    .description('Initialize a new project')
+    .option('-f, --force', 'Overwrite existing files')
+    .action((projectName, options) => {
+      initProject(projectName, options.force); // Delegate to implementation
+    });
+
+  program.parse(process.argv);
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Mixing complex logic directly within the command definition
+  import { Command } from 'commander';
+  import fs from 'fs'; // Business logic inside action
+
+  const program = new Command();
+
+  program
+    .command('init')
+    .description('Initialize')
+    // Missing argument definition in help <projectName>
+    .action((options) => {
+      // Complex file system logic directly in the action handler
+      console.log('Initializing...');
+      if (fs.existsSync('./project')) {
+        console.error('Project already exists!');
+        process.exit(1);
+      }
+      fs.mkdirSync('./project');
+      // ... more logic ...
+      console.log('Done.');
+    });
+
+  program.parse(process.argv);
+  ```
+</example>

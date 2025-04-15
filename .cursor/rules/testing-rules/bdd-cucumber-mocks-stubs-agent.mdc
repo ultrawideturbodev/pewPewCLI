@@ -1,0 +1,94 @@
+---
+description: Apply this rule when writing Cucumber.js BDD tests (especially unit/integration level) for TypeScript applications (like CLIs) that interact with external systems or have side effects. It guides the use of mocks, stubs, and spies to control dependencies like file system access, network requests, user prompts, time, or randomness, ensuring tests are fast, reliable, and isolated.
+globs: features/step_definitions/**/*.ts, features/support/**/*.ts
+alwaysApply: false
+---
+
+# Mocks, Spies, and Stubs in BDD Tests (Cucumber.js/TypeScript)
+
+## Critical Rules
+
+-   Identify external dependencies and side effects in the code under test (file system, network, prompts, console output, `Date`, `Math.random`).
+-   Use mocking/stubbing techniques to control these dependencies during tests:
+    -   **File System:** Use mock file system libraries (e.g., `mock-fs`) or perform operations in a temporary directory (created/cleaned via hooks or in `Given` steps) using a wrapper/mock implementation.
+    -   **Network Calls:** Stub HTTP request libraries (`fetch`, `axios`) or inject mock API clients that return predefined responses based on the test scenario. Configure mocks in `Given` steps.
+    -   **User Prompts (Inquirer.js):** Stub the `inquirer.prompt` method to return predefined answers immediately, preventing tests from hanging. Restore the original method after the test/step.
+    -   **Console Output:** Spy on `console.log` (or the application's logger) using mocking libraries (like `sinon`) or a simple wrapper to capture output for assertions in `Then` steps. Restore after.
+    -   **Time/Randomness:** Use libraries like `sinon` to stub `Date` or `Math.random` to make tests deterministic.
+-   Inject mocks/stubs into the system under test, preferably via Dependency Injection (see rule on Isolating Logic).
+-   Set up mocks/stubs in `Given` steps or `Before` hooks.
+-   Verify interactions with mocks (e.g., checking if a function was called) or assert on captured output/state in `Then` steps.
+-   Clean up/restore mocks and stubs in `After` hooks or teardown steps to ensure test isolation.
+
+## Examples
+
+<example>
+  ```typescript
+  // features/support/mocks.ts
+  export class MockApiClient {
+    async fetchData(id: string): Promise<any> {
+      if (id === 'validId') return { data: 'mock data' };
+      throw new Error('Not Found');
+    }
+  }
+  ```
+  ```typescript
+  // features/step_definitions/api.steps.ts
+  import { Given, When, Then } from '@cucumber/cucumber';
+  import { CommandUsingApi } from '../../src/command'; // Assumes DI
+  import { MockApiClient } from '../support/mocks';
+  import { ICLIWorld } from '../support/world';
+
+  Given('the API will return success for ID {string}', function (this: ICLIWorld, id: string) {
+    // Setup for this scenario - could configure mock responses more dynamically
+    this.apiClient = new MockApiClient(); // Store mock client in World
+  });
+
+  When('I run the command with ID {string}', async function (this: ICLIWorld, id: string) {
+    const command = new CommandUsingApi(this.apiClient); // Inject mock
+    try {
+      this.result = await command.execute(id);
+      this.lastExitCode = 0;
+    } catch (e: any) {
+      this.error = e;
+      this.lastExitCode = 1;
+    }
+  });
+
+  Then('the result should contain mock data', function (this: ICLIWorld) {
+    expect(this.result).to.deep.equal({ data: 'mock data' });
+  });
+  ```
+  ```typescript
+  // Stubbing inquirer example
+  import * as inquirer from 'inquirer';
+  const originalPrompt = inquirer.prompt;
+
+  Given('the user will confirm the prompt', function () {
+    // Monkey-patch inquirer for this step/scenario
+    (inquirer as any).prompt = async () => ({ confirm: true });
+  });
+
+  // Remember to restore in an After hook or later step
+  // After(function() { inquirer.prompt = originalPrompt; });
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Test makes real network calls
+  When('I run the command with ID {string}', async function (this: ICLIWorld, id: string) {
+    // Uses the real API client, making the test dependent on external service
+    const command = new CommandUsingApi(new RealApiClient());
+    // ... test execution ...
+    // Test becomes slow, flaky, and requires network access.
+  });
+
+  // Test interacts with real file system outside of a controlled temp directory
+  Given('a config file exists at {string}', function (filePath: string) {
+    // Writes directly to a potentially shared location, not isolated
+    fs.writeFileSync(filePath, '{"key": "value"}');
+    // Forgetting to clean up can cause side effects for other tests.
+  });
+  ```
+</example>

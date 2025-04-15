@@ -1,0 +1,80 @@
+---
+description: Apply this rule when writing documentation (README) or implementing help output (`-h`, `--help`) for a CLI tool. It ensures comprehensive, clear, and consistent help text, usage examples, and standard output formatting to improve user experience.
+globs: README.md, docs/**/*.md, src/**/*.ts
+alwaysApply: false
+---
+
+# CLI Documentation and Help Output
+
+## Critical Rules
+
+-   Implement standard help flags (`-h`, `--help`) that display usage instructions for the CLI and its commands.
+-   Ensure help output includes:
+    -   A brief summary of the command.
+    -   Usage synopsis (e.g., `mycli command [options] <required_arg>`).
+    -   List of available options with descriptions (indicating defaults).
+    -   Clear distinction between required (`<arg>`) and optional (`[arg]`) arguments.
+-   Include practical usage examples in the help output or linked documentation.
+-   Maintain a `README.md` with:
+    -   Installation instructions.
+    -   Quick start usage example.
+    -   Overview of primary commands/options.
+    -   Link to more detailed documentation if applicable.
+-   Keep documentation and help text consistent with the actual CLI behavior. Update docs when code changes.
+-   Format CLI output clearly:
+    -   Be concise by default.
+    -   Use color/styling appropriately (respect `NO_COLOR`).
+    -   Consider a `--json` or similar flag for machine-readable output if applicable.
+-   Provide informative error messages that guide the user (e.g., suggest running `--help`).
+
+## Examples
+
+<example>
+  ```
+  # Output of `mycli init --help`
+  Usage: mycli init [options] <projectName>
+
+  Initialize a new project.
+
+  Arguments:
+    projectName          Name of the project to initialize
+
+  Options:
+    -f, --force          Overwrite existing project directory if it exists
+    -t, --template [url] Use a custom template URL (default: standard)
+    -h, --help           display help for command
+
+  Examples:
+    $ mycli init MyAwesomeProject
+    $ mycli init -f --template gh:user/repo MyProject
+  ```
+  ```markdown
+  # README.md excerpt
+  ## Installation
+  `npm install -g mycli`
+
+  ## Quick Start
+  `mycli init MyNewProject`
+  `cd MyNewProject`
+  `mycli start`
+  ```
+</example>
+
+<example type="invalid">
+  ```
+  # Output of `mycli init --help` - unclear, missing info
+  Usage: mycli init
+
+  Options: -f
+
+  # Missing argument description, option descriptions, examples.
+  ```
+  ```markdown
+  # README.md - Outdated or incomplete
+  ## Install
+  `npm i mycli` # Incorrect command (should be global)
+
+  ## Usage
+  `mycli --name foo` # Option --name was removed, now it's a positional arg
+  ```
+</example>

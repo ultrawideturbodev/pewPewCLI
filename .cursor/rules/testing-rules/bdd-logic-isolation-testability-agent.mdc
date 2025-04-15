@@ -1,0 +1,83 @@
+---
+description: Apply this rule when designing TypeScript CLI commands and writing BDD (Cucumber.js) tests for them. It promotes structuring command logic so it can be invoked directly from tests (unit/integration level) rather than always relying on spawning a full CLI process, improving test speed and control. This involves separating I/O and side effects from core logic.
+globs: src/**/*.ts, features/step_definitions/**/*.ts
+alwaysApply: false
+---
+
+# Isolating CLI Logic for Testability in BDD Tests
+
+## Critical Rules
+
+-   Design CLI command logic (e.g., functions or class methods in `src/commands/`) to be callable programmatically, separate from the CLI argument parsing layer.
+-   Abstract Input/Output (I/O) operations (console logging, reading stdin, file system access, network calls). Pass dependencies like loggers or API clients via constructors or parameters (Dependency Injection).
+-   In BDD step definitions (`When` steps), prefer calling the isolated command logic function directly instead of always spawning the CLI executable as a subprocess (`child_process.execSync`).
+-   Pass test inputs (arguments, options) directly to the function being tested.
+-   Capture outputs (return values, logged messages via mocked loggers, state changes) directly from the function call.
+-   Reserve full end-to-end tests (spawning the CLI process) for a smaller number of integration scenarios that verify the argument parsing and wiring, not for testing every single behavior.
+-   This approach allows for faster tests and easier mocking/stubbing of dependencies.
+
+## Examples
+
+<example>
+  ```typescript
+  // src/commands/init.ts - Logic is in an exported function
+  interface InitOptions { force?: boolean; logger: Logger; fs: FileSystem; }
+  export async function initProject(projectName: string, options: InitOptions): Promise<number> {
+    options.logger.log(`Initializing ${projectName}...`);
+    if (!options.force && await options.fs.exists(projectName)) {
+      options.logger.error('Project exists.');
+      return 1;
+    }
+    await options.fs.createDir(projectName);
+    // ... more logic using options.logger and options.fs
+    return 0; // Exit code
+  }
+  ```
+  ```typescript
+  // features/step_definitions/init.steps.ts - Calling the function directly
+  import { When, Then } from '@cucumber/cucumber';
+  import { initProject } from '../../src/commands/init';
+  import { MockLogger, MockFileSystem } from '../support/mocks'; // Mock implementations
+  import { ICLIWorld } from '../support/world';
+
+  When('I initialize a project named {string}', async function (this: ICLIWorld, projectName: string) {
+    const logger = new MockLogger();
+    const fs = new MockFileSystem(this.tempDir); // Mock FS operating in temp dir
+    this.lastExitCode = await initProject(projectName, { logger, fs }); // Call directly
+    this.lastCommandOutput = logger.getOutput(); // Capture logs from mock
+    // Check mock FS state in Then steps
+  });
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // src/commands/init.ts - Logic tightly coupled with process.stdout, fs calls
+  export function runInit() {
+    const projectName = process.argv[3]; // Reads directly from process.argv
+    console.log(`Initializing ${projectName}...`); // Writes directly to console
+    if (fs.existsSync(projectName)) { // Uses real fs directly
+      console.error('Project exists.');
+      process.exit(1);
+    }
+    fs.mkdirSync(projectName); // Direct side effect
+  }
+  ```
+  ```typescript
+  // features/step_definitions/init.steps.ts - Only uses execSync
+  import { When } from '@cucumber/cucumber';
+  import { execSync } from 'child_process';
+
+  When('I initialize a project named {string}', function (projectName: string) {
+    try {
+      // Always spawns the full CLI - slower, harder to mock dependencies
+      const output = execSync(`node ./dist/bin/cli.js init ${projectName}`);
+      this.lastCommandOutput = output.toString();
+      this.lastExitCode = 0;
+    } catch (error: any) {
+      this.lastCommandOutput = error.stderr.toString();
+      this.lastExitCode = error.status;
+    }
+  });
+  ```
+</example>

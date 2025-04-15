@@ -1,0 +1,60 @@
+---
+description: Apply this rule when managing dependencies or structuring code modules in a TypeScript project, especially CLIs. It emphasizes minimizing dependencies, using lockfiles, leveraging standard libraries where appropriate, applying SOLID principles for modularity, and using dependency injection for testability.
+globs: *.ts, *.tsx, package.json
+alwaysApply: false
+---
+
+# TypeScript Dependency Management and Code Modularization
+
+## Critical Rules
+
+-   Minimize external dependencies to reduce install size, startup time, and security surface. Vet dependencies.
+-   Use a lockfile (`package-lock.json` or `yarn.lock`) and commit it to ensure reproducible builds.
+-   Leverage well-known, reliable libraries for standard tasks (parsing, prompts, config) instead of reinventing the wheel.
+-   Structure code into distinct, modular components following SOLID principles (separate concerns).
+-   Use Dependency Injection (DI) for external interactions (file system, network APIs, etc.). Abstract these behind interfaces or modules to allow mocking in tests.
+-   Design modules with clear APIs and minimize coupling, potentially allowing core logic to be used as a library.
+
+## Examples
+
+<example>
+  ```typescript
+  // Using dependency injection for an API client
+  interface ApiClient {
+    fetchData(id: string): Promise<any>;
+  }
+
+  // Real implementation
+  class RealApiClient implements ApiClient { /* ... */ }
+
+  // Command logic accepts the client via constructor or method
+  class MyCommand {
+    constructor(private apiClient: ApiClient) {}
+    async execute(id: string) {
+      const data = await this.apiClient.fetchData(id);
+      // ... process data ...
+    }
+  }
+
+  // In main app: new MyCommand(new RealApiClient())
+  // In tests: new MyCommand(new MockApiClient())
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Hardcoding external calls without abstraction
+  import axios from 'axios';
+
+  class MyCommand {
+    async execute(id: string) {
+      // Direct, hardcoded call to axios - difficult to mock in tests
+      const response = await axios.get(`https://api.example.com/data/${id}`);
+      // ... process data ...
+    }
+  }
+
+  // Also, package.json has an excessive number of unused dependencies listed.
+  // No package-lock.json committed.
+  ```
+</example>

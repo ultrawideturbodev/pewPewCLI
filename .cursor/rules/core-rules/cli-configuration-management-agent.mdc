@@ -1,0 +1,60 @@
+---
+description: Apply this rule when designing or implementing configuration handling for any CLI tool. It guides the use of multiple configuration sources (args, env vars, files), defines a clear precedence order, recommends standard file locations (XDG spec), and suggests persisting user preferences securely where appropriate.
+globs:
+alwaysApply: false
+---
+
+# CLI Configuration Management
+
+## Critical Rules
+
+-   Support configuration from multiple sources with a clear order of precedence:
+    1.  Command-line arguments (highest priority).
+    2.  Environment variables (e.g., `MYCLI_TOKEN`).
+    3.  Project-level config files (in the current working directory).
+    4.  User-level config files (respect XDG Base Directory Specification, e.g., `~/.config/mycli/config.json`).
+    5.  System-level config files (if applicable).
+-   Use a config loading library (e.g., cosmiconfig) to find and merge configurations automatically.
+-   Document the configuration sources, precedence order, and any environment variables used.
+-   For user-specific, persistent state (like API keys, preferences), use a secure config store (e.g., `conf`, `configstore`) that respects OS conventions. Avoid storing sensitive data in plaintext if possible.
+-   Follow the XDG Base Directory Specification for user config/data paths instead of cluttering the home directory with dotfiles.
+
+## Examples
+
+<example>
+  ```typescript
+  // Using cosmiconfig to load configuration from multiple sources
+  import { cosmiconfig } from 'cosmiconfig';
+
+  async function loadConfig() {
+    const explorer = cosmiconfig('mycli');
+    const result = await explorer.search(); // Searches package.json, rc files, etc.
+    const config = result ? result.config : {};
+
+    // Merge with environment variables and command-line args (handled elsewhere)
+    const finalConfig = {
+      apiKey: process.env.MYCLI_API_KEY || config.apiKey,
+      // ... other config values
+    };
+    return finalConfig;
+  }
+  // User config might be loaded from ~/.config/mycli/config.yaml
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Hardcoding config paths or having unclear precedence
+  import fs from 'fs';
+
+  function loadConfig() {
+    let config = {};
+    // Only checks for a single hardcoded file, ignores env vars or args precedence
+    if (fs.existsSync('~/.mycliconfig')) { // Incorrectly uses ~ directly, pollutes home dir
+      config = JSON.parse(fs.readFileSync('~/.mycliconfig', 'utf8'));
+    }
+    // Doesn't clearly define how CLI args override this config
+    return config;
+  }
+  ```
+</example>

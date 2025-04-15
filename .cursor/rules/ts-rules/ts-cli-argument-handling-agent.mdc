@@ -1,0 +1,69 @@
+---
+description: Apply this rule when implementing argument validation and user interaction (prompts) in a TypeScript CLI. It emphasizes validating inputs, providing clear error messages, using interactive prompts (like Inquirer.js) judiciously for missing information, offering sensible defaults, and ensuring a non-interactive mode for automation/scripting.
+globs:
+alwaysApply: false
+---
+
+# TypeScript CLI Argument Handling and Interactive Prompts
+
+## Critical Rules
+
+-   Rigorously validate required arguments and options. Provide clear, helpful error messages upon validation failure.
+-   If a required input is missing, consider prompting the user interactively instead of immediately failing (empathic CLI approach).
+-   Use a dedicated library like Inquirer.js for interactive prompts.
+-   Use appropriate prompt types (confirm, list, password) instead of only free-text.
+-   Provide sensible default values for options and indicate them in help text.
+-   Only prompt when necessary; prefer auto-detection or configuration values if available (zero-configuration principle).
+-   Ensure the CLI can run non-interactively:
+    -   Provide flags like `--yes` or `--non-interactive` to skip prompts.
+    -   Detect CI environments (e.g., `process.env.CI`) to disable prompts automatically.
+-   Respect standard environment variables like `NO_COLOR`.
+
+## Examples
+
+<example>
+  ```typescript
+  // Using Inquirer.js to prompt for missing required argument
+  import { Command } from 'commander';
+  import inquirer from 'inquirer';
+
+  async function runInit(projectName?: string) {
+    let name = projectName;
+    if (!name) {
+      const answers = await inquirer.prompt([{
+        type: 'input',
+        name: 'projectName',
+        message: 'Enter project name:',
+        validate: (input) => !!input || 'Project name cannot be empty',
+      }]);
+      name = answers.projectName;
+    }
+    console.log(`Initializing project ${name}...`);
+    // ... implementation ...
+  }
+
+  // Command definition allows optional argument, handled by runInit
+  program
+    .command('init [projectName]')
+    .action(runInit);
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Failing immediately on missing argument without prompting
+  // Or forcing prompts even when running in CI
+  import { Command } from 'commander';
+
+  program
+    .command('init <projectName>') // Requires argument
+    .action((projectName) => {
+      if (process.env.CI) {
+        // Still tries to prompt in CI, potentially hanging the build
+        // const answers = await inquirer.prompt(...)
+      }
+      console.log(`Initializing project ${projectName}...`);
+      // Fails if projectName is not provided on command line, no fallback prompt
+    });
+  ```
+</example>

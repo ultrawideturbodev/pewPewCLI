@@ -1,0 +1,56 @@
+---
+description: Apply this rule when setting up Behavior-Driven Development (BDD) tests using Cucumber.js for a TypeScript project, particularly CLIs. It defines the standard folder structure for features, step definitions, and support code, and outlines the necessary configuration for running Cucumber with TypeScript.
+globs: features/**/*.feature, features/step_definitions/**/*.ts, features/support/**/*.ts, package.json
+alwaysApply: false
+---
+
+# BDD Test Structure with Cucumber.js (TypeScript)
+
+## Critical Rules
+
+-   Organize Cucumber test files in a top-level `features/` directory.
+-   Place Gherkin feature files (`.feature`) directly under `features/` or in subdirectories.
+-   Place TypeScript step definition files (`.ts`) in `features/step_definitions/`. Organize them logically (e.g., by feature or command).
+-   Place support code (hooks, custom World) in `features/support/`.
+-   Configure Cucumber.js to run with TypeScript:
+    -   Use `ts-node/register` or precompile test code.
+    -   Set up an npm script (e.g., `test:bdd`) to invoke `cucumber-js` with appropriate `--require` flags pointing to step definitions and support code. Example: `cucumber-js --require-module ts-node/register --require features/step_definitions/**/*.ts --require features/support/**/*.ts features/**/*.feature`.
+
+## Examples
+
+<example>
+  ```
+  // Project structure
+  project-root/
+  ├── features/
+  │   ├── init.feature
+  │   ├── step_definitions/
+  │   │   ├── init.steps.ts
+  │   │   └── shared.steps.ts
+  │   └── support/
+  │       ├── hooks.ts
+  │       └── world.ts
+  ├── src/
+  └── package.json
+  ```
+  ```json
+  // package.json script
+  "scripts": {
+    "test:bdd": "cucumber-js --require-module ts-node/register --require features/step_definitions/**/*.ts --require features/support/**/*.ts features/**/*.feature"
+  }
+  ```
+</example>
+
+<example type="invalid">
+  ```
+  // Disorganized structure, mixing tests with source code
+  project-root/
+  ├── src/
+  │   ├── commands/
+  │   │   └── init.ts
+  │   └── tests/          // Feature files and steps mixed in src/tests
+  │       ├── init.feature
+  │       └── init.steps.ts
+  └── package.json        // Missing or incorrect cucumber-js script setup
+  ```
+</example>

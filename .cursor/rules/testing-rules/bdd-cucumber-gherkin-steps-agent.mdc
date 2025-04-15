@@ -1,0 +1,82 @@
+---
+description: Apply this rule when writing Gherkin feature files (`.feature`) and their corresponding TypeScript step definitions for Cucumber.js tests. It emphasizes clear, behavior-focused scenarios using Given/When/Then, keeping steps concise, and implementing step definitions that delegate logic rather than containing it.
+globs: features/**/*.feature, features/step_definitions/**/*.ts
+alwaysApply: false
+---
+
+# Writing Gherkin Features and Step Definitions (Cucumber.js/TypeScript)
+
+## Critical Rules
+
+-   Write feature files (`.feature`) using Gherkin syntax (Feature, Scenario, Given, When, Then, And, But).
+-   Focus each scenario on a single, specific behavior or outcome. Keep scenarios brief and independent.
+-   Use Background for setup steps common to all scenarios in a feature.
+-   Use Scenario Outlines for data-driven tests with Examples tables.
+-   Write step definitions in TypeScript (`.ts`) files within `features/step_definitions/`.
+-   Implement a matching step definition function for each Gherkin step used.
+-   Use Cucumber expressions (e.g., `{string}`, `{int}`) or regular expressions to capture parameters from Gherkin steps into function arguments.
+-   Keep step definition logic minimal; they should act as glue code, delegating the actual work to helper functions or the application's code.
+-   Use the `this` context (the World object) to share state between steps within a scenario (see separate rule on World usage).
+
+## Examples
+
+<example>
+  ```gherkin
+  # features/login.feature
+  Feature: User Login
+
+    Scenario: Successful login
+      Given I am on the login page
+      When I enter valid credentials "user" and "pass"
+      And I click the login button
+      Then I should be redirected to the dashboard
+  ```
+  ```typescript
+  // features/step_definitions/login.steps.ts
+  import { Given, When, Then } from '@cucumber/cucumber';
+  import { expect } from 'chai'; // Or other assertion library
+  import { navigateTo, login, getCurrentPage } from '../support/actions'; // Helper actions
+
+  Given('I am on the login page', async function () {
+    await navigateTo('/login');
+  });
+
+  When('I enter valid credentials {string} and {string}', async function (username, password) {
+    // Store credentials in World or pass directly
+    this.username = username;
+    this.password = password;
+  });
+
+  When('I click the login button', async function () {
+    await login(this.username, this.password); // Delegate to helper
+  });
+
+  Then('I should be redirected to the dashboard', async function () {
+    const currentPage = await getCurrentPage();
+    expect(currentPage).to.equal('/dashboard');
+  });
+  ```
+</example>
+
+<example type="invalid">
+  ```gherkin
+  # Scenario too long, tests multiple things
+  Scenario: Login and create report and logout
+    Given I login
+    When I create a report
+    Then I should see the report
+    When I logout
+    Then I should be on the login page
+  ```
+  ```typescript
+  // Step definition contains complex implementation logic
+  When('I click the login button', async function () {
+    // Instead of calling a helper, implements all the UI interaction logic here
+    await this.page.fill('#username', this.username);
+    await this.page.fill('#password', this.password);
+    await this.page.click('#login-button');
+    // ... complex waits and checks ...
+    // This makes the step definition brittle and hard to read/maintain
+  });
+  ```
+</example>

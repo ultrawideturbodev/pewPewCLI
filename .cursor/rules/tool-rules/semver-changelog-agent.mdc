@@ -1,0 +1,70 @@
+---
+description: Apply this rule when managing versions, releases, and documenting changes for a project, especially CLIs. It mandates the use of Semantic Versioning (SemVer), maintaining a clear CHANGELOG.md, and optionally using conventional commits and tools like semantic-release for automation.
+globs: package.json, CHANGELOG.md
+alwaysApply: false
+---
+
+# Versioning, Changelogs, and Semantic Release Conventions
+
+## Critical Rules
+
+-   Adhere strictly to Semantic Versioning (SemVer: MAJOR.MINOR.PATCH):
+    -   Increment MAJOR for incompatible API/CLI changes.
+    -   Increment MINOR for new, backward-compatible features.
+    -   Increment PATCH for backward-compatible bug fixes.
+-   Maintain a `CHANGELOG.md` file in the project root.
+-   Document all user-facing changes in the changelog for each release, grouped by version number and date.
+-   Use a standard changelog format (e.g., Keep a Changelog: Added, Changed, Fixed, Removed).
+-   Tag releases in the source control repository (e.g., `git tag v1.2.3`).
+-   (Recommended) Adopt conventional commit messages (e.g., `feat:`, `fix:`, `BREAKING CHANGE:`) to enable automated version bumping and changelog generation.
+-   (Recommended) Use tools like `semantic-release` to automate the release process based on conventional commits.
+
+## Examples
+
+<example>
+  ```markdown
+  # CHANGELOG.md
+  ## [1.1.0] - 2023-10-27
+  ### Added
+  - New `--json` flag for machine-readable output.
+
+  ## [1.0.1] - 2023-10-26
+  ### Fixed
+  - Corrected handling of config files in nested directories.
+
+  ## [1.0.0] - 2023-10-20
+  - Initial release.
+  ```
+  ```
+  // Commit message following conventional commits
+  feat: add json output format
+
+  Implements the --json flag to output results as JSON.
+  Closes #42
+  ```
+  ```json
+  // package.json version reflects latest release
+  {
+    "version": "1.1.0"
+  }
+  ```
+</example>
+
+<example type="invalid">
+  ```markdown
+  # CHANGELOG.md - Unstructured, missing versions/dates
+  - Added json output
+  - Fixed bug with config
+  - Initial release
+  ```
+  ```
+  // Commit message - non-conventional
+  git commit -m "added stuff and fixed bug"
+  ```
+  ```json
+  // package.json version not updated or updated incorrectly (e.g., patch bump for new feature)
+  {
+    "version": "1.0.1" // Should be 1.1.0 after adding a feature
+  }
+  ```
+</example>

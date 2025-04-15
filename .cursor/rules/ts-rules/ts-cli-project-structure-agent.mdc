@@ -1,0 +1,46 @@
+---
+description: Apply this rule when creating a new TypeScript CLI project or restructuring an existing one. It ensures a conventional and maintainable layout, separating concerns like executable scripts, command logic, utilities, and core business logic. Following this structure improves navigability, scalability, and testability.
+globs:
+alwaysApply: false
+---
+
+# TypeScript CLI Project Structure
+
+## Critical Rules
+
+-   Organize the project with standard directories:
+    -   `bin/`: Executable script(s) with shebang (`#!/usr/bin/env node`).
+    -   `src/`: TypeScript source code.
+        -   `src/commands/`: Individual command modules.
+        -   `src/utils/`: Shared utility functions.
+        -   `src/lib/`: Core business logic.
+    -   Project root: `package.json`, `README.md`, `tsconfig.json`.
+-   Compile TypeScript from `src/` to a separate output directory (e.g., `dist/`).
+-   Exclude the compiled output directory from version control (via `.gitignore`).
+-   Enable strict mode in `tsconfig.json`.
+
+## Examples
+
+<example>
+  ```typescript
+  // Project structure adheres to the standard layout
+  // bin/mycli.js (with shebang)
+  // src/commands/init.ts
+  // src/utils/logger.ts
+  // src/lib/apiClient.ts
+  // package.json
+  // tsconfig.json (strict: true)
+  // .gitignore (includes dist/)
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Project structure mixes source and compiled code, lacks separation
+  // mycli.ts (source in root)
+  // commands/init.js (compiled code checked in)
+  // utils.ts (utility mixed with commands)
+  // .gitignore (missing dist/)
+  // tsconfig.json (strict: false)
+  ```
+</example>

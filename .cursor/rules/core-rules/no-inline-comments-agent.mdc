@@ -1,0 +1,28 @@
+# No Inline Code Comments
+
+## Critical Rules
+
+- **NEVER** add inline comments (like `// comment` or `# comment`) within any code generated or modified.
+- Ensure all generated code blocks are free of inline comments before finalizing the response or edit.
+
+## Examples
+
+<example>
+  ```typescript
+  // Valid code generation (no inline comments)
+  function add(a: number, b: number): number {
+    const result = a + b; 
+    return result;
+  }
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Invalid code generation (contains inline comment)
+  function subtract(a: number, b: number): number {
+    const result = a - b; // Calculate the difference
+    return result; 
+  }
+  ```
+</example> 

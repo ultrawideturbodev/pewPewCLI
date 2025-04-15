@@ -1,0 +1,65 @@
+---
+description: Apply this rule when preparing a TypeScript CLI tool for distribution via npm as a global package. It covers essential `package.json` settings (`bin`), the shebang line, cross-platform considerations, pre-publish checks, and specifying Node engine compatibility.
+globs: package.json, bin/*, dist/*
+alwaysApply: false
+---
+
+# Packaging and Publishing TypeScript CLIs via NPM
+
+## Critical Rules
+
+-   Specify the executable(s) in `package.json` using the `bin` field, mapping the command name to the compiled JavaScript entry file (e.g., `"bin": { "mycli": "./dist/bin/mycli.js" }`).
+-   Ensure the entry script specified in `bin` starts with the correct shebang line: `#!/usr/bin/env node`. Avoid hardcoding Node paths.
+-   Write cross-platform compatible code:
+    -   Use `path.join` for constructing file paths.
+    -   Use `child_process.spawn('node', [scriptPath, ...args])` if spawning other Node scripts.
+-   Test the package locally before publishing using `npm pack` and `npm install -g <packed-file.tgz>` or `npm link`.
+-   Specify the minimum required Node.js version in `package.json` using the `engines` field (e.g., `"engines": { "node": ">=16.0" }`).
+-   Provide clear installation instructions (`npm install -g mycli`) and mention `npx mycli` if applicable.
+-   Keep startup time fast, especially if `npx` usage is expected.
+
+## Examples
+
+<example>
+  ```json
+  // package.json
+  {
+    "name": "mycli",
+    "version": "1.0.0",
+    "bin": {
+      "mycli": "./dist/bin/cli.js"
+    },
+    "engines": {
+      "node": ">=16.0"
+    },
+    "files": [
+      "dist"
+    ]
+    // ... other fields
+  }
+  ```
+  ```javascript
+  // dist/bin/cli.js (or original source in bin/)
+  #!/usr/bin/env node
+  // ... rest of the CLI startup code
+  require('../index.js').run();
+  ```
+</example>
+
+<example type="invalid">
+  ```json
+  // package.json - missing bin or incorrect path
+  {
+    "name": "mycli",
+    "version": "1.0.0",
+    // "bin" field missing or points to a non-existent/non-executable file
+    "engines": {} // Missing node version requirement
+  }
+  ```
+  ```javascript
+  // bin/cli.js - incorrect shebang
+  #!/usr/local/bin/node // Hardcoded path, not portable
+  // Code uses platform-specific path separators like '\\'
+  const configPath = 'C:\\Users\\user\\.mycliconfig'; // Not cross-platform
+  ```
+</example>
