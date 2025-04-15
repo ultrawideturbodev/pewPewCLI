@@ -2,20 +2,6 @@
 
 All notable changes to pewPewCLI will be documented in this file.
 
-## v0.4.0
-
-### April 14, 2025
-
-#### 🛠️ Improvements:
-- Added comprehensive JSDoc comments to all service classes and public methods (`ConfigService`, `CliService`, `FileSystemService`, `TaskService`, `UpdateService`, `UserInputService`, `YamlService`, `ClipboardService`).
-- Refactored service constructors (`CliService`, `TaskService`, `UpdateService`) to correctly inject dependencies.
-
-#### 🐛 Bug fixes:
-- Removed unused stub methods and TODO comments from service classes (`CliService`, `TaskService`).
-- Fixed potential runtime error in `CliService.handleSetPath` by ensuring the value obtained from user input is valid before proceeding.
-- Corrected `CliService` dependency injection for `TaskService` and `UpdateService`.
-- Replaced non-existent `askForPath` calls with `askForText` in `CliService`.
-
 ## v0.3.0
 
 ### April 14, 2025
@@ -28,9 +14,15 @@ All notable changes to pewPewCLI will be documented in this file.
 - Enhanced `CliService.handleResetTasks` to filter file paths and handle interactive multi-selection prompts.
 - Updated `UserInputService.askForMultipleSelections` to correctly handle checkbox choice objects.
 - Enhanced `pew reset tasks` prompt to show per-file task summaries.
+- Added comprehensive JSDoc comments to all service classes and public methods (`ConfigService`, `CliService`, `FileSystemService`, `TaskService`, `UpdateService`, `UserInputService`, `YamlService`, `ClipboardService`).
+- Refactored service constructors (`CliService`, `TaskService`, `UpdateService`) to correctly inject dependencies.
 
 #### 🐛 Bug fixes:
 - Fixed `TaskService.uncheckTasksInLines` to preserve task text when unchecking completed tasks.
+- Removed unused stub methods and TODO comments from service classes (`CliService`, `TaskService`).
+- Fixed potential runtime error in `CliService.handleSetPath` by ensuring the value obtained from user input is valid before proceeding.
+- Corrected `CliService` dependency injection for `TaskService` and `UpdateService`.
+- Replaced non-existent `askForPath` calls with `askForText` in `CliService`.
 
 ## v0.2.0
 
