@@ -87,7 +87,7 @@ export class UserInputService {
           message,
           choices
         }
-      ]);
+      ] as any);
       return response.value;
     } catch (error) {
       this.logger.error('Error during selection prompt:', error);
