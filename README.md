@@ -3,91 +3,41 @@
 [![Built to you by ultrawideturbodevs.com](https://img.shields.io/badge/Built%20to%20you%20by-ultrawideturbodevs.com-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0xIDE1aC0ydi0yaDJ2MnptMC00aC0yVjdoMnY2eiIvPjwvc3ZnPg==)](https://ultrawideturbodevs.com)
 
 [![npm version](https://badge.fury.io/js/pew-pew-cli.svg)](https://badge.fury.io/js/pew-pew-cli)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/username/pew-pew-cli/actions) <!-- Placeholder -->
 
 Lightweight CLI tool that enables collaborative local task file management between developers and AI agents.
 
----
-
-## 📚 Table of Contents
-
-- [💻 Install](#-install)
-- [🚀 Quick Start Usage](#-quick-start-usage)
-- [📝 Commands Reference](#-commands-reference)
-  - [`pew init`](#-pew-init)
-  - [`pew set path`](#-pew-set-path)
-  - [`pew paste tasks`](#-pew-paste-tasks)
-  - [`pew next task`](#-pew-next-task)
-  - [`pew reset tasks`](#-pew-reset-tasks)
-  - [`pew update`](#-pew-update)
-- [⚙️ Configuration](#️-configuration)
-  - [`paths.yaml` Structure](#pathsyaml-structure)
-- [💡 Workflows & Examples](#-workflows--examples)
-  - [Populating and Running Tasks](#populating-and-running-tasks)
-  - [Managing Multiple Task Files](#managing-multiple-task-files)
-- [📦 Dependencies](#-dependencies)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
-- [📞 Contact & Support](#-contact--support)
-- [🏢 Ownership](#-ownership)
-- [🤖 Example Agent Prompt](#-example-agent-prompt)
-
----
+![pew-next-task-flow.gif](assets/gifs/pew-next-task-flow.gif)
 
 ## 💻 Install
 
 Ensure you have Node.js and npm installed.
 
 ```bash
-npm install -g pew-pew-cli
+npm install -g pew-pew-cli && pew init
 ```
 
----
+## ⚙️ Configuration
 
-## 🚀 Quick Start Usage
+*   **Local:** `.pew/config/` (specific to the current project/directory)
+*   **Global:** `~/.pew/config/` (user-level settings)
 
-Get started quickly in your project directory:
+### `paths.yaml`
 
-```bash
-# 1. Initialize the project structure and config
-pew init
-# Creates .pew/ directory and default .pew/tasks.md
+```yaml
+# List of files scanned by 'pew next task' and offered by 'pew reset tasks'
+# Processed in the order listed. Absolute paths also work.
+tasks:
+  - relative/path/to/another/tasks/file.md
+  - .pew/tasks.md
+  # - /absolute/path/to/tasks.md
 
-# 2. Add tasks to .pew/tasks.md (manually or via AI)
-#    Example task format: - [ ] My first task
-
-# 3. (Optional) Paste a task list from clipboard (prompts for mode)
-# pew paste tasks
-
-# 4. Start working through your tasks
-pew next task
-# Marks current task done, finds next `- [ ]`, adds 👉, displays it
-
-# Complete the task shown...
-# Then run again:
-pew next task
-
-# 5. Reset completed tasks in your checklist(s) if needed
-# pew reset tasks
-
-# 6. Keep your CLI up-to-date!
-# pew update
+# Optional: Default target file for 'pew paste tasks'.
+# If omitted, defaults to the first path listed under 'tasks:'.
+paste-tasks: .pew/tasks.md
 ```
 
----
+![hero.png](assets/pngs/hero.png)
 
-## 📝 Commands Reference
-
-Here's a summary of available commands:
-
-| Command           | Description                                                                  | Options                                                                                                                                              |
-|:------------------|:-----------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `pew init`        | Initialize the `pewPewCLI` project structure in the current directory.       | `-f, --force`: Force initialization even if `.pew` directory exists.                                                                                 |
-| `pew set path`    | Set a configuration value for a path (currently only `tasks`).               | `--field <field>`: Field to set (only `tasks`).<br>`--value <value>`: Path value to set.<br>`-g, --global`: Set in global config (`~/.pew`).         |
-| `pew paste tasks` | Paste clipboard content into the configured task file.                       | `--mode <mode>`: Paste mode (`overwrite`, `append`, `insert`). Prompts if omitted.<br>`--path <value>`: Specify target file path, overriding config. |
-| `pew next task`   | Marks the current task (`👉`) complete and displays the next available task. | _None_                                                                                                                                               |
-| `pew reset tasks` | Uncheck all completed tasks (`[x]`) in configured task files interactively.  | _None_                                                                                                                                               |
-| `pew update`      | Check for updates and install the latest version of `pew-pew-cli`.           | _None_                                                                                                                                               |
 
 ### 📂 `pew init`
 
@@ -101,19 +51,7 @@ pew init
 pew init --force
 ```
 
-### 🔧 `pew set path`
-
-Updates the `paths.yaml` configuration file (either locally in `.pew/config/paths.yaml` or globally in `~/.pew/core.yaml` with the `-g` flag). Currently, only setting the `tasks` field (an array of task file paths) and `paste-tasks` (a single path for the default paste target) is supported via this command or direct config editing. The `set path` command currently only handles the `tasks` field interactively.
-
-```bash
-# Set the local tasks path (prompts for value)
-pew set path --field tasks
-
-# Set the global tasks path explicitly
-pew set path --field tasks --value /path/to/my/global/tasks.md -g
-
-# Note: 'paste-tasks' must currently be set by editing the paths.yaml file directly.
-```
+![pew-init-demo.gif](assets/gifs/pew-init-demo.gif)
 
 ### 📋 `pew paste tasks`
 
@@ -121,14 +59,16 @@ Reads content from your system clipboard and writes it to a task file. By defaul
 
 ```bash
 # Paste and overwrite the default task file
-pew paste tasks --mode overwrite
+pew paste tasks --overwrite
 
 # Append clipboard content to a specific file
-pew paste tasks --path specific/project/tasks.md --mode append
+pew paste tasks --path specific/project/tasks.md --append
 
 # Run interactively to choose mode
 pew paste tasks
 ```
+
+![pew-paste-task-demo.gif](assets/gifs/pew-paste-task-demo.gif)
 
 ### 👉 `pew next task`
 
@@ -138,6 +78,8 @@ This is the core command for progressing through your task lists. It finds the c
 # Process the current task and move to the next one
 pew next task
 ```
+
+![pew-next-task-demo-small.gif](assets/gifs/pew-next-task-demo-small.gif)
 
 ### 🔄 `pew reset tasks`
 
@@ -152,6 +94,8 @@ pew reset tasks
 
 The prompt will show a summary of tasks within each file to help you select.
 
+![pew-reset-tasks-demo.gif](assets/gifs/pew-reset-tasks-demo.gif)
+
 ### ✨ `pew update`
 
 Checks if a newer version of `pew-pew-cli` is available on npm and prompts you to install it if found.
@@ -161,63 +105,31 @@ Checks if a newer version of `pew-pew-cli` is available on npm and prompts you t
 pew update
 ```
 
----
-
-## ⚙️ Configuration
-
-`pew-pew-cli` uses YAML configuration files.
-
-*   **Local:** `.pew/config/paths.yaml` (specific to the current project/directory)
-*   **Global:** `~/.pew/config/core.yaml` (user-level settings, used with `-g` flags)
-
-### `paths.yaml` Structure
-
-This file defines which markdown files the CLI should operate on.
-
-```yaml
-# Example .pew/config/paths.yaml
-
-# List of files scanned by 'pew next task' and offered by 'pew reset tasks'
-# Processed in the order listed. Absolute paths also work.
-tasks:
-  - path/to/your/tasks.md
-  - relative/path/to/another/checklist.md
-  # - /absolute/path/to/tasks.md
-
-# Optional: Default target file for 'pew paste tasks'.
-# If omitted, defaults to the first path listed under 'tasks:'.
-paste-tasks: path/to/default/paste/target.md
-```
-
----
-
-## 💡 Workflows & Examples
-
-### Populating and Running Tasks
-
-After running `pew init`, populate your main task file (e.g., `.pew/tasks.md`) using:
-
-1.  **Manual Edit:** Open the file and add tasks like `- [ ] My Task`.
-2.  **Paste from Clipboard:** Use `pew paste tasks` (see command details above).
-
-Once populated, start the workflow:
-
-```bash
-# Mark the current task complete, show the next
-pew next task
-```
-
-Repeat `pew next task` after completing each task.
-
-### Managing Multiple Task Files
+## 📝 Pew Pipelines (`pew next task`)
 
 You can manage different checklists across multiple files (e.g., main dev tasks, QA checklist).
 
-1.  **Configure `paths.yaml`:** List all relevant files under the `tasks:` key in order.
-2.  **Run `pew next task`:** It processes tasks sequentially through the files listed.
-3.  **Reset Checklists:** Use `pew reset tasks` to uncheck completed items when you want to restart a workflow (like the QA checklist).
+1. **Configure `paths.yaml`:** List all relevant files under the `tasks:` key in order.
+2. **Run `pew next task`:** pewPewCLI processes tasks sequentially through the files listed.
+3. **Reset Checklists:** Use `pew reset tasks` to uncheck completed items when you want to restart a workflow (like the QA checklist).
+
+![pew-next-task-flow.gif](assets/gifs/pew-next-task-flow.gif)
 
 ---
+
+## 📝 Commands Reference
+
+Summary of available commands:
+
+| Command           | Description                                                                  | Options                                                                                                                                         |
+|:------------------|:-----------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pew init`        | Initialize the `pewPewCLI` project structure in the current directory.       | `-f, --force`: Force initialization even if `.pew` directory exists.                                                                            |
+| `pew set path`    | Set a configuration value for a path (currently only `tasks`).               | `--field <field>`: Field to set (only `tasks`).<br>`--value <value>`: Path value to set.<br>`-g, --global`: Set in global config (`~/.pew`).    |
+| `pew paste tasks` | Paste clipboard content into the configured task file.                       | <mode> Paste mode (`--override`, `--append`, `--insert`). Prompts if omitted.<br>`--path <value>`: Specify target file path, overriding config. |
+| `pew next task`   | Marks the current task (`👉`) complete and displays the next available task. | _None_                                                                                                                                          |
+| `pew reset tasks` | Uncheck all completed tasks (`[x]`) in configured task files interactively.  | _None_                                                                                                                                          |
+| `pew update`      | Check for updates and install the latest version of `pew-pew-cli`.           | _None_                                                                                                                                          |
+
 
 ## 📦 Dependencies
 
@@ -250,7 +162,7 @@ Usage is subject to the terms outlined in the [LICENSE](LICENSE) file and requir
 
 ---
 
-## �� Contact & Support
+## 📞 Contact & Support
 
 *   **Bugs & Feature Requests:** Please use the [GitHub Issues](https://github.com/ultrawideturbodev/pew-pew-cli/issues) tracker. Use the provided templates for effective reporting.
 *   **Questions & Discussions:** Use the [GitHub Discussions](https://github.com/ultrawideturbodev/pew-pew-cli/discussions) tab for general questions, usage help, or sharing ideas (if Discussions are enabled).
@@ -261,7 +173,7 @@ Usage is subject to the terms outlined in the [LICENSE](LICENSE) file and requir
 
 ## 🏢 Ownership
 
-`pew-pew-cli` is owned and maintained by Ultra Wide Turbo Company.
+`pew-pew-cli` is owned and maintained by the Ultra Wide Turbo Company.
 
 ---
 
