@@ -2,6 +2,27 @@
 
 All notable changes to pewPewCLI will be documented in this file.
 
+
+## v0.3.5
+
+### April 16, 2025
+
+#### ✨ Features
+- Integrated Cucumber.js for Behavior-Driven Development (BDD) testing (`test:cucumber` script, `@cucumber/cucumber` dependency).
+
+#### 🛠️ Improvements
+- Significantly refactored `ConfigService` for enhanced robustness, clarity, error handling, and improved management of local/global configurations and path resolution logic.
+- Improved JSDoc comments and added type definitions in `src/index.ts`, `ConfigService`, and `TaskService`.
+- Enhanced type definitions (`TaskStatus`, `NextTaskResult`, `TaskFileSummary`) and error handling in `TaskService`.
+- Added informational logging to `ConfigService` write operations.
+
+#### 🐛 Bug fixes
+- Removed unused `writeToClipboard` method stub from `ClipboardService`.
+- Minor code cleanup in `LoggerService` and `UpdateService`.
+
+#### 🧹 Chores
+- Updated various development and runtime dependencies.
+
 ## v0.3.0
 
 ### April 14, 2025

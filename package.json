@@ -1,6 +1,6 @@
 {
   "name": "pew-pew-cli",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -10,7 +10,8 @@
     "build": "tsc",
     "start": "node --loader ts-node/esm src/index.ts",
     "dev": "node --loader ts-node/esm src/index.ts",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js && npm run test:cucumber",
+    "test:cucumber": "node --loader ts-node/esm ./node_modules/.bin/cucumber-js --import 'features/step_definitions/**/*.ts' --import 'features/support/**/*.ts' 'features/**/*.feature'"
   },
   "keywords": [
     "cli",
@@ -44,6 +45,7 @@
     "latest-version": "^9.0.0"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^11.2.0",
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^29.5.11",
     "@types/js-yaml": "^4.0.9",

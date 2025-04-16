@@ -34,7 +34,6 @@ export class CliService {
   private updateService: UpdateService;
   private logger: LoggerService;
   
-  // Singleton instance
   private static instance: CliService | null = null;
   
   /**

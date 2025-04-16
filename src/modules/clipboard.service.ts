@@ -32,10 +32,4 @@ export class ClipboardService {
       throw error;
     }
   }
-
-  /**
-   * Write text to clipboard
-   */
-  async writeToClipboard(text: string): Promise<void> {
-  }
-} 
+}

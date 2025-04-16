@@ -25,7 +25,7 @@ export class UpdateService {
     private configService: ConfigService;
     private currentVersion: string | null = null;
     private logger: LoggerService;
-    private static readonly kUpdateCheckIntervalMs = 24 * 60 * 60 * 1000; // 1 day
+    private static readonly kUpdateCheckIntervalMs = 24 * 60 * 60 * 1000;
 
     /**
      * Constructor for UpdateService.

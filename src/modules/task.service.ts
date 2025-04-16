@@ -79,7 +79,12 @@ export class TaskService {
   }
 
   /**
-   * Get the header level (1-6) for a line if it's a header, 0 otherwise
+   * Gets the header level (1-6) for a line if it's a header.
+   * 
+   * @private
+   * @static
+   * @param {string} line - The line to check.
+   * @returns {number} The header level (1-6), or 0 if the line is not a header.
    */
   private static getLineHeaderLevel(line: string): number {
     if (!this.isHeader(line)) {
@@ -95,7 +100,12 @@ export class TaskService {
   }
 
   /**
-   * Check if a line is either a task or a header
+   * Checks if a line is either a task or a header.
+   * 
+   * @private
+   * @static
+   * @param {string} line - The line to check.
+   * @returns {boolean} True if the line is a task or header, false otherwise.
    */
   private static isTaskOrHeader(line: string): boolean {
     return this.isTask(line) || this.isHeader(line);
@@ -533,7 +543,6 @@ export class TaskService {
       } catch (error) {
         this.logger.error(`Error reading task file ${filePath}:`, error);
         readErrorOccurred = true;
-        // Continue processing other files
       }
     }
 
@@ -566,9 +575,8 @@ export class TaskService {
       };
     }
     
-    // Handle case where first unchecked task couldn't be determined due to read errors
     if (firstUncheckedIndex === -1 && readErrorOccurred) {
-       return { status: TaskStatus.ERROR, message: "Could not determine next task due to file read errors." };
+      return { status: TaskStatus.ERROR, message: "Could not determine next task due to file read errors." };
     }
 
     // --- From here, we know there's at least one unchecked task --- 
@@ -746,14 +754,58 @@ export class TaskService {
   }
 }
 
-// Define helper types/enums for the result
+/**
+ * @enum {string} TaskStatus
+ * @description Represents the possible outcomes when processing the next task state.
+ */
 export enum TaskStatus {
+  /** A next task was found and prepared for display. */
   NEXT_TASK_FOUND = 'NEXT_TASK_FOUND',
+  /** All tasks across all processed files are complete. */
   ALL_COMPLETE = 'ALL_COMPLETE',
+  /** No tasks were found in any of the processed files. */
   NO_TASKS = 'NO_TASKS',
+  /** An error occurred during processing. */
   ERROR = 'ERROR'
 }
 
+/**
+ * @typedef {object} NextTaskResultFound
+ * @property {TaskStatus.NEXT_TASK_FOUND} status - Indicates a task was found.
+ * @property {string} displayFilePath - The path of the file containing the next task.
+ * @property {string[]} displayTaskLines - The relevant lines (including context) to display for the task.
+ * @property {string} displayContextHeaders - Formatted context headers for the task.
+ * @property {string} summary - A summary of task statistics for the file.
+ * @property {string | null} [message] - An optional message (e.g., "Task marked complete").
+ */
+
+/**
+ * @typedef {object} NextTaskResultAllComplete
+ * @property {TaskStatus.ALL_COMPLETE} status - Indicates all tasks are complete.
+ * @property {string} summary - A summary of task statistics for the last processed file.
+ * @property {string} [displayFilePath] - Optional path of the last file processed or where the last task was completed.
+ * @property {string | null} [message] - An optional message.
+ */
+
+/**
+ * @typedef {object} NextTaskResultNoTasks
+ * @property {TaskStatus.NO_TASKS} status - Indicates no tasks were found.
+ * @property {string} summary - A summary indicating zero tasks.
+ * @property {string | null} [message] - An optional message.
+ */
+
+/**
+ * @typedef {object} NextTaskResultError
+ * @property {TaskStatus.ERROR} status - Indicates an error occurred.
+ * @property {string} message - Description of the error.
+ */
+
+/**
+ * @typedef {NextTaskResultFound | NextTaskResultAllComplete | NextTaskResultNoTasks | NextTaskResultError} NextTaskResult
+ * @description Represents the result of processing the next task state. It's a union type
+ * capturing the different possible outcomes: finding the next task, all tasks being complete,
+ * no tasks found, or an error occurring.
+ */
 export type NextTaskResult = 
   | { 
       status: TaskStatus.NEXT_TASK_FOUND;
@@ -761,12 +813,12 @@ export type NextTaskResult =
       displayTaskLines: string[];
       displayContextHeaders: string;
       summary: string;
-      message?: string | null; // Optional message (e.g., "Task marked complete")
+      message?: string | null;
     }
   | { 
       status: TaskStatus.ALL_COMPLETE;
       summary: string;
-      displayFilePath?: string; // Optional: path of last file processed
+      displayFilePath?: string;
       message?: string | null; 
     }
   | { 
@@ -779,12 +831,22 @@ export type NextTaskResult =
       message: string;
     }; 
 
-// Add type for task file summary
+/**
+ * @interface TaskFileSummary
+ * @description Holds summary information about a single task file, used for display
+ *              and potentially for interactive prompts.
+ * @property {string} filePath - The absolute path to the task file.
+ * @property {string} relativePath - The path relative to the current working directory.
+ * @property {string} summary - A formatted string summarizing task stats (or status like 'empty', 'not found').
+ * @property {boolean} exists - Whether the file exists.
+ * @property {string | null} error - Any error message encountered while reading/summarizing.
+ * @property {boolean} disabled - Indicates if this file should be presented as a disabled option in prompts.
+ */
 export interface TaskFileSummary {
   filePath: string;
   relativePath: string;
   summary: string;
   exists: boolean;
   error: string | null;
-  disabled: boolean; // Indicates if it should be disabled in prompts
+  disabled: boolean;
 } 

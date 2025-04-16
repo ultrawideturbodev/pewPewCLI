@@ -36,6 +36,15 @@ program
     }
   });
 
+/**
+ * Options for the 'paste' command.
+ * @interface PasteOptions
+ * @property {boolean} [overwrite] - Overwrite the entire target file.
+ * @property {boolean} [append] - Append content to the end of the target file.
+ * @property {boolean} [insert] - Insert content at the beginning of the target file.
+ * @property {boolean} [force] - Force overwrite (alias for --overwrite).
+ * @property {string} [path] - Specify the target file path, overriding configuration.
+ */
 interface PasteOptions {
   overwrite?: boolean;
   append?: boolean;
@@ -44,6 +53,10 @@ interface PasteOptions {
   path?: string;
 }
 
+/**
+ * Defines the possible modes for the 'paste' command.
+ * @typedef {'overwrite' | 'append' | 'insert' | null} PasteMode
+ */
 type PasteMode = 'overwrite' | 'append' | 'insert' | null;
 
 program
