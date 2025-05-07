@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { CliService } from './modules/cli.service.js';
+import { CliService } from './core/cli.service.js';
 import { LoggerService } from './core/logger.service.js';
 
 /**

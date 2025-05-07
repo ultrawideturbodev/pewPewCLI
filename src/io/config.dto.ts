@@ -10,12 +10,12 @@ export interface TasksConfigDto {
    * All task files to be managed (default: ["tasks.md"])
    */
   all: string[];
-
+  
   /**
    * Primary task file (default: "tasks.md")
    */
   primary: string;
-
+  
   /**
    * Task file for paste operations (default: "tasks.md")
    */

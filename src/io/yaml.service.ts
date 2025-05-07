@@ -43,10 +43,11 @@ export class YamlService {
    * Serializes a JavaScript object into a YAML string.
    * Handles null or undefined input gracefully.
    *
-   * @param {Record<string, unknown>} data - The JavaScript object to serialize.
+   * @template T - Type of the object to serialize
+   * @param {T} data - The JavaScript object to serialize.
    * @returns {string} The resulting YAML string, or an empty string if serialization fails.
    */
-  serializeToYaml(data: Record<string, unknown>): string {
+  serializeToYaml<T>(data: T): string {
     try {
       return yaml.dump(data || {});
     } catch (error: unknown) {
@@ -82,12 +83,13 @@ export class YamlService {
    * Serializes a JavaScript object and writes it to a YAML file at the specified path.
    * Overwrites the file if it already exists.
    *
+   * @template T - Type of the object to write
    * @param {string} filePath - The absolute path where the YAML file should be written.
-   * @param {Record<string, unknown>} data - The JavaScript object to serialize and write.
+   * @param {T} data - The JavaScript object to serialize and write.
    * @returns {Promise<void>} A promise that resolves when the file has been written.
    * @throws {Error} If serialization or file writing fails.
    */
-  async writeYamlFile(filePath: string, data: Record<string, unknown>): Promise<void> {
+  async writeYamlFile<T>(filePath: string, data: T): Promise<void> {
     try {
       const yamlContent = this.serializeToYaml(data);
       await this.fileSystemService.writeFile(filePath, yamlContent);
