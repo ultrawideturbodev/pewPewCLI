@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { LoggerService } from './logger.service.js';
+import { LoggerService } from '../core/logger.service.js';
 
 /**
  * @class FileSystemService
@@ -65,7 +65,7 @@ export class FileSystemService {
     try {
       await fs.access(filePath);
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -128,4 +128,4 @@ export class FileSystemService {
       await this.createDirectory(dirPath);
     }
   }
-} 
+}

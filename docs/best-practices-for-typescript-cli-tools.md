@@ -1,4 +1,4 @@
-# 🛠️ Best Practices for TypeScript CLI Tools and BDD Testing with Cucumber.js
+# 🛠️ Best Practices for TypeScript CLI Tools and Unit Testing
 
 ## 🏗️ Project Structure and Organization
 
@@ -106,147 +106,206 @@ Provide comprehensive documentation and built-in help for your CLI:
 
 Remember that good documentation and help output significantly improve the user experience and reduce support requests. Treat the help text as part of the user interface – polish it as you would your code.
 
-## 🥒 Unit Testing with BDD (Cucumber.js)
+## 🧪 Unit Testing Best Practices
 
-Implement unit-level tests using Behavior-Driven Development principles with Cucumber.js to ensure each component of your CLI works as expected. Cucumber allows writing test scenarios in plain language (Gherkin syntax) which can then be linked to step definition code. To effectively test a CLI tool at the unit level, follow these conventions:
+Implement comprehensive unit tests to ensure each component of your CLI works reliably. Unit tests verify individual functions and modules in isolation, catching bugs early and facilitating refactoring. Use the standard JavaScript/TypeScript testing framework **Jest**, which includes a built-in assertion library (`expect`).
 
-### 📂 Test Folder Structure and Setup
+### 📂 Test Structure and Organization
 
-Keep your tests separated from the main source. A common approach is to have a top-level `features/` directory for Cucumber feature files and related test code. For example:
-*   `features/` – contains `.feature` files written in Gherkin that describe behaviors (scenarios).
-*   `features/step_definitions/` – contains the step definition implementations in TypeScript. You can organize step defs by feature or command.
-*   `features/support/` (optional) – for support code like custom World classes or hooks (before/after). This is where you might define shared context or setup/teardown logic for scenarios.
+Organize your tests logically alongside your source code. Place test files in a dedicated `__tests__/` directory at the root or within `src/`, mirroring the structure of the code being tested. Alternatively, use a top-level `test/` directory.
 
-Configure Cucumber.js to pick up your TypeScript files. You may use `ts-node` when running Cucumber, or precompile the test code. In your `package.json`, define a script like `"test:bdd": "cucumber-js --require-module ts-node/register --require features/step_definitions/**/*.ts features/**/*.feature"`. This tells Cucumber to transpile TS and load step definitions. Ensure your Cucumber (Gherkin) syntax is recognized in your editor by installing any necessary language support.
+*   `src/commands/__tests__/myCommand.test.ts` – Tests for `src/commands/myCommand.ts`.
+*   `src/utils/__tests__/helpers.test.ts` – Tests for `src/utils/helpers.ts`.
 
-### ✍️ Writing Feature Files and Step Definitions
+Configure your test runner (e.g., in `package.json` or a config file like `jest.config.js`) to discover and execute these test files. Use TypeScript-aware runners or tools like `ts-jest` or `ts-node` to run tests directly against your TypeScript source.
 
-Write Gherkin feature files to cover the expected behaviors of your CLI commands. Each feature file contains scenarios that describe a specific aspect or command of the CLI in Given/When/Then format. For example:
+### ✍️ Writing Effective Unit Tests
 
-```gherkin
-Feature: Initialize a new project
+Focus unit tests on verifying the logic of individual functions or classes. Each test case must follow an Arrange-Act-Assert pattern:
+1.  **Arrange:** Set up the necessary preconditions and inputs. This includes creating mock objects, preparing input data, or configuring stubs.
+2.  **Act:** Execute the function or method being tested with the arranged inputs.
+3.  **Assert:** Verify that the outcome matches expectations. Check return values, state changes, or whether specific functions (spies) were called correctly.
 
-	Scenario: User initializes with a name
-	Given I am in an empty directory
-	When I run "mycli init --name MyProject"
-	Then a new project named "MyProject" should be created
-	And the output should include "Project initialized successfully"
-```
+**Initial Test Focus:**
 
-Scenarios should be brief and focus on one behavior or outcome. Use background sections or scenario outlines if you need to reduce repetition, but keep each scenario independent.
+When writing tests initially, adhere strictly to the following approach:
 
-For each step in the feature files, implement a matching step definition in TypeScript:
+<tests>
+{{LIST_OF_TESTS}}
+
+Only create tests that confirm the core functionality of the feature. Do not create tests for edge cases, error flows or anything else that does not directly confirm just and only the core functionality.
+</tests>
+
+Tests for edge cases and error handling must be deferred unless specifically requested or as part of a dedicated testing phase.
+
+**Test Execution and Reporting:**
+
+Follow this process for running tests and reporting failures:
+
+1.  Create all required happy-path tests.
+2.  Run all new and project existing tests together.
+3.  For every failed test provide the following:
+
+<format>
+# 📝 Activity: ACTOR_VERB
+💎 Expected: EXPECTED
+🧱 Actual: ACTUAL
+💭 Reason: WHY_IT_FAILED
+🔧 Proposed Fix: CODE_SNIPPET
+</format>
+
+After reporting the test results wait for further instructions on how to proceed.
+
+---
+
+# 👤 Actors & 🧩 Components (Who or what)
+> - Someone or something that can perform actions or be interacted with (examples include User, Button, Screen, Input Field, Message, System, API, Database, and they can be a person, service, visual or non-visual).
+
+# 🎬 Activities (Who or what does what?)
+> - Actions that an Actor or Component performs (examples include Create List, Delete Item, Sync Data, and they must always contain a verb + action).
+
+**Example Test Case:**
 
 ```typescript
-import { Given, When, Then } from '@cucumber/cucumber';
+import { add } from '../src/utils/math';
 
-Given('I am in an empty directory', function() {
-	// setup code: e.g., create a temp dir, change working directory
-});
+describe('Math Utils', () => {
+    describe('add function', () => {
+        it('should return the sum of two positive numbers', () => {
+            // Arrange: Inputs are 2 and 3
+            // Act: Call the add function
+            const result = add(2, 3);
+            // Assert: Expect the result to be 5
+            expect(result).toBe(5);
+        });
 
-When('I run {string}', async function(command: string) {
-	// execute the CLI command, e.g., call the CLI entry point or spawn a process
-});
-
-Then('a new project named {string} should be created', function(projectName: string) {
-	// assert that the expected output (e.g., a directory or files) exist
-});
-
-Then('the output should include {string}', function(expectedText: string) {
-	// assert that captured CLI output contains expectedText
+        // Add more happy-path tests as needed
+    });
 });
 ```
 
-The step definitions are the “glue” between the plain language and your code. Cucumber will parse the step lines and execute the corresponding code. Use regex or Cucumber expressions to extract parameters (e.g. `{string}` in the step becomes a function argument). Each step has access to a shared context via `this` (the World, see below).
-
-Keep step definitions focused – do minimal work in them. They should delegate to helper functions or directly call your CLI logic. For example, a `When` step for running a command should ideally call a function like `runCliCommand(command, args)` which you wrote to invoke your CLI. This keeps test code clean and reusable across steps.
-
-### 🌍 Using the Cucumber World for Shared State
-
-Cucumber.js provides a `World` object for each scenario, which is a fresh context to store state during that scenario’s execution. Leverage the World to share information between steps:
-*   Define a custom `World` class (or interface in TypeScript) if you need to store specific data (such as the output of the CLI, exit code, or any test fixtures). For example, your `World` might have properties like `lastExitCode`, `lastOutput`, or helper methods to run the CLI and capture results.
-*   Register your `World` with Cucumber. In a `features/support/world.ts` file, you can set:
-
-    ```typescript
-    import { setWorldConstructor, World } from '@cucumber/cucumber';
-
-    interface ICLIWorld extends World {
-        lastOutput: string;
-        lastExitCode: number;
-        // ... any other shared state or methods
-    }
-
-    class CLIWorld extends World implements ICLIWorld {
-        public lastOutput: string = '';
-        public lastExitCode: number = 0;
-
-        constructor(options: any) {
-        super(options);
-        }
-    }
-
-    setWorldConstructor(CLIWorld);
-    ```
-
-    Now, within any step definition, `this` will be typed as `CLIWorld` (or `ICLIWorld`) and you can set or read `this.lastOutput`, etc.
-
-*   Use this shared state in your `Given`/`When`/`Then` steps. For example, the `When I run "mycli init"` step can capture the output and exit code into `this.lastOutput` and `this.lastExitCode`. Then an assertion step can read those from the World to verify behavior.
-
-The `World` is recreated for each scenario, so scenarios are isolated. This means you can use the `World` to carry over state within a scenario, but not across scenarios (which is good for test independence). Avoid using global variables in tests – use the `World` instead for anything that multiple steps in the same scenario need to access.
+Keep unit tests small, focused, and fast. They must run quickly and independently of external systems or other tests.
 
 ### 🔬 Isolating CLI Logic for Testability
 
-To test the CLI at a unit level, structure your code so that the core logic can be invoked outside of the actual CLI process. In practice, this means designing functions or classes for each command’s functionality and calling those in your step definitions, rather than always spawning a new subprocess.
+Structure your CLI code to separate core logic from I/O operations (like reading arguments, printing to console, file system access, network requests). This is crucial for effective unit testing.
 
-**Separate I/O from Logic:** Write your CLI such that reading input and writing output are abstracted. For example, a command function might accept an input string (or parameters) and return a result (or have a callback for output) instead of directly using `process.stdin`/`stdout`. This allows you to call that function in tests with in-memory inputs and capture its output easily.
-
-Most CLI frameworks (like Commander) allow programmatic execution. For instance, you can `require` your CLI’s main module and call the command’s action handler function directly. Take advantage of this: don’t exclusively rely on end-to-end shell execution in tests, which can be slow and harder to control. Instead, call the underlying functions with test parameters. This approach is suggested by Cucumber contributors as well – you can test internals directly with only a few tests covering the actual CLI parsing.
-
-Example: If `init` is implemented in `src/commands/init.ts` as an exported function `initProject(name: string): number`, your step might do:
+**Command Logic:** Implement the core functionality of each command in dedicated functions or classes that accept parameters and return results, rather than directly interacting with `process.argv` or `console.log`.
 
 ```typescript
-// Assuming initProject is imported
-When('I run "mycli init --name {string}"', async function(this: ICLIWorld, projectName: string) {
-	// call the command logic directly
-	try {
-	// Assuming initProject returns exit code or throws on error
-	// And maybe logs output which we capture differently or mock
-	this.lastExitCode = initProject(projectName);
-	this.lastOutput = "Project created"; // Or capture actual logs
-	} catch (e: any) {
-	this.lastExitCode = 1; // Or specific error code
-	this.lastOutput = e.message;
-	}
+// src/commands/greet.ts
+export function generateGreeting(name: string): string {
+    if (!name) {
+        throw new Error('Name is required'); // Note: Error handling tests are deferred initially
+    }
+    return `Hello, ${name}!`;
+}
+
+// src/cli.ts (simplified entry point)
+import { generateGreeting } from './commands/greet';
+import { Command } from 'commander';
+
+const program = new Command();
+
+program
+    .command('greet <name>')
+    .description('Greets the specified person')
+    .action((name) => {
+        try {
+            const message = generateGreeting(name);
+            console.log(message);
+        } catch (error: any) {
+            console.error(`Error: ${error.message}`);
+            process.exit(1);
+        }
+    });
+
+// program.parse(process.argv); // Example invocation
+```
+
+**Testing the Logic:** In your tests, import and call the logic function (`generateGreeting`) directly, providing inputs and asserting the output. This bypasses the CLI parsing layer and console I/O.
+
+```typescript
+// src/commands/__tests__/greet.test.ts
+import { generateGreeting } from '../greet';
+
+describe('generateGreeting', () => {
+    it('should return a greeting message for a valid name', () => {
+        expect(generateGreeting('Alice')).toBe('Hello, Alice!');
+    });
+
+    // Initially, do not add tests for error cases like empty names
+    // it('should throw an error if the name is empty', () => {
+    //  expect(() => generateGreeting('')).toThrow('Name is required');
+    // });
 });
 ```
 
-This way, you bypass the CLI parsing (which you can assume Commander handles) and directly test the effect of the command. It’s faster and lets you inject conditions (like throwing errors) more easily.
+This approach makes your core logic highly testable without needing to simulate the entire CLI environment or spawn subprocesses for most unit tests. Reserve full end-to-end tests (which *do* run the CLI executable) for integration testing.
 
-Reserve a few integration tests for the full end-to-end CLI (spawning the process with `child_process.execSync` or similar) to ensure the wiring is correct, but primarily test the logic in isolation as above. This keeps the test suite efficient and focused.
+### 🎭 Mocks, Spies, and Stubs
 
-### 🎭‍️ Mocks, Spies, and Stubs in BDD Tests
+Unit tests must run in isolation, without real side effects like writing files or making network calls. Use test doubles (mocks, spies, stubs) to simulate and control these interactions:
 
-Unit-level BDD tests often need to simulate or observe interactions such as file system access, network calls, or user prompts. Use mocks and spies to control these side effects in your Cucumber steps:
-*   **File System:** If your CLI reads from or writes to files, avoid doing so on the real file system during tests. Instead, use a temp directory (cleaned up after each scenario) or a mock file system. You can set up a dummy directory structure in a `Given` step (e.g. “Given I have a config file with content X”) and point your CLI logic to that (perhaps by setting an environment var or injecting a path). For writing, after the `When` step, check the file output in the temp directory. Libraries like `mock-fs` can simulate a file system in-memory, or you can simply use Node’s `os.tmpdir()` for real but isolated file ops.
-*   **Network Calls:** External HTTP requests should be stubbed so tests don’t depend on external services. If your CLI uses `fetch`/`axios` or any request, inject a fake implementation in tests. For example, set `process.env.NODE_ENV='test'` and in your code, if in test mode, use a mock API client that you control. In step definitions, you can then preset expected responses. This approach was noted as a strategy: abstract API calls so that when `APP_ENV` or similar is “test”, it uses mocks provided in the step definitions.
-*   **User Prompts:** Testing interactive prompts can be tricky. In tests, you should simulate user input instead of actually waiting for a person to type. One way is to stub Inquirer’s `prompt` method. Before running the code that triggers a prompt, override `inquirer.prompt` to return a promise with predefined answers. For example, if the CLI will call `await inquirer.prompt([{ name: 'continue', type: 'confirm' }])`, in your step definition do something like:
+*   **Mocks:** Replace entire modules or classes with controlled fake implementations. Use these for simulating external dependencies (e.g., an API client). Jest provides powerful mocking capabilities (`jest.mock`, `jest.fn`).
+*   **Spies:** Wrap existing functions to track calls, arguments, and return values without changing the original behavior. Use these for verifying that a function was called correctly (e.g., ensuring a logging function was invoked). Use `jest.spyOn`.
+*   **Stubs:** Replace specific functions with predefined behavior, often to force a certain code path (e.g., making a function that reads a file return specific content or throw an error).
 
-    ```typescript
-    import * as inquirer from 'inquirer';
-    // ... in a Given step or before the When:
-    const originalPrompt = inquirer.prompt; // Store original
-    (inquirer as any).prompt = async () => ({ continue: true });
-    // ... run the command ...
-    inquirer.prompt = originalPrompt; // Restore after
-    ```
+**Note on Mocking:** While essential for isolating units, avoid excessive mocking. Tests heavily reliant on mocks might not accurately reflect how components interact in the real application. When feasible, consider using real dependencies in a controlled test environment (e.g., a temporary directory for file operations, an in-memory database, or a dedicated test API endpoint) or writing integration tests that cover the interaction points without mocking every layer. The goal is to balance isolation with realistic testing.
 
-    This way, when the CLI code calls the prompt, it immediately gets `{ continue: true }` as if the user confirmed. This technique (monkey-patching the prompt) provides a deterministic response in tests. Reset the prompt function after if needed.
+**Example: Mocking File System Access (using Jest)**
 
-*   **Spies on Output:** To verify that your CLI prints correct messages, you can spy on `console.log` or whatever logger you use. For instance, in a `Before` hook, replace `console.log` with a spy function that appends messages to `this.lastOutput`. Then your steps can inspect `this.lastOutput`. Make sure to restore the original `console.log` after the scenario. This avoids relying on reading stdout from a child process.
-*   **Stubbing Time or Randomness:** If your tool does anything time-based or random (like timestamps, random IDs), use dependency injection or global stubs so that tests can fix those values. For example, if a file created has a timestamp in its name, allow injecting a clock or use a library like `sinon` to stub `Date.now()` during the test.
+```typescript
+// src/utils/fileHandler.ts
+import fs from 'fs';
 
-Using these techniques, your BDD tests remain unit-level: each scenario isolates one component or behavior with all external interactions controlled. The scenarios should run quickly and reliably without flaky external dependencies.
+export function readFileContent(filePath: string): string {
+    // Assume happy path for initial tests; error handling tested later
+    return fs.readFileSync(filePath, 'utf-8');
+}
 
-Finally, ensure your test suite itself is well-documented and part of your development workflow. Run the Cucumber tests in CI to prevent regressions. When writing new features, add scenarios (this is the essence of BDD: write the scenario first, then implement). The plain-language nature of Gherkin means these scenarios double as documentation for how the CLI is supposed to behave, which is a great side benefit.
+// src/utils/__tests__/fileHandler.test.ts
+import fs from 'fs';
+import { readFileContent } from '../fileHandler';
 
-In summary, by following the above best practices, you will build a robust, user-friendly TypeScript CLI tool and an accompanying suite of BDD-style tests. The CLI will have a clean architecture (easy to maintain and extend), adhere to proven conventions for usability, and be thoroughly tested in behavior terms. This ensures confidence in making changes and releasing updates, knowing that both your implementation and the user experience are well-defined and verified by your Cucumber.js tests.
+jest.mock('fs'); // Mock the entire fs module
+
+describe('readFileContent', () => {
+    it('should return the content of the file', () => {
+        const mockReadFileSync = fs.readFileSync as jest.Mock;
+        mockReadFileSync.mockReturnValue('Mock file content'); // Stub the return value
+
+        const content = readFileContent('dummy/path.txt');
+
+        expect(content).toBe('Mock file content');
+        expect(mockReadFileSync).toHaveBeenCalledWith('dummy/path.txt', 'utf-8'); // Verify call
+    });
+
+    // Initially, do not add tests for file system errors
+    // it('should propagate errors if readFileSync throws', () => {
+    //  const mockReadFileSync = fs.readFileSync as jest.Mock;
+    //  mockReadFileSync.mockImplementation(() => { // Stub the implementation to throw
+    //      throw new Error('File not found');
+    //  });
+    //
+    //  expect(() => readFileContent('error/path.txt')).toThrow('File not found');
+    // });
+});
+```
+
+**Testing Prompts:** For interactive prompts (e.g., using Inquirer.js), mock the prompt library to provide predefined answers instead of waiting for user input.
+
+```typescript
+import inquirer from 'inquirer';
+
+// Spy on and mock the prompt method before tests that need it
+jest.spyOn(inquirer, 'prompt').mockResolvedValue({ confirmation: true });
+
+// Call the code that uses inquirer.prompt
+// It will immediately resolve with { confirmation: true }
+
+// Restore mocks after tests if needed
+jest.restoreAllMocks();
+```
+
+By effectively using test doubles, you ensure your unit tests are fast, reliable, and focused solely on the logic of the unit under test. Integrate these tests into your CI/CD pipeline to catch regressions automatically.

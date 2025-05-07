@@ -73,3 +73,4 @@ yarn.lock
 .nyc_output/
 
 content
+**/.claude/settings.local.json

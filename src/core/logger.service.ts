@@ -46,9 +46,9 @@ export class LoggerService {
    * Uses blue color.
    * @param {string} message - The message to log.
    */
-    public info(message: string): void {
-        console.info(chalk.blue(message));
-    }
+  public info(message: string): void {
+    console.info(chalk.blue(message));
+  }
 
   /**
    * Logs a warning message.
@@ -63,36 +63,40 @@ export class LoggerService {
    * Logs an error message.
    * Uses red color.
    * @param {string} message - The message to log.
-   * @param {any} [error] - Optional associated error object.
+   * @param {unknown} [error] - Optional associated error object for context, not directly used in output.
    */
-  public error(message: string, error?: any): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public error(message: string, error?: unknown): void {
     console.error(chalk.red(message));
+    // The error parameter is captured but not used directly.
+    // It's here for API consistency with other error handling throughout the codebase
+    // and for potential future expansion of error logging functionality.
   }
 
-    /**
-     * Logs a header for emphasizing sections like the current task.
-     * Uses bold text.
-     * @param {string} message - The header text.
-     */
-    public header(message: string): void {
-        console.log(chalk.bold(message));
-    }
+  /**
+   * Logs a header for emphasizing sections like the current task.
+   * Uses bold text.
+   * @param {string} message - The header text.
+   */
+  public header(message: string): void {
+    console.log(chalk.bold(message));
+  }
 
-    /**
-     * Logs a divider line, often used under headers.
-     * @param {number} length - The length of the divider line.
-     * @param {string} [char='═'] - The character to use for the divider.
-     */
-    public divider(length: number, char: string = '═'): void {
-        console.log(char.repeat(length));
-    }
+  /**
+   * Logs a divider line, often used under headers.
+   * @param {number} length - The length of the divider line.
+   * @param {string} [char='═'] - The character to use for the divider.
+   */
+  public divider(length: number, char: string = '═'): void {
+    console.log(char.repeat(length));
+  }
 
-     /**
-     * Logs raw task lines, typically used when displaying task content.
-     * No special formatting applied by default.
-     * @param {string[]} lines - The lines to log.
-     */
-    public taskLines(lines: string[]): void {
-        lines.forEach(line => console.log(line));
-    }
-} 
+  /**
+   * Logs raw task lines, typically used when displaying task content.
+   * No special formatting applied by default.
+   * @param {string[]} lines - The lines to log.
+   */
+  public taskLines(lines: string[]): void {
+    lines.forEach((line) => console.log(line));
+  }
+}

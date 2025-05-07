@@ -3,7 +3,7 @@
  * 
  * Tests for the TaskService parsing utilities implemented in Milestone 1.
  */
-import { TaskService } from '../../src/modules/task.service.js';
+import { TaskService } from '../../../src/tasks/task.service.js';
 import { describe, test, expect } from '@jest/globals';
 
 describe('TaskService Parsing Utilities', () => {

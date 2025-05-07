@@ -1,0 +1,99 @@
+---
+description: Apply when designing or refactoring CLI command implementations or writing unit tests for them. Promotes separating the core business logic of a command from I/O operations (argument parsing, console output, file system access, network requests) to enhance testability. Encourages testing the isolated logic functions directly.
+globs:
+alwaysApply: false
+---
+
+# Isolating CLI Logic for Testability
+
+## Critical Rules
+
+-   Implement the core logic of each CLI command in separate, dedicated functions or classes.
+-   These logic functions should accept necessary data as parameters and return results or throw errors.
+-   Avoid direct interaction with `process.argv`, `console.log`/`console.error`, `fs`, or network clients *within* the core logic functions. Pass dependencies or data in.
+-   The CLI entry point or command definition layer (e.g., using Commander/Yargs `.action()`) should be responsible for:
+    -   Parsing arguments.
+    -   Calling the core logic function with parsed inputs.
+    -   Handling the results (e.g., printing to console).
+    -   Catching errors from the logic function and formatting them for the user.
+-   In unit tests, import and test the core logic functions *directly*.
+-   Provide inputs directly as arguments to the logic function during tests.
+-   Assert on the return value or thrown errors of the logic function.
+-   Avoid testing the logic through the CLI parsing layer or by simulating `console.log` in unit tests where possible; focus on the pure logic. Reserve full CLI execution for integration tests.
+
+## Examples
+
+<example>
+  ```typescript
+  // src/commands/logic/greetingLogic.ts (Testable Core Logic)
+  export function generateGreeting(name: string): string {
+    if (!name) {
+      throw new Error('Name cannot be empty.'); // Logic throws errors
+    }
+    return `Hello, ${name}!`; // Logic returns data
+  }
+
+  // src/commands/greetCommand.ts (CLI Layer)
+  import { Command } from 'commander';
+  import { generateGreeting } from './logic/greetingLogic';
+
+  export function setupGreetCommand(program: Command) {
+    program
+      .command('greet <name>')
+      .description('Greets the specified person')
+      .action((name) => {
+        try {
+          // Call core logic
+          const message = generateGreeting(name);
+          // Handle output (side effect)
+          console.log(message);
+        } catch (error: any) {
+          // Handle errors (side effect)
+          console.error(`Error: ${error.message}`);
+          process.exit(1);
+        }
+      });
+  }
+
+  // src/commands/logic/__tests__/greetingLogic.test.ts (Testing Logic Directly)
+  import { generateGreeting } from '../greetingLogic';
+
+  describe('generateGreeting', () => {
+    it('should return a greeting for a valid name', () => {
+      // Arrange & Act: Call logic directly
+      const result = generateGreeting('Alice');
+      // Assert: Check return value
+      expect(result).toBe('Hello, Alice!');
+    });
+
+    // Error case test (deferred initially, but shows testing logic directly)
+    // it('should throw an error for an empty name', () => {
+    //   expect(() => generateGreeting('')).toThrow('Name cannot be empty.');
+    // });
+  });
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // src/commands/greetCommandUntestable.ts (Logic mixed with I/O)
+  import { Command } from 'commander';
+
+  export function setupGreetCommandUntestable(program: Command) {
+    program
+      .command('greet <name>')
+      .description('Greets the specified person')
+      .action((name) => {
+        // Logic and side effects mixed, hard to unit test
+        if (!name) {
+          console.error('Error: Name cannot be empty.'); // Direct console use
+          process.exit(1); // Direct process exit
+        }
+        const message = `Hello, ${name}!`;
+        console.log(message); // Direct console use
+      });
+  }
+
+  // Testing this requires mocking console/process or running as subprocess.
+  ```
+</example>

@@ -1,0 +1,64 @@
+---
+description: Apply when executing unit tests and reporting the results, especially when failures occur. Mandates running all new and existing project tests together and requires reporting *every* failed test using a specific structured format before proceeding with fixes.
+globs:
+alwaysApply: false
+---
+
+# Unit Test Execution and Failure Reporting
+
+## Critical Rules
+
+-   After creating the required initial happy-path tests, run **all** new and existing project tests together (e.g., `npm test` or `jest`).
+-   If any tests fail, **stop** and report **each** failure before attempting fixes.
+-   Use the following specific format for reporting **every** failed test:
+
+    ```
+    # 📝 Activity: ACTOR_VERB (e.g., User Login, Calculate Sum)
+    💎 Expected: EXPECTED_OUTCOME (e.g., User is logged in, Returns 5)
+    🧱 Actual: ACTUAL_OUTCOME (e.g., Received 401 Unauthorized, Returned 6)
+    💭 Reason: BRIEF_EXPLANATION_OF_FAILURE (e.g., Mock API returned error, Off-by-one error in loop)
+    🔧 Proposed Fix: CODE_SNIPPET_OR_DESCRIPTION (e.g., `expect(sum).toBe(5);`, Adjust loop boundary)
+    ```
+-   Provide this structured report for **all** failing tests.
+-   Wait for further instructions after reporting all failures before proceeding to fix the code or tests.
+
+## Examples
+
+<example>
+  **Console Output:**
+  ```
+  FAIL src/utils/__tests__/calculator.test.ts
+  ● add function › should return the sum of two positive numbers
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 5
+    Received: 6
+
+      14 |
+      15 |       // Assert
+    > 16 |       expect(result).toBe(expectedSum);
+         |                      ^
+      17 |     });
+      18 |
+
+      at Object.<anonymous> (src/utils/__tests__/calculator.test.ts:16:22)
+  ```
+  **Agent's Report:**
+  ```
+  # 📝 Activity: Calculate Sum (add function)
+  💎 Expected: Returns 5 when adding 2 and 3
+  🧱 Actual: Returned 6
+  💭 Reason: The add function seems to have an off-by-one error or incorrect addition logic.
+  🔧 Proposed Fix: Review the implementation of `add(a, b)` in `calculator.ts`. Ensure it performs `a + b`.
+  ```
+  *(If multiple tests failed, provide a separate report block for each)*
+</example>
+
+<example type="invalid">
+  **Agent's Response (Missing structure, incomplete):**
+  ```
+  The calculator test failed. It expected 5 but got 6. I'll fix the add function now.
+  ```
+  *(This is invalid because it lacks the required structured format and doesn't wait for instructions after reporting.)*
+</example>

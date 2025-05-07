@@ -5,7 +5,7 @@
  */
 import yaml from 'js-yaml';
 import { FileSystemService } from './file-system.service.js';
-import { LoggerService } from './logger.service.js';
+import { LoggerService } from '../core/logger.service.js';
 
 export class YamlService {
   private fileSystemService: FileSystemService;
@@ -25,15 +25,15 @@ export class YamlService {
    * Handles empty or invalid input gracefully.
    *
    * @param {string} yamlString - The YAML string to parse.
-   * @returns {Record<string, any>} The parsed JavaScript object, or an empty object if parsing fails or input is empty.
+   * @returns {Record<string, unknown>} The parsed JavaScript object, or an empty object if parsing fails or input is empty.
    */
-  parseYaml(yamlString: string): Record<string, any> {
+  parseYaml(yamlString: string): Record<string, unknown> {
     try {
       if (!yamlString || yamlString.trim() === '') {
         return {};
       }
-      return yaml.load(yamlString) as Record<string, any> || {};
-    } catch (error) {
+      return (yaml.load(yamlString) as Record<string, unknown>) || {};
+    } catch (error: unknown) {
       this.logger.error('Error parsing YAML:', error);
       return {};
     }
@@ -43,13 +43,13 @@ export class YamlService {
    * Serializes a JavaScript object into a YAML string.
    * Handles null or undefined input gracefully.
    *
-   * @param {Record<string, any>} data - The JavaScript object to serialize.
+   * @param {Record<string, unknown>} data - The JavaScript object to serialize.
    * @returns {string} The resulting YAML string, or an empty string if serialization fails.
    */
-  serializeToYaml(data: Record<string, any>): string {
+  serializeToYaml(data: Record<string, unknown>): string {
     try {
       return yaml.dump(data || {});
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Error serializing to YAML:', error);
       return '';
     }
@@ -60,19 +60,19 @@ export class YamlService {
    * Checks if the file exists before attempting to read.
    *
    * @param {string} filePath - The absolute path to the YAML file.
-   * @returns {Promise<Record<string, any>>} A promise that resolves with the parsed JavaScript object.
+   * @returns {Promise<Record<string, unknown>>} A promise that resolves with the parsed JavaScript object.
    *   Returns an empty object if the file doesn't exist or if reading/parsing fails.
    */
-  async readYamlFile(filePath: string): Promise<Record<string, any>> {
+  async readYamlFile(filePath: string): Promise<Record<string, unknown>> {
     try {
       const exists = await this.fileSystemService.pathExists(filePath);
       if (!exists) {
         return {};
       }
-      
+
       const content = await this.fileSystemService.readFile(filePath);
       return this.parseYaml(content);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(`Error reading YAML file ${filePath}:`, error);
       return {};
     }
@@ -83,17 +83,17 @@ export class YamlService {
    * Overwrites the file if it already exists.
    *
    * @param {string} filePath - The absolute path where the YAML file should be written.
-   * @param {Record<string, any>} data - The JavaScript object to serialize and write.
+   * @param {Record<string, unknown>} data - The JavaScript object to serialize and write.
    * @returns {Promise<void>} A promise that resolves when the file has been written.
    * @throws {Error} If serialization or file writing fails.
    */
-  async writeYamlFile(filePath: string, data: Record<string, any>): Promise<void> {
+  async writeYamlFile(filePath: string, data: Record<string, unknown>): Promise<void> {
     try {
       const yamlContent = this.serializeToYaml(data);
       await this.fileSystemService.writeFile(filePath, yamlContent);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(`Error writing YAML file ${filePath}:`, error);
       throw error;
     }
   }
-} 
+}

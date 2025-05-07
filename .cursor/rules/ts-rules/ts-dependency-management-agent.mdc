@@ -1,60 +1,109 @@
 ---
-description: Apply this rule when managing dependencies or structuring code modules in a TypeScript project, especially CLIs. It emphasizes minimizing dependencies, using lockfiles, leveraging standard libraries where appropriate, applying SOLID principles for modularity, and using dependency injection for testability.
-globs: *.ts, *.tsx, package.json
+description: Apply when adding, removing, or managing dependencies, or when structuring code modules in a TypeScript project, especially for CLIs. Promotes minimizing external dependencies, using lockfiles (`package-lock.json`), vetting dependencies, following SOLID principles for modular code, and using dependency injection for testability.
+globs:
 alwaysApply: false
 ---
 
-# TypeScript Dependency Management and Code Modularization
+# TypeScript Dependency Management & Code Modularization
 
 ## Critical Rules
 
--   Minimize external dependencies to reduce install size, startup time, and security surface. Vet dependencies.
--   Use a lockfile (`package-lock.json` or `yarn.lock`) and commit it to ensure reproducible builds.
--   Leverage well-known, reliable libraries for standard tasks (parsing, prompts, config) instead of reinventing the wheel.
--   Structure code into distinct, modular components following SOLID principles (separate concerns).
--   Use Dependency Injection (DI) for external interactions (file system, network APIs, etc.). Abstract these behind interfaces or modules to allow mocking in tests.
--   Design modules with clear APIs and minimize coupling, potentially allowing core logic to be used as a library.
+-   Minimize external dependencies to reduce install size, startup time, and security surface area. Vet dependencies for size and quality.
+-   Use well-known, reliable libraries for standard tasks (parsing, prompts, config) instead of reinventing the wheel.
+-   Always use a lockfile (`package-lock.json` or `yarn.lock`) and commit it to version control to ensure reproducible builds.
+-   Keep dependencies up-to-date using tools like `npm update` or Dependabot, but test updates carefully.
+-   Structure code into distinct, modular components following SOLID principles (Single Responsibility, etc.). Separate concerns (e.g., parsing, business logic, output formatting).
+-   Use Dependency Injection (DI) or abstract interactions with external systems (file system, network APIs, databases) behind interfaces or modules.
+-   Avoid hard-coding calls to external services directly within business logic; use abstractions that can be mocked or stubbed in tests.
+-   Design modules with clear APIs to potentially allow reuse as a library. Minimize coupling between modules.
 
 ## Examples
 
 <example>
   ```typescript
-  // Using dependency injection for an API client
-  interface ApiClient {
-    fetchData(id: string): Promise<any>;
+  // src/lib/apiClient.ts - Abstraction for external service
+  export interface ApiClient {
+    fetchData(id: string): Promise<{ data: string }>;
   }
 
-  // Real implementation
-  class RealApiClient implements ApiClient { /* ... */ }
-
-  // Command logic accepts the client via constructor or method
-  class MyCommand {
-    constructor(private apiClient: ApiClient) {}
-    async execute(id: string) {
-      const data = await this.apiClient.fetchData(id);
-      // ... process data ...
+  export class RealApiClient implements ApiClient {
+    async fetchData(id: string): Promise<{ data: string }> {
+      // Actual fetch implementation
+      const response = await fetch(`https://api.example.com/data/${id}`);
+      return response.json();
     }
   }
 
-  // In main app: new MyCommand(new RealApiClient())
-  // In tests: new MyCommand(new MockApiClient())
+  // src/commands/getData.ts - Uses dependency injection
+  import { ApiClient } from '../lib/apiClient';
+
+  export async function handleGetData(id: string, apiClient: ApiClient) { // Injected dependency
+    try {
+      const result = await apiClient.fetchData(id);
+      console.log('Received data:', result.data);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    }
+  }
+
+  // src/index.ts - Wiring dependencies
+  import { Command } from 'commander';
+  import { RealApiClient } from './lib/apiClient';
+  import { handleGetData } from './commands/getData';
+
+  const program = new Command();
+  const apiClient = new RealApiClient(); // Create real instance
+
+  program
+    .command('get <id>')
+    .action((id) => handleGetData(id, apiClient)); // Inject instance
+
+  program.parse(process.argv);
+  ```
+  ```json
+  // package.json - Minimal, necessary dependencies with lockfile
+  {
+    "name": "my-cli",
+    "dependencies": {
+      "commander": "^10.0.0",
+      "node-fetch": "^3.0.0" // Example external dependency
+    },
+    "devDependencies": { ... }
+  }
+  // package-lock.json exists and is committed
   ```
 </example>
 
 <example type="invalid">
   ```typescript
-  // Hardcoding external calls without abstraction
-  import axios from 'axios';
+  // src/commands/getData.ts - Hard-coded dependency, tight coupling
+  import fetch from 'node-fetch'; // Direct import and use
 
-  class MyCommand {
-    async execute(id: string) {
-      // Direct, hardcoded call to axios - difficult to mock in tests
-      const response = await axios.get(`https://api.example.com/data/${id}`);
-      // ... process data ...
+  export async function handleGetData(id: string) { // No injection
+    try {
+      // Business logic directly calls external service
+      const response = await fetch(`https://api.example.com/data/${id}`);
+      const result = await response.json();
+      console.log('Received data:', result.data);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
     }
   }
-
-  // Also, package.json has an excessive number of unused dependencies listed.
-  // No package-lock.json committed.
+  // Hard to test without making real network calls.
+  ```
+  ```json
+  // package.json - Bloated, unvetted dependencies, no lockfile info
+  {
+    "name": "my-cli",
+    "dependencies": {
+      "commander": "*", // Unpinned version
+      "lodash": "*", // Entire library pulled in for one function?
+      "request": "*", // Deprecated library
+      "moment": "*", // Large date library, maybe alternatives exist?
+      "left-pad": "*" // Example of potentially unnecessary small dependency
+      // ... many more ...
+    }
+    // No package-lock.json committed
+  }
   ```
 </example>

@@ -1,0 +1,45 @@
+---
+description: This rule mandates the use of the Jest testing framework for all unit tests in TypeScript CLI projects. Apply this rule when creating new tests, configuring the testing environment, or reviewing existing test suites to ensure consistency and leverage Jest's features.
+globs:
+alwaysApply: false
+---
+
+# Testing Framework Standard: Jest
+
+## Critical Rules
+
+- Always use **Jest** as the primary framework for unit testing TypeScript code.
+- Configure Jest appropriately for TypeScript projects (e.g., using `ts-jest`).
+- Utilize Jest's built-in assertion library (`expect`) for verifying test outcomes.
+- Leverage Jest's features for mocking (`jest.mock`, `jest.fn`, `jest.spyOn`).
+
+## Examples
+
+<example>
+  ```typescript
+  // Correct: Using Jest's describe, it, and expect
+  import { add } from '../src/utils/math';
+
+  describe('Math Utils', () => {
+    describe('add function', () => {
+      it('should return the sum of two positive numbers', () => {
+        expect(add(2, 3)).toBe(5);
+      });
+    });
+  });
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Incorrect: Using a different testing framework like Mocha/Chai without justification
+  import { add } from '../src/utils/math';
+  import { assert } from 'chai';
+
+  suite('Math Utils', () => {
+    test('add function should work', () => {
+      assert.equal(add(2, 3), 5);
+    });
+  });
+  ```
+</example>

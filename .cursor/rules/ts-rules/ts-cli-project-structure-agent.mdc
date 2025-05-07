@@ -1,5 +1,5 @@
 ---
-description: Apply this rule when creating a new TypeScript CLI project or restructuring an existing one. It ensures a conventional and maintainable layout, separating concerns like executable scripts, command logic, utilities, and core business logic. Following this structure improves navigability, scalability, and testability.
+description: Apply when discussing or modifying the project structure of a TypeScript CLI tool. Ensures adherence to conventional layouts (bin/, src/commands/, src/utils/, src/lib/) for better navigation, scalability, and testability, especially when organizing source code, build outputs, and configuration.
 globs:
 alwaysApply: false
 ---
@@ -8,39 +8,49 @@ alwaysApply: false
 
 ## Critical Rules
 
--   Organize the project with standard directories:
-    -   `bin/`: Executable script(s) with shebang (`#!/usr/bin/env node`).
+-   Organize the project into clear, conventional directories:
+    -   `bin/`: Executable script(s) with shebang.
     -   `src/`: TypeScript source code.
         -   `src/commands/`: Individual command modules.
         -   `src/utils/`: Shared utility functions.
         -   `src/lib/`: Core business logic.
-    -   Project root: `package.json`, `README.md`, `tsconfig.json`.
+    -   Root: `package.json`, `README.md`, `tsconfig.json`.
 -   Compile TypeScript from `src/` to a separate output directory (e.g., `dist/`).
--   Exclude the compiled output directory from version control (via `.gitignore`).
--   Enable strict mode in `tsconfig.json`.
+-   Keep compiled output (`dist/`) out of version control (add to `.gitignore`).
+-   Maintain a strict TypeScript configuration (`tsconfig.json` with `strict: true`).
+-   Ensure a clean separation between the CLI entry point (`bin/`) and the core logic (`src/`).
 
 ## Examples
 
 <example>
-  ```typescript
-  // Project structure adheres to the standard layout
-  // bin/mycli.js (with shebang)
-  // src/commands/init.ts
-  // src/utils/logger.ts
-  // src/lib/apiClient.ts
-  // package.json
-  // tsconfig.json (strict: true)
-  // .gitignore (includes dist/)
+  ```
+  my-cli/
+  ├── bin/
+  │   └── my-cli.js       # Entry point with shebang
+  ├── src/
+  │   ├── commands/
+  │   │   └── init.ts
+  │   ├── utils/
+  │   │   └── logger.ts
+  │   ├── lib/
+  │   │   └── api-client.ts
+  │   └── index.ts        # Main application logic/setup
+  ├── dist/               # Compiled JS (ignored by git)
+  ├── package.json
+  ├── tsconfig.json
+  └── README.md
   ```
 </example>
 
 <example type="invalid">
-  ```typescript
-  // Project structure mixes source and compiled code, lacks separation
-  // mycli.ts (source in root)
-  // commands/init.js (compiled code checked in)
-  // utils.ts (utility mixed with commands)
-  // .gitignore (missing dist/)
-  // tsconfig.json (strict: false)
+  ```
+  my-cli/
+  ├── my-cli.ts           # Source and entry point mixed
+  ├── commands.ts         # All commands in one file
+  ├── utils.js            # Mixing JS and TS at top level
+  ├── node_modules/       # Should be present, but structure lacks src/dist separation
+  ├── package.json
+  └── README.md
+  # Missing clear separation, no dedicated bin or dist, mixes source types.
   ```
 </example>

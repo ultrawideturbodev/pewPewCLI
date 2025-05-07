@@ -1,0 +1,67 @@
+---
+description: Apply when setting up, organizing, or adding unit tests to a project, particularly TypeScript projects using Jest. Guides towards placing test files logically alongside source code (e.g., `__tests__/` or `*.test.ts`), mirroring the source directory structure, and correctly configuring the test runner (e.g., `jest.config.js`) for discovery and execution.
+globs:
+alwaysApply: false
+---
+
+# Unit Test Structure and Organization
+
+## Critical Rules
+
+-   Organize test files logically within the project structure.
+-   Common conventions:
+    -   Place test files in a `__tests__/` directory within the corresponding `src/` subdirectory (e.g., `src/utils/__tests__/helpers.test.ts` tests `src/utils/helpers.ts`).
+    -   Alternatively, name test files using a suffix like `.test.ts` or `.spec.ts` alongside the source file (e.g., `src/utils/helpers.ts` and `src/utils/helpers.test.ts`).
+    -   Or, use a single top-level `tests/` or `test/` directory mirroring the `src/` structure (e.g., `tests/unit/utils/helpers.test.ts`).
+-   Choose one convention and apply it consistently across the project.
+-   Ensure the test runner (e.g., Jest) is configured to find and execute these test files. Configure via `jest.config.js` or `package.json`.
+-   Use TypeScript-aware test execution (e.g., `ts-jest`, `ts-node` with Jest) to run tests directly against TypeScript source code.
+-   Keep test setup and configuration (`jest.config.js`, `tests/setup.ts`) separate from application code.
+
+## Examples
+
+<example>
+  **Project Structure (using `__tests__/`):**
+  ```
+  my-project/
+  ├── src/
+  │   ├── commands/
+  │   │   ├── __tests__/
+  │   │   │   └── init.test.ts
+  │   │   └── init.ts
+  │   ├── utils/
+  │   │   ├── __tests__/
+  │   │   │   └── parser.test.ts
+  │   │   └── parser.ts
+  │   └── index.ts
+  ├── jest.config.js
+  └── package.json
+  ```
+  **jest.config.js (Basic):**
+  ```javascript
+  module.exports = {
+    preset: 'ts-jest',
+    testEnvironment: 'node',
+    roots: ['<rootDir>/src'], // Tells Jest where to look for tests/sources
+    testMatch: ['**/__tests__/**/*.test.ts'], // Pattern to find test files
+  };
+  ```
+</example>
+
+<example type="invalid">
+  **Project Structure (Inconsistent, messy):**
+  ```
+  my-project/
+  ├── src/
+  │   ├── commands/
+  │   │   └── init.ts
+  │   ├── utils/
+  │   │   └── parser.ts
+  │   └── index.ts
+  ├── tests/
+  │   └── initCommandTest.js  // JS file for TS code? Different naming.
+  ├── parser.spec.ts          // Test file at root level?
+  ├── command-tests.ts        // Multiple tests in one file? Vague name.
+  └── package.json            // Jest config might be missing or incorrect
+  ```
+</example>
