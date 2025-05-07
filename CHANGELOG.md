@@ -23,6 +23,11 @@ All notable changes to pewPewCLI will be documented in this file.
 - Updated import paths to ensure consistency across the codebase
 - Implemented proper error handling with Error instance checking
 
+#### 🧰 Dependency Updates
+- Updated inquirer from 8.2.5 to 12.6.0
+- Updated ts-jest from 29.1.1 to 29.3.2
+- Updated @types/node from 22.14.0 to 22.15.14
+
 #### 🧹 Chores
 - Updated ESLint to v9 with modern configuration format
 - Added ESLint and Prettier scripts to package.json for consistent code style
