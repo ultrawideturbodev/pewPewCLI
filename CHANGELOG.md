@@ -2,6 +2,13 @@
 
 All notable changes to pewPewCLI will be documented in this file.
 
+## v0.4.2
+
+### May 27, 2025
+
+#### 🐛 Bug fixes
+- Fixed missing `chalk` dependency in package.json that was causing module not found errors
+
 ## v0.4.1
 
 ### May 15, 2025
