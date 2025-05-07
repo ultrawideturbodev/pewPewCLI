@@ -1,5 +1,5 @@
 ---
-description: Apply this rule when designing or implementing configuration handling for any CLI tool. It guides the use of multiple configuration sources (args, env vars, files), defines a clear precedence order, recommends standard file locations (XDG spec), and suggests persisting user preferences securely where appropriate.
+description: Apply when implementing or discussing configuration management strategy for any CLI tool. Ensures a clear order of precedence (args > env > project config > user config > system config), use of standard config file locations (e.g., XDG Base Directory spec), support for environment variables, and secure persistence of stateful configuration (like API keys).
 globs:
 alwaysApply: false
 ---
@@ -8,53 +8,103 @@ alwaysApply: false
 
 ## Critical Rules
 
--   Support configuration from multiple sources with a clear order of precedence:
+-   Support configuration from multiple sources with a clear precedence order:
     1.  Command-line arguments (highest priority).
-    2.  Environment variables (e.g., `MYCLI_TOKEN`).
-    3.  Project-level config files (in the current working directory).
-    4.  User-level config files (respect XDG Base Directory Specification, e.g., `~/.config/mycli/config.json`).
-    5.  System-level config files (if applicable).
--   Use a config loading library (e.g., cosmiconfig) to find and merge configurations automatically.
--   Document the configuration sources, precedence order, and any environment variables used.
--   For user-specific, persistent state (like API keys, preferences), use a secure config store (e.g., `conf`, `configstore`) that respects OS conventions. Avoid storing sensitive data in plaintext if possible.
--   Follow the XDG Base Directory Specification for user config/data paths instead of cluttering the home directory with dotfiles.
+    2.  Environment variables (e.g., `MYCLI_SETTING`).
+    3.  Project-level config files (in the current working directory, e.g., `.myclirc`, `mycli.config.js`).
+    4.  User-level config files (in home directory, respecting XDG, e.g., `~/.config/mycli/config.json`).
+    5.  System-level config (less common, e.g., `/etc/mycli/config`).
+-   Clearly document the configuration hierarchy and environment variable names.
+-   Use established libraries (e.g., `cosmiconfig`, `conf`, `configstore`) to load configuration files from standard locations.
+-   Follow the XDG Base Directory Specification for user-level config/data files (`~/.config/`, `~/.local/share/`, `~/.cache/`) instead of cluttering the home directory.
+-   Persist stateful configuration (e.g., API tokens, user preferences) securely using appropriate stores (`conf`, `configstore`, OS keychain). Avoid asking for the same information repeatedly.
+-   Ensure configuration loading doesn't significantly slow down CLI startup.
 
 ## Examples
 
 <example>
   ```typescript
-  // Using cosmiconfig to load configuration from multiple sources
-  import { cosmiconfig } from 'cosmiconfig';
+  // Using 'conf' library for user-level config
+  import Conf from 'conf';
+  import { Command } from 'commander';
 
-  async function loadConfig() {
-    const explorer = cosmiconfig('mycli');
-    const result = await explorer.search(); // Searches package.json, rc files, etc.
-    const config = result ? result.config : {};
-
-    // Merge with environment variables and command-line args (handled elsewhere)
-    const finalConfig = {
-      apiKey: process.env.MYCLI_API_KEY || config.apiKey,
-      // ... other config values
-    };
-    return finalConfig;
+  // Schema definition for type safety and defaults
+  interface ConfigSchema {
+    apiKey: string;
+    defaultRegion: string;
   }
-  // User config might be loaded from ~/.config/mycli/config.yaml
+
+  const config = new Conf<ConfigSchema>({
+    projectName: 'mycli', // Creates config at ~/.config/mycli/config.json
+    defaults: {
+      apiKey: '',
+      defaultRegion: 'us-east-1',
+    },
+  });
+
+  const program = new Command();
+  program
+    .command('config set <key> <value>')
+    .action((key, value) => {
+      if (key === 'apiKey' || key === 'defaultRegion') {
+        config.set(key, value);
+        console.log(`Set ${key} to ${value}`);
+      } else {
+        console.error(`Invalid config key: ${key}`);
+      }
+    });
+
+  program
+    .command('do-something')
+    .option('-r, --region <region>', 'Override default region')
+    .action((options) => {
+      const apiKey = process.env.MYCLI_API_KEY || config.get('apiKey'); // Env > Config
+      const region = options.region || process.env.MYCLI_REGION || config.get('defaultRegion'); // Arg > Env > Config
+
+      if (!apiKey) {
+        console.error('API Key not set. Use "mycli config set apiKey <your-key>" or set MYCLI_API_KEY env var.');
+        return;
+      }
+      console.log(`Doing something in region ${region} with key ${apiKey.substring(0, 4)}...`);
+    });
+
+  program.parse(process.argv);
   ```
 </example>
 
 <example type="invalid">
   ```typescript
-  // Hardcoding config paths or having unclear precedence
+  // Anti-pattern: Hardcoded paths, no precedence, insecure storage
   import fs from 'fs';
+  import path from 'path';
+  import { Command } from 'commander';
 
-  function loadConfig() {
-    let config = {};
-    // Only checks for a single hardcoded file, ignores env vars or args precedence
-    if (fs.existsSync('~/.mycliconfig')) { // Incorrectly uses ~ directly, pollutes home dir
-      config = JSON.parse(fs.readFileSync('~/.mycliconfig', 'utf8'));
+  const configPath = path.join(process.env.HOME || '~', '.mycliconfig'); // Custom dotfile in home
+
+  function getConfig() {
+    try {
+      return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    } catch (e) {
+      return {}; // Ignores errors silently
     }
-    // Doesn't clearly define how CLI args override this config
-    return config;
   }
+
+  const program = new Command();
+  program
+    .command('do-something')
+    .option('--api-key <key>') // Only supports CLI arg or file
+    .action((options) => {
+      const config = getConfig();
+      // No clear precedence, env vars ignored
+      const apiKey = options.apiKey || config.apiKey;
+      if (!apiKey) {
+        console.error('API Key missing.'); // Doesn't guide user on how to set
+        return;
+      }
+      // Storing sensitive data potentially insecurely in a plain JSON file
+      console.log(`Doing something with key ${apiKey}`);
+    });
+
+  program.parse(process.argv);
   ```
 </example>

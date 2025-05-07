@@ -51,29 +51,37 @@ You can specify the paste mode directly using flags:
 
 ## Configuring the Default Paste Target
 
-By default, `pew paste tasks` needs to know *which* file to paste into. You can configure a default target file in your `.pew/config/paths.yaml` file using the `paste-tasks` key.
+By default, `pew paste tasks` needs to know *which* file to paste into. You can configure a default target file in your `pew.yaml` file using the `tasks.paste` value.
 
-1.  **Initialize (if needed):** Ensure you have run `pew init`. This command automatically sets up the `.pew/config/paths.yaml` file and adds both the `tasks` key (for `pew next task`) and the `paste-tasks` key, usually pointing to the same default file (`.pew/tasks.md`).
+1.  **Initialize (if needed):** Ensure you have run `pew init`. This command automatically sets up the `pew.yaml` file and adds the `tasks` section with values for `all`, `primary`, and `paste`, usually all pointing to the same default file (`tasks.md`).
 
-    **Default `.pew/config/paths.yaml` after `pew init`:**
+    **Default `pew.yaml` after `pew init`:**
     ```yaml
     tasks:
-      - .pew/tasks.md
-    paste-tasks: .pew/tasks.md # Default target for 'pew paste tasks'
+      all:
+        - tasks.md
+      primary: tasks.md
+      paste: tasks.md
+    updates:
+      lastUpdateCheckTimestamp: 0
     ```
 
-2.  **Modify (Optional):** You can manually edit `.pew/config/paths.yaml` to change the `paste-tasks` value to point to a different default file if needed. The path can be relative to your project root or an absolute path.
+2.  **Modify (Optional):** You can manually edit `pew.yaml` to change the `tasks.paste` value to point to a different default file if needed. The path can be relative to your project root or an absolute path.
 
     **Example Custom Configuration:**
     ```yaml
     tasks:
-      - .pew/main_tasks.md
-      - .pew/qa_checklist.md
-    # Set a different default file for pasting
-    paste-tasks: .pew/inbox.md
+      all:
+        - main_tasks.md
+        - qa_checklist.md
+      primary: main_tasks.md
+      # Set a different default file for pasting
+      paste: inbox.md
+    updates:
+      lastUpdateCheckTimestamp: 0
     ```
 
-**Fallback Behavior:** If the `paste-tasks` key is missing or invalid in your configuration, `pew paste tasks` will fall back to using the *first* file listed under the `tasks` key. If that is also missing or invalid, it will default to `.pew/tasks.md` relative to your current working directory.
+**Fallback Behavior:** If the `tasks.paste` value is missing or invalid in your configuration, `pew paste tasks` will fall back to using the `tasks.primary` value. If that is also missing or invalid, it will default to `tasks.md` relative to your current working directory.
 
 ## Overriding the Target with `--path`
 
@@ -101,7 +109,7 @@ You can temporarily paste into a different file without changing your configurat
     ```
     *   **Expected Output Prompt:**
         ```
-        ? Path 'non-existent/tasks.md' does not exist. Paste into default '.pew/tasks.md' instead? (y/N)
+        ? Path 'non-existent/tasks.md' does not exist. Paste into default 'tasks.md' instead? (y/N)
         ```
         [Screenshot: Prompt asking whether to use the default path when the override path doesn't exist]
 
@@ -109,4 +117,4 @@ You can temporarily paste into a different file without changing your configurat
 
 ## Conclusion
 
-The `pew paste tasks` command offers a flexible way to add content to your task files from the clipboard. By understanding the different paste modes, configuring the `paste-tasks` setting, and utilizing the `--path` override, you can efficiently manage where your pasted content goes within your project workflows. 
+The `pew paste tasks` command offers a flexible way to add content to your task files from the clipboard. By understanding the different paste modes, configuring the `tasks.paste` setting in your `pew.yaml`, and utilizing the `--path` override, you can efficiently manage where your pasted content goes within your project workflows. 

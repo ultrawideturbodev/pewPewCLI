@@ -1,0 +1,93 @@
+---
+description: Apply when writing unit tests that involve functions or modules with side effects (e.g., file system access, network requests, database interactions, timers, complex dependencies). Guides the use of test doubles like mocks, spies, and stubs (using frameworks like Jest) to isolate the unit under test and control its environment. Advises balancing isolation with realistic testing.
+globs:
+alwaysApply: false
+---
+
+# Unit Testing with Mocks, Spies, and Stubs
+
+## Critical Rules
+
+-   Use test doubles (mocks, spies, stubs) to isolate the unit under test from its dependencies and side effects.
+-   **Mocks (`jest.mock`)**: Replace entire modules or classes with fake implementations. Use for external dependencies (e.g., `fs`, `axios`, custom API clients).
+-   **Spies (`jest.spyOn`)**: Wrap existing functions/methods to track calls, arguments, and return values without changing behavior (unless `.mockReturnValue()` etc. is used). Use to verify interactions (e.g., "was `logger.error` called?").
+-   **Stubs (via Spies or Mocks)**: Replace specific functions/methods with predefined behavior (e.g., force a function to return a specific value or throw an error). Use `jest.fn()`, `spy.mockReturnValue()`, `spy.mockResolvedValue()`, `spy.mockImplementation()`.
+-   Mock dependencies at the module level (`jest.mock('./path/to/module')`) or spy on methods of imported objects (`jest.spyOn(object, 'methodName')`).
+-   Ensure mocks/stubs provide the necessary interface expected by the code under test.
+-   Verify interactions with mocks/spies using Jest matchers like `toHaveBeenCalled()`, `toHaveBeenCalledWith()`, `toHaveBeenCalledTimes()`.
+-   Clean up or restore mocks/spies after tests if necessary (e.g., using `jest.restoreAllMocks()` in `afterEach` or `beforeEach`) to avoid interference between tests.
+-   Avoid excessive mocking: If a test relies too heavily on mocks, it might become brittle or not accurately reflect real-world behavior. Balance unit test isolation with integration tests that use real dependencies where appropriate.
+-   When testing code using interactive prompts (e.g., Inquirer.js), mock the prompt library to return predefined answers immediately.
+
+## Examples
+
+<example>
+  ```typescript
+  // src/services/userService.ts
+  import fs from 'fs/promises'; // Dependency with side effects
+
+  export async function getUserData(userId: string): Promise<{ name: string }> {
+    const data = await fs.readFile(`/data/users/${userId}.json`, 'utf-8');
+    return JSON.parse(data);
+  }
+
+  // src/services/__tests__/userService.test.ts
+  import fs from 'fs/promises';
+  import { getUserData } from '../userService';
+
+  // Mock the 'fs/promises' module
+  jest.mock('fs/promises');
+
+  describe('getUserData', () => {
+    it('should read and parse user data from the correct file', async () => {
+      // Arrange: Stub the mock fs.readFile
+      const mockReadFile = fs.readFile as jest.Mock;
+      const fakeUserData = { name: 'Alice' };
+      mockReadFile.mockResolvedValue(JSON.stringify(fakeUserData)); // Stub return value
+
+      const userId = 'user123';
+      const expectedPath = '/data/users/user123.json';
+
+      // Act
+      const userData = await getUserData(userId);
+
+      // Assert: Check return value and mock interaction
+      expect(userData).toEqual(fakeUserData);
+      expect(mockReadFile).toHaveBeenCalledTimes(1);
+      expect(mockReadFile).toHaveBeenCalledWith(expectedPath, 'utf-8');
+    });
+
+    // Error case test (deferred initially, but shows mock rejection)
+    // it('should throw if fs.readFile fails', async () => {
+    //   const mockReadFile = fs.readFile as jest.Mock;
+    //   const readError = new Error('File not found');
+    //   mockReadFile.mockRejectedValue(readError); // Stub rejection
+    //
+    //   await expect(getUserData('user404')).rejects.toThrow('File not found');
+    // });
+  });
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // src/services/__tests__/userService.test.ts (No mocking)
+  import { getUserData } from '../userService';
+
+  describe('getUserData', () => {
+    // Invalid: Test relies on actual file system state
+    it('should read user data', async () => {
+      // Arrange: Requires a real file at /data/users/realUser.json
+      // This makes the test fragile and dependent on external state.
+      const userId = 'realUser';
+
+      // Act: Calls the real fs.readFile
+      const userData = await getUserData(userId);
+
+      // Assert: Depends on the content of the real file
+      expect(userData.name).toBeDefined(); // Weak assertion
+    });
+    // This test is not isolated and has side effects.
+  });
+  ```
+</example>

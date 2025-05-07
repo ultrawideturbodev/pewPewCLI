@@ -18,23 +18,35 @@ npm install -g pew-pew-cli && pew init
 
 ## ⚙️ Configuration
 
-*   **Local:** `.pew/config/` (specific to the current project/directory)
-*   **Global:** `~/.pew/config/` (user-level settings)
+*   **Local:** `pew.yaml` in your project root (specific to the current project/directory)
+*   **Global:** `~/.pew/pew.yaml` (user-level settings)
 
-### `paths.yaml`
+The configuration uses a feature-based structure, with top-level keys for different aspects of the application:
+
+### `pew.yaml` Structure
 
 ```yaml
-# List of files scanned by 'pew next task' and offered by 'pew reset tasks'
-# Processed in the order listed. Absolute paths also work.
 tasks:
-  - relative/path/to/another/tasks/file.md
-  - .pew/tasks.md
-  # - /absolute/path/to/tasks.md
+  # List of files scanned by 'pew next task' and offered by 'pew reset tasks'
+  # Processed in the order listed. Absolute paths also work.
+  all:
+    - relative/path/to/tasks.md
+    - another-tasks.md
+    # - /absolute/path/to/tasks.md
+  
+  # Default primary task file
+  primary: relative/path/to/tasks.md
+  
+  # Default target file for 'pew paste tasks'
+  # If omitted, defaults to the primary task file
+  paste: relative/path/to/tasks.md
 
-# Optional: Default target file for 'pew paste tasks'.
-# If omitted, defaults to the first path listed under 'tasks:'.
-paste-tasks: .pew/tasks.md
+updates:
+  # Timestamp for last update check
+  lastUpdateCheckTimestamp: 0
 ```
+
+All paths in the configuration are resolved relative to the location of the `pew.yaml` file. If a configuration key is missing, hardcoded defaults are provided automatically.
 
 ## 📝 Commands
 
@@ -49,7 +61,7 @@ paste-tasks: .pew/tasks.md
 
 ### 📂 `pew init`
 
-Creates the `.pew` directory and default configuration files (`.pew/config/paths.yaml`, `.pew/tasks.md`) in the current directory. It will prompt for the primary tasks file path unless `--force` is used.
+Creates the `pew.yaml` file in the current directory and prompts for the primary tasks file path. This file will be created if it doesn't exist.
 
 ```bash
 # Interactive initialization

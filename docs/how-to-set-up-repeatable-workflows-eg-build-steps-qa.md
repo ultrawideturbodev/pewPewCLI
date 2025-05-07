@@ -6,7 +6,7 @@ This tutorial explains how to use the enhanced `pew next task` command in `pew-p
 
 ## Basic Usage (Single File Review)
 
-Before diving into multiple files, let's quickly review how `pew next task` works with a single default file (`.pew/tasks.md`):
+Before diving into multiple files, let's quickly review how `pew next task` works with a single default file (`tasks.md`):
 
 1.  **Finds Task:** It looks for the first line starting with `- [ ]` (an unchecked task).
 2.  **Adds Pointer:** If no `👉` symbol exists in the file, it adds it to the beginning of that first unchecked task line.
@@ -20,23 +20,26 @@ pew next task
 
 ## Configuration for Multiple Files
 
-To use multiple task files, you need to list them in the `.pew/config/paths.yaml` configuration file.
+To use multiple task files, you need to list them in the `pew.yaml` configuration file.
 
-1.  **Locate or Create Config:** If you haven't run `pew init` yet, do so first. This creates the `.pew` directory and the `config/paths.yaml` file.
-2.  **Edit `paths.yaml`:** Open `.pew/config/paths.yaml` in your editor.
-3.  **List Files:** Under the `tasks:` key, list the paths to your markdown task files. The paths can be relative to the project root or absolute. `pew next task` will process these files *in the order they are listed*.
+1.  **Locate or Create Config:** If you haven't run `pew init` yet, do so first. This creates the `pew.yaml` file in your project root.
+2.  **Edit `pew.yaml`:** Open `pew.yaml` in your editor.
+3.  **List Files:** Under the `tasks.all` key, list the paths to your markdown task files. The paths can be relative to the project root or absolute. `pew next task` will process these files *in the order they are listed*.
 
-**Example `.pew/config/paths.yaml**:**
+**Example `pew.yaml`:**
 
 ```yaml
 tasks:
-  - .pew/tasks.md           # Main development tasks
-  - .pew/qa_checklist.md    # Separate QA checklist
-  # - .pew/prep_steps.md    # Another optional file
-  # - /Users/you/global_tasks.md # Absolute path example
+  all:
+    - tasks.md           # Main development tasks
+    - qa_checklist.md    # Separate QA checklist
+    # - prep_steps.md    # Another optional file
+    # - /Users/you/global_tasks.md # Absolute path example
+  primary: tasks.md      # Primary task file
+  paste: tasks.md        # Default target for 'pew paste tasks'
 
-# Optional: Define a specific default target for 'pew paste tasks'
-paste-tasks: .pew/tasks.md # If omitted, paste defaults to the first file in 'tasks' list
+updates:
+  lastUpdateCheckTimestamp: 0
 ```
 
 ## Multi-File Workflow Example (Dev Tasks + QA Checklist)
@@ -44,11 +47,11 @@ paste-tasks: .pew/tasks.md # If omitted, paste defaults to the first file in 'ta
 Let's set up an example with main development tasks and a separate QA checklist.
 
 1.  **Create Files:**
-    *   Ensure `.pew/tasks.md` exists.
-    *   Create a new file: `.pew/qa_checklist.md`.
+    *   Ensure `tasks.md` exists.
+    *   Create a new file: `qa_checklist.md`.
 
 2.  **Add Content:**
-    *   **`.pew/tasks.md`:**
+    *   **`tasks.md`:**
         ```markdown
         # Project Setup
         - [ ] Initialize project
@@ -58,7 +61,7 @@ Let's set up an example with main development tasks and a separate QA checklist.
         - [ ] Implement core logic
         - [ ] Add basic UI
         ```
-    *   **`.pew/qa_checklist.md`:**
+    *   **`qa_checklist.md`:**
         ```markdown
         # QA Steps
         - [ ] Verify Feature A UI renders
@@ -66,13 +69,16 @@ Let's set up an example with main development tasks and a separate QA checklist.
         - [ ] Test Feature A core logic with invalid input
         ```
 
-3.  **Configure `paths.yaml`:** Make sure your `.pew/config/paths.yaml` lists these files in the desired order:
+3.  **Configure `pew.yaml`:** Make sure your `pew.yaml` lists these files in the desired order:
     ```yaml
     tasks:
-      - .pew/tasks.md
-      - .pew/qa_checklist.md
-    # Optional: Specify the default paste target if different from the first task file
-    # paste-tasks: .pew/tasks.md
+      all:
+        - tasks.md
+        - qa_checklist.md
+      primary: tasks.md
+      paste: tasks.md
+    updates:
+      lastUpdateCheckTimestamp: 0
     ```
 
 4.  **Run `pew next task`:**
@@ -84,7 +90,7 @@ Let's set up an example with main development tasks and a separate QA checklist.
         ```
         👉 - [ ] Initialize project
         (Total: 4 | Completed: 0 | Remaining: 4)
-        (File: .pew/tasks.md)
+        (File: tasks.md)
         ```
     *   **Subsequent Runs (within `tasks.md`):** Keep running `pew next task`. It will mark tasks complete in `tasks.md` and move the `👉` to the next one within that file.
         ```bash
@@ -100,27 +106,27 @@ Let's set up an example with main development tasks and a separate QA checklist.
         ```
         👉 - [ ] Verify Feature A UI renders
         (Total: 3 | Completed: 0 | Remaining: 3)
-        (File: .pew/qa_checklist.md)
+        (File: qa_checklist.md)
         ```
     *   **Runs within `qa_checklist.md`:** Continue running `pew next task` to work through the QA checklist.
-    *   **Wrapping Around:** Once all tasks in `qa_checklist.md` are completed, the next `pew next task` run will wrap around and look for the next available task starting from the beginning of the list (`.pew/tasks.md`). If all tasks in all files are complete, it will display the "All tasks complete" message.
+    *   **Wrapping Around:** Once all tasks in `qa_checklist.md` are completed, the next `pew next task` run will wrap around and look for the next available task starting from the beginning of the list (`tasks.md`). If all tasks in all files are complete, it will display the "All tasks complete" message.
 
 ## Using `pew paste tasks` with Multiple Files
 
 The `pew paste tasks` command also interacts with your configuration:
 
-*   **Default Target:** By default, `pew paste tasks` will paste into the file specified by the `paste-tasks` key in your `paths.yaml`. If `paste-tasks` is not set, it defaults to the *first* file listed under the `tasks` key.
+*   **Default Target:** By default, `pew paste tasks` will paste into the file specified by the `tasks.paste` value in your `pew.yaml`. If `tasks.paste` is not set, it defaults to the value of `tasks.primary`.
 *   **Overriding Target:** You can paste into any file, regardless of the configuration, by using the `--path` option:
     ```bash
     # Paste clipboard content into the QA checklist instead of the default
-    pew paste tasks --path .pew/qa_checklist.md --append
+    pew paste tasks --path qa_checklist.md --append
     ```
 
 This allows you to quickly add tasks to specific files in your workflow without changing the configuration.
 
 ## Use Case: Resetting Secondary Files (e.g., QA Checklist)
 
-You might want to keep your main `.pew/tasks.md` evolving while reusing a standard checklist (like `qa_checklist.md`) for each feature or release. `pew-pew-cli` iterates through the files as they are, but it **does not automatically reset them**.
+You might want to keep your main `tasks.md` evolving while reusing a standard checklist (like `qa_checklist.md`) for each feature or release. `pew-pew-cli` iterates through the files as they are, but it **does not automatically reset them**.
 
 Resetting a secondary file is a **manual process** you perform outside the tool when needed.
 
@@ -131,15 +137,15 @@ Resetting a secondary file is a **manual process** you perform outside the tool 
 
     *   **Example (Mac/Linux):**
         ```bash
-        cp .pew/qa_checklist_template.md .pew/qa_checklist.md
+        cp qa_checklist_template.md qa_checklist.md
         ```
     *   **Example (Windows):**
         ```bash
-        copy .pew\qa_checklist_template.md .pew\qa_checklist.md
+        copy qa_checklist_template.md qa_checklist.md
         ```
 
-Now, the next time `pew next task` finishes with `.pew/tasks.md`, it will start from the beginning of your refreshed `.pew/qa_checklist.md`.
+Now, the next time `pew next task` finishes with `tasks.md`, it will start from the beginning of your refreshed `qa_checklist.md`.
 
 ## Conclusion
 
-The multi-file capability of `pew next task` provides flexibility in organizing your workflows. By configuring `paths.yaml`, you can seamlessly transition between different sets of tasks using the same simple command, while the tool keeps track of the current focus and progress within each file context. Remember that resetting recurring checklists is a manual step integrated into your workflow. 
+The multi-file capability of `pew next task` provides flexibility in organizing your workflows. By configuring `pew.yaml`, you can seamlessly transition between different sets of tasks using the same simple command, while the tool keeps track of the current focus and progress within each file context. Remember that resetting recurring checklists is a manual step integrated into your workflow. 

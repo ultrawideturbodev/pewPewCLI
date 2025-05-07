@@ -1,11 +1,11 @@
 /**
  * UserInputService
- * 
+ *
  * Handles interactive CLI prompts using inquirer.
  * Provides methods for various types of user input.
  */
 import inquirer from 'inquirer';
-import { LoggerService } from './logger.service.js';
+import { LoggerService } from '../core/logger.service.js';
 
 /**
  * @class UserInputService
@@ -36,8 +36,8 @@ export class UserInputService {
           type: 'input',
           name: 'value',
           message,
-          default: defaultValue
-        }
+          default: defaultValue,
+        },
       ]);
       return response.value;
     } catch (error) {
@@ -60,8 +60,8 @@ export class UserInputService {
           type: 'confirm',
           name: 'value',
           message,
-          default: defaultValue
-        }
+          default: defaultValue,
+        },
       ]);
       return response.value;
     } catch (error) {
@@ -80,13 +80,14 @@ export class UserInputService {
    */
   async askForSelection<T>(message: string, choices: T[]): Promise<T> {
     try {
-      const response = await inquirer.prompt([
+      const response = await inquirer.prompt<{ value: T }>([
         {
           type: 'list',
           name: 'value',
           message,
-          choices
-        }
+          choices,
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
       return response.value;
     } catch (error) {
@@ -103,15 +104,18 @@ export class UserInputService {
    *   Each object should have `name` (display text), `value` (returned value), and optionally `checked` (default selection state).
    * @returns {Promise<string[]>} A promise that resolves with an array of the `value` properties of the selected choices. Returns an empty array on error.
    */
-  async askForMultipleSelections(message: string, choices: Array<{ name: string, value: string, checked?: boolean }>): Promise<string[]> {
+  async askForMultipleSelections(
+    message: string,
+    choices: Array<{ name: string; value: string; checked?: boolean }>
+  ): Promise<string[]> {
     try {
       const response = await inquirer.prompt<{ value: string[] }>([
         {
           type: 'checkbox',
           name: 'value',
           message,
-          choices
-        }
+          choices,
+        },
       ]);
       return response.value;
     } catch (error) {
@@ -119,4 +123,4 @@ export class UserInputService {
       return [];
     }
   }
-} 
+}

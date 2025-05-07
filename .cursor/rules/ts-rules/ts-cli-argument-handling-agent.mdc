@@ -1,69 +1,84 @@
 ---
-description: Apply this rule when implementing argument validation and user interaction (prompts) in a TypeScript CLI. It emphasizes validating inputs, providing clear error messages, using interactive prompts (like Inquirer.js) judiciously for missing information, offering sensible defaults, and ensuring a non-interactive mode for automation/scripting.
+description: Apply when implementing command-line argument validation or interactive user prompts in a TypeScript CLI. Guides towards rigorous validation, clear error messages, user-friendly interactive fallbacks (e.g., using Inquirer.js) for missing inputs, sensible defaults, and support for non-interactive execution modes (e.g., in CI).
 globs:
 alwaysApply: false
 ---
 
-# TypeScript CLI Argument Handling and Interactive Prompts
+# TypeScript CLI Argument Handling & Interactive Prompts
 
 ## Critical Rules
 
--   Rigorously validate required arguments and options. Provide clear, helpful error messages upon validation failure.
--   If a required input is missing, consider prompting the user interactively instead of immediately failing (empathic CLI approach).
--   Use a dedicated library like Inquirer.js for interactive prompts.
--   Use appropriate prompt types (confirm, list, password) instead of only free-text.
+-   Rigorously validate required arguments and options. Provide clear error messages upon failure.
+-   Consider prompting interactively for missing required inputs instead of just erroring out (empathic CLI).
+-   Use standard libraries like Inquirer.js for interactive prompts.
+-   Use appropriate prompt types (confirm, list, password) instead of free-text where possible.
+-   Only prompt when necessary; prefer auto-detection or config values if available (zero-configuration).
 -   Provide sensible default values for options and indicate them in help text.
--   Only prompt when necessary; prefer auto-detection or configuration values if available (zero-configuration principle).
 -   Ensure the CLI can run non-interactively:
     -   Provide flags like `--yes` or `--non-interactive` to skip prompts.
-    -   Detect CI environments (e.g., `process.env.CI`) to disable prompts automatically.
+    -   Detect CI environments (e.g., `process.env.CI`) to disable interactivity automatically.
 -   Respect standard environment variables like `NO_COLOR`.
+-   Time-out prompts or provide non-interactive alternatives to avoid blocking automation pipelines.
 
 ## Examples
 
 <example>
   ```typescript
-  // Using Inquirer.js to prompt for missing required argument
+  // Using Commander and Inquirer
   import { Command } from 'commander';
   import inquirer from 'inquirer';
 
-  async function runInit(projectName?: string) {
-    let name = projectName;
-    if (!name) {
+  async function deploy(environment: string | undefined, options: { yes: boolean }) {
+    if (!environment) {
+      if (options.yes || process.env.CI) {
+        throw new Error('Environment name is required in non-interactive mode.');
+      }
       const answers = await inquirer.prompt([{
-        type: 'input',
-        name: 'projectName',
-        message: 'Enter project name:',
-        validate: (input) => !!input || 'Project name cannot be empty',
+        type: 'list',
+        name: 'environment',
+        message: 'Select deployment environment:',
+        choices: ['staging', 'production'],
       }]);
-      name = answers.projectName;
+      environment = answers.environment;
     }
-    console.log(`Initializing project ${name}...`);
-    // ... implementation ...
+    console.log(`Deploying to ${environment}...`);
+    // ... deployment logic ...
   }
 
-  // Command definition allows optional argument, handled by runInit
+  const program = new Command();
   program
-    .command('init [projectName]')
-    .action(runInit);
+    .command('deploy [environment]')
+    .description('Deploy the application')
+    .option('-y, --yes', 'Skip interactive prompts')
+    .action(deploy);
+
+  program.parse(process.argv);
   ```
 </example>
 
 <example type="invalid">
   ```typescript
-  // Failing immediately on missing argument without prompting
-  // Or forcing prompts even when running in CI
+  // Anti-pattern: Always requires args, no prompts, poor errors
   import { Command } from 'commander';
 
+  function deploy(environment: string) {
+    if (!environment) {
+      // Fails abruptly without guidance or interactive fallback
+      console.error('Error: Missing environment argument.');
+      process.exit(1);
+    }
+    console.log(`Deploying to ${environment}...`);
+    // ... deployment logic ...
+  }
+
+  const program = new Command();
   program
-    .command('init <projectName>') // Requires argument
-    .action((projectName) => {
-      if (process.env.CI) {
-        // Still tries to prompt in CI, potentially hanging the build
-        // const answers = await inquirer.prompt(...)
-      }
-      console.log(`Initializing project ${projectName}...`);
-      // Fails if projectName is not provided on command line, no fallback prompt
-    });
+    .command('deploy <environment>') // Always required via CLI arg
+    .description('Deploy the application')
+    // No option to skip prompts (because there are none)
+    // No check for CI environment
+    .action(deploy);
+
+  program.parse(process.argv);
   ```
 </example>

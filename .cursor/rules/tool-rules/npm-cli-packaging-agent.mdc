@@ -1,65 +1,106 @@
 ---
-description: Apply this rule when preparing a TypeScript CLI tool for distribution via npm as a global package. It covers essential `package.json` settings (`bin`), the shebang line, cross-platform considerations, pre-publish checks, and specifying Node engine compatibility.
-globs: package.json, bin/*, dist/*
+description: Apply when preparing a TypeScript CLI tool for distribution via npm, specifically when configuring `package.json`, handling executables, and considering cross-platform compatibility. Covers the `bin` field, shebang line (`#!/usr/bin/env node`), pre-publish checks, installation instructions, and Node engine compatibility.
+globs:
 alwaysApply: false
 ---
 
-# Packaging and Publishing TypeScript CLIs via NPM
+# NPM Packaging and Publishing for CLIs
 
 ## Critical Rules
 
--   Specify the executable(s) in `package.json` using the `bin` field, mapping the command name to the compiled JavaScript entry file (e.g., `"bin": { "mycli": "./dist/bin/mycli.js" }`).
--   Ensure the entry script specified in `bin` starts with the correct shebang line: `#!/usr/bin/env node`. Avoid hardcoding Node paths.
--   Write cross-platform compatible code:
-    -   Use `path.join` for constructing file paths.
-    -   Use `child_process.spawn('node', [scriptPath, ...args])` if spawning other Node scripts.
--   Test the package locally before publishing using `npm pack` and `npm install -g <packed-file.tgz>` or `npm link`.
--   Specify the minimum required Node.js version in `package.json` using the `engines` field (e.g., `"engines": { "node": ">=16.0" }`).
--   Provide clear installation instructions (`npm install -g mycli`) and mention `npx mycli` if applicable.
--   Keep startup time fast, especially if `npx` usage is expected.
+-   Use the `"bin"` field in `package.json` to map the desired CLI command name to the compiled JavaScript entry point file.
+    ```json
+    "bin": {
+      "mycli": "./dist/bin/mycli.js"
+    }
+    ```
+-   Ensure the entry point script specified in `"bin"` starts with the correct shebang line: `#!/usr/bin/env node`. Avoid hardcoding Node paths.
+-   Compile TypeScript to JavaScript (e.g., in `dist/`) before publishing. Ensure the `"bin"` path points to the compiled file.
+-   Use Node.js cross-platform APIs (e.g., `path.join`, `child_process.spawn('node', ...)` ) if the CLI needs to work on Windows, macOS, and Linux.
+-   Perform pre-publish checks:
+    -   Test installation locally using `npm pack` and `npm install -g <packed-file.tgz>`.
+    -   Verify the command runs correctly after global installation.
+    -   Ensure only necessary files are included in the package (use `.npmignore` or `package.json` `"files"` field).
+-   Provide clear installation instructions in the README: `npm install -g your-cli-package-name`. Mention `npx your-cli-package-name` for one-off execution if applicable.
+-   Keep CLI startup time fast, especially if `npx` usage is expected.
+-   Specify the minimum required Node.js version in `package.json` using the `"engines"` field if relying on specific Node features.
+    ```json
+    "engines": {
+      "node": ">=16.0.0"
+    }
+    ```
+-   Follow Semantic Versioning (SemVer) for releases.
 
 ## Examples
 
 <example>
   ```json
-  // package.json
+  // package.json (Relevant parts)
   {
-    "name": "mycli",
-    "version": "1.0.0",
+    "name": "my-cool-cli",
+    "version": "1.2.0",
     "bin": {
-      "mycli": "./dist/bin/cli.js"
+      "coolcli": "./dist/index.js" // Points to compiled JS entry point
     },
-    "engines": {
-      "node": ">=16.0"
-    },
+    "main": "./dist/lib/index.js", // If also usable as a library
     "files": [
-      "dist"
-    ]
-    // ... other fields
+      "dist/**/*", // Only include compiled code in the package
+      "README.md",
+      "LICENSE"
+    ],
+    "engines": {
+      "node": ">=16"
+    },
+    "scripts": {
+      "build": "tsc",
+      "prepublishOnly": "npm run build" // Ensure build runs before publishing
+    }
+    // ... other fields ...
   }
   ```
   ```javascript
-  // dist/bin/cli.js (or original source in bin/)
+  // dist/index.js (Compiled entry point)
   #!/usr/bin/env node
-  // ... rest of the CLI startup code
-  require('../index.js').run();
+  // ... rest of the compiled CLI code ...
+  console.log('Cool CLI running!');
+  ```
+  **README.md:**
+  ```md
+  # My Cool CLI
+
+  ## Installation
+  npm install -g my-cool-cli
+
+  ## Usage
+  coolcli --help
   ```
 </example>
 
 <example type="invalid">
   ```json
-  // package.json - missing bin or incorrect path
+  // package.json (Mistakes)
   {
-    "name": "mycli",
-    "version": "1.0.0",
-    // "bin" field missing or points to a non-existent/non-executable file
-    "engines": {} // Missing node version requirement
+    "name": "my-buggy-cli",
+    "version": "0.1", // Not SemVer compliant
+    "bin": {
+      "buggycli": "./src/index.ts" // Points to TS source, not compiled JS
+    },
+    // Missing "files" or .npmignore, will publish src/, node_modules/, etc.
+    // Missing "engines" field
+    "scripts": {
+      "start": "ts-node src/index.ts" // Relies on dev dependencies at runtime
+    }
+    // ...
   }
   ```
-  ```javascript
-  // bin/cli.js - incorrect shebang
-  #!/usr/local/bin/node // Hardcoded path, not portable
-  // Code uses platform-specific path separators like '\\'
-  const configPath = 'C:\\Users\\user\\.mycliconfig'; // Not cross-platform
+  ```typescript
+  // src/index.ts (Missing shebang or incorrect one)
+  // #!/usr/local/bin/node  <-- Hardcoded path, bad practice
+  console.log('Buggy CLI');
+  ```
+  **README.md:**
+  ```md
+  # My Buggy CLI
+  Just run `node index.js`? (Unclear installation/usage)
   ```
 </example>

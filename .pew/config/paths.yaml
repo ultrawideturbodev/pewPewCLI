@@ -1,4 +1,0 @@
-tasks:
-  - .pew/tasks.md
-  - .pew/qa.md
-paste-tasks: .pew/tasks.md

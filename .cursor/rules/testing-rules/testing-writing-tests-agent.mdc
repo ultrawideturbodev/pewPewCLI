@@ -1,0 +1,75 @@
+---
+description: Apply when writing individual unit test cases, especially during initial feature development. Enforces the Arrange-Act-Assert pattern, mandates focusing *only* on the core happy path functionality initially, and requires keeping tests small, focused, fast, and independent. Defers edge case and error handling tests unless specifically requested.
+globs:
+alwaysApply: false
+---
+
+# Writing Effective Unit Tests (Initial Focus: Happy Path)
+
+## Critical Rules
+
+-   Structure every test case using the **Arrange-Act-Assert** pattern:
+    1.  **Arrange:** Set up preconditions, inputs, mocks, and stubs.
+    2.  **Act:** Execute the specific function or method under test.
+    3.  **Assert:** Verify the outcome (return value, state change, mock calls) matches expectations using assertion libraries (e.g., Jest's `expect`).
+-   **Initial Test Focus:** When first writing tests for a feature or function, create tests **only** for the primary "happy path" or core functionality.
+    -   Confirm the unit works correctly with valid, expected inputs.
+    -   **Do NOT** add tests for edge cases, error conditions, invalid inputs, or alternative flows initially.
+-   Defer tests for edge cases and error handling until specifically requested or during a dedicated testing/hardening phase.
+-   Keep unit tests small and focused on testing one specific aspect or behavior of the unit.
+-   Ensure tests are fast and run independently of each other and external systems (use mocks/stubs where needed - see separate rule).
+
+## Examples
+
+<example>
+  ```typescript
+  // src/utils/calculator.ts
+  export function add(a: number, b: number): number {
+    return a + b;
+  }
+
+  // src/utils/__tests__/calculator.test.ts
+  import { add } from '../calculator';
+
+  describe('add function', () => {
+    // Test Case: Focuses ONLY on the happy path (adding two positive numbers)
+    it('should return the sum of two positive numbers', () => {
+      // Arrange
+      const num1 = 2;
+      const num2 = 3;
+      const expectedSum = 5;
+
+      // Act
+      const result = add(num1, num2);
+
+      // Assert
+      expect(result).toBe(expectedSum);
+    });
+
+    // Other happy path tests might be added (e.g., adding zero, negative numbers)
+    // BUT initially, NO tests for non-numeric input, NaN, Infinity, etc.
+  });
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // src/utils/__tests__/calculator.test.ts
+  import { add } from '../calculator';
+
+  describe('add function', () => {
+    // Invalid: Testing multiple things, including error cases prematurely
+    it('should work correctly for various inputs', () => {
+      // Arrange (multiple scenarios mixed)
+      // Act & Assert (Happy Path)
+      expect(add(2, 3)).toBe(5);
+      expect(add(-1, 5)).toBe(4);
+
+      // Act & Assert (Error/Edge Cases - SHOULD BE DEFERRED)
+      // @ts-expect-error Testing invalid input type
+      expect(() => add('a', 3)).toThrow(); // Testing error case too early
+      expect(add(Infinity, 1)).toBe(Infinity); // Testing edge case too early
+    });
+  });
+  ```
+</example>

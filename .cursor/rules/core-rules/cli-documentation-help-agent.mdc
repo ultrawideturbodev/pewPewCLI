@@ -1,6 +1,6 @@
 ---
-description: Apply this rule when writing documentation (README) or implementing help output (`-h`, `--help`) for a CLI tool. It ensures comprehensive, clear, and consistent help text, usage examples, and standard output formatting to improve user experience.
-globs: README.md, docs/**/*.md, src/**/*.ts
+description: Apply when creating or updating user-facing documentation (README, help text) for a CLI tool. Ensures comprehensive and conventional help output (`-h`/`--help`), clear usage examples, a useful README quickstart, consistency between docs and behavior, informative output standards (including color and JSON options), and helpful error messages.
+globs:
 alwaysApply: false
 ---
 
@@ -8,73 +8,73 @@ alwaysApply: false
 
 ## Critical Rules
 
--   Implement standard help flags (`-h`, `--help`) that display usage instructions for the CLI and its commands.
--   Ensure help output includes:
-    -   A brief summary of the command.
-    -   Usage synopsis (e.g., `mycli command [options] <required_arg>`).
-    -   List of available options with descriptions (indicating defaults).
-    -   Clear distinction between required (`<arg>`) and optional (`[arg]`) arguments.
--   Include practical usage examples in the help output or linked documentation.
--   Maintain a `README.md` with:
+-   Implement standard help flags (`-h`, `--help`) that output usage instructions for the command and its options.
+-   Use command-line parsing libraries (Commander, Yargs) to auto-generate help text based on command/option descriptions.
+-   Ensure help text follows conventions: usage synopsis, description, options list, examples.
+-   Include practical, real-world usage examples in help output or linked documentation.
+-   Provide detailed help for subcommands if necessary (e.g., `mycli help <subcommand>`).
+-   Maintain a `README.md` file with:
     -   Installation instructions.
-    -   Quick start usage example.
-    -   Overview of primary commands/options.
-    -   Link to more detailed documentation if applicable.
--   Keep documentation and help text consistent with the actual CLI behavior. Update docs when code changes.
--   Format CLI output clearly:
-    -   Be concise by default.
-    -   Use color/styling appropriately (respect `NO_COLOR`).
-    -   Consider a `--json` or similar flag for machine-readable output if applicable.
--   Provide informative error messages that guide the user (e.g., suggest running `--help`).
+    -   A quick usage example.
+    -   A list of primary commands/options.
+    -   Link to more detailed documentation if it exists.
+-   Keep documentation (README, help text) consistent with the CLI's actual behavior. Update docs when code changes.
+-   Design CLI output to be informative but concise by default.
+-   Use color/formatting to improve readability, but respect `NO_COLOR` env var and provide a plain output mode.
+-   Consider adding a `--json` flag for machine-readable output where applicable.
+-   Provide clear, actionable error messages when user input is invalid (e.g., unknown command, missing argument). Include a hint on how to get help (e.g., "Use `mycli --help` for more information.").
 
 ## Examples
 
 <example>
+  **Help Output:**
   ```
-  # Output of `mycli init --help`
   Usage: mycli init [options] <projectName>
 
-  Initialize a new project.
-
-  Arguments:
-    projectName          Name of the project to initialize
+  Initialize a new project directory.
 
   Options:
-    -f, --force          Overwrite existing project directory if it exists
-    -t, --template [url] Use a custom template URL (default: standard)
-    -h, --help           display help for command
+    -f, --force    Overwrite existing files in the directory
+    -t, --template <name>  Specify project template to use (default: "default")
+    -h, --help     display help for command
+
+  Arguments:
+    projectName    Name of the project and directory to create
 
   Examples:
-    $ mycli init MyAwesomeProject
-    $ mycli init -f --template gh:user/repo MyProject
+    $ mycli init my-new-app
+    $ mycli init --template react --force existing-app
   ```
-  ```markdown
-  # README.md excerpt
-  ## Installation
-  `npm install -g mycli`
-
+  **README.md Snippet:**
+  ```md
   ## Quick Start
-  `mycli init MyNewProject`
-  `cd MyNewProject`
-  `mycli start`
+
+  1. Install globally: `npm install -g mycli`
+  2. Initialize a project: `mycli init my-project`
+  3. Run the main task: `cd my-project && mycli run`
+
+  See `mycli --help` for all commands and options.
+  ```
+  **Error Message:**
+  ```
+  Error: Missing required argument <projectName>.
+  Use `mycli init --help` for more information.
   ```
 </example>
 
 <example type="invalid">
+  **Help Output:** (Missing descriptions, examples, unconventional format)
   ```
-  # Output of `mycli init --help` - unclear, missing info
-  Usage: mycli init
-
-  Options: -f
-
-  # Missing argument description, option descriptions, examples.
+  Usage: mycli init <arg1> [-f] [-t]
+  Options: -f, -t
   ```
-  ```markdown
-  # README.md - Outdated or incomplete
-  ## Install
-  `npm i mycli` # Incorrect command (should be global)
-
-  ## Usage
-  `mycli --name foo` # Option --name was removed, now it's a positional arg
+  **README.md Snippet:** (No install/usage info)
+  ```md
+  # MyCLI
+  This is a CLI tool.
+  ```
+  **Error Message:** (Unhelpful)
+  ```
+  Error: Invalid input.
   ```
 </example>

@@ -1,0 +1,57 @@
+---
+description: This rule mandates that the initial phase of writing unit tests for a feature should focus exclusively on the core 'happy path' functionality. Apply this rule when starting test development for new code or features. Edge cases and error handling tests should be deferred unless specifically requested.
+globs:
+alwaysApply: false
+---
+
+# Initial Test Focus: Happy Path Only
+
+## Critical Rules
+
+- When writing the first set of tests for a function, class, or feature, **ONLY** create tests that confirm its core, expected functionality (the "happy path").
+- **DO NOT** create tests for edge cases (e.g., empty inputs, boundary values, unusual configurations) during this initial phase.
+- **DO NOT** create tests for error handling or failure scenarios (e.g., throwing exceptions, handling promise rejections) initially.
+- Defer writing tests for edge cases and error flows until the core functionality is confirmed by happy path tests, or until specifically requested as part of a dedicated testing phase.
+- Use the placeholder `{{LIST_OF_TESTS}}` within a `<tests>` block to list the specific happy-path tests being created.
+
+## Examples
+
+<example>
+  ```typescript
+  // Correct: Initial test focuses only on the successful greeting generation
+  describe('generateGreeting', () => {
+    it('should return a greeting message for a valid name', () => {
+      // Arrange
+      const name = 'Alice';
+      // Act
+      const result = generateGreeting(name);
+      // Assert
+      expect(result).toBe('Hello, Alice!');
+    });
+
+    // No test for empty name ('') or other errors yet.
+  });
+
+  /*
+  <tests>
+  - Test that generateGreeting returns the correct string for a standard name.
+  </tests>
+  */
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+  // Incorrect: Mixing happy path and error case testing during the initial phase
+  describe('generateGreeting', () => {
+    it('should return a greeting message for a valid name', () => {
+      expect(generateGreeting('Alice')).toBe('Hello, Alice!');
+    });
+
+    // Incorrect: Adding error case test prematurely
+    it('should throw an error if the name is empty', () => {
+      expect(() => generateGreeting('')).toThrow('Name is required');
+    });
+  });
+  ```
+</example>

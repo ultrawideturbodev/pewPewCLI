@@ -14,6 +14,6 @@
     "declaration": false,                      /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
     "isolatedModules": true
   },
-  "include": ["src/**/*"],                   /* Specifies an array of filenames or patterns to include in the program */
+  "include": ["src/**/*", "tests/unit/__mocks__"],                   /* Specifies an array of filenames or patterns to include in the program */
   "exclude": ["node_modules", "**/*.test.ts"]        /* Specifies an array of filenames or patterns that should be skipped when resolving include. */
 } 

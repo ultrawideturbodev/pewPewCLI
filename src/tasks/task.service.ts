@@ -1,13 +1,13 @@
 /**
  * TaskService
- * 
+ *
  * Manages task file operations (reading, writing, parsing).
  * Handles finding tasks, marking them as complete, and maintaining statistics.
  */
-import { ConfigService } from './config.service.js';
-import { FileSystemService } from './file-system.service.js';
+import { ConfigService } from '../io/config.service.js';
+import { FileSystemService } from '../io/file-system.service.js';
 import * as path from 'path';
-import { LoggerService } from './logger.service.js';
+import { LoggerService } from '../core/logger.service.js';
 
 /**
  * @class TaskService
@@ -20,8 +20,8 @@ export class TaskService {
   private static readonly UNCHECKED_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*\]/;
   private static readonly CHECKED_PATTERN: RegExp = /^(?:👉\s+)?\s*-\s*\[\s*[xX]\s*\]/;
   private static readonly HEADER_PATTERN: RegExp = /^(#{1,6})\s+(.+)$/;
-  
-  private static readonly PEW_PREFIX: string = "👉 ";
+
+  private static readonly PEW_PREFIX: string = '👉 ';
   private static readonly PEW_PREFIX_REGEX: RegExp = /^👉\s+/;
 
   private configService: ConfigService;
@@ -80,7 +80,7 @@ export class TaskService {
 
   /**
    * Gets the header level (1-6) for a line if it's a header.
-   * 
+   *
    * @private
    * @static
    * @param {string} line - The line to check.
@@ -90,18 +90,18 @@ export class TaskService {
     if (!this.isHeader(line)) {
       return 0;
     }
-    
+
     const match = this.HEADER_PATTERN.exec(line);
     if (match && match[1]) {
       return match[1].length;
     }
-    
+
     return 0;
   }
 
   /**
    * Checks if a line is either a task or a header.
-   * 
+   *
    * @private
    * @static
    * @param {string} line - The line to check.
@@ -153,13 +153,13 @@ export class TaskService {
     if (index < 0 || index >= lines.length) {
       return [...lines];
     }
-    
+
     const newLines = [...lines];
-    
+
     if (!this.lineHasPewPrefix(newLines[index])) {
       newLines[index] = this.PEW_PREFIX + newLines[index];
     }
-    
+
     return newLines;
   }
 
@@ -173,13 +173,13 @@ export class TaskService {
     if (index < 0 || index >= lines.length) {
       return [...lines];
     }
-    
+
     const newLines = [...lines];
-    
+
     if (this.lineHasPewPrefix(newLines[index])) {
       newLines[index] = this.getLineWithoutPewPrefix(newLines[index]);
     }
-    
+
     return newLines;
   }
 
@@ -240,31 +240,38 @@ export class TaskService {
    * @returns {Promise<void>} A promise that resolves when writing is complete.
    * @throws {Error} If writing to the file fails.
    */
-  async writeTasksContent(filePath: string, content: string, mode: 'overwrite' | 'append' | 'insert'): Promise<void> {
+  async writeTasksContent(
+    filePath: string,
+    content: string,
+    mode: 'overwrite' | 'append' | 'insert'
+  ): Promise<void> {
     try {
       const processedContent = content.replace(/\\\\n/g, '\n');
-      
+
       const dirPath = path.dirname(filePath);
       await this.fileSystemService.ensureDirectoryExists(dirPath);
-      
+
       const fileExists = await this.fileSystemService.pathExists(filePath);
-      
+
       if (mode === 'overwrite') {
         await this.fileSystemService.writeFile(filePath, processedContent);
-      }
-      else if (mode === 'append' || mode === 'insert') {
+      } else if (mode === 'append' || mode === 'insert') {
         let existingContent = '';
         if (fileExists) {
           existingContent = await this.fileSystemService.readFile(filePath);
         }
-        
+
         let finalContent = '';
         if (mode === 'append') {
-          finalContent = existingContent ? `${existingContent}\n${processedContent}` : processedContent;
+          finalContent = existingContent
+            ? `${existingContent}\n${processedContent}`
+            : processedContent;
         } else {
-          finalContent = existingContent ? `${processedContent}\n${existingContent}` : processedContent;
+          finalContent = existingContent
+            ? `${processedContent}\n${existingContent}`
+            : processedContent;
         }
-        
+
         await this.fileSystemService.writeFile(filePath, finalContent);
       }
     } catch (error) {
@@ -279,10 +286,14 @@ export class TaskService {
    * @param {string[]} lines - An array of lines from a task file.
    * @returns {{ total: number, completed: number, remaining: number }} An object containing the task counts.
    */
-  public static getTaskStatsFromLines(lines: string[]): { total: number, completed: number, remaining: number } {
+  public static getTaskStatsFromLines(lines: string[]): {
+    total: number;
+    completed: number;
+    remaining: number;
+  } {
     let completedTasks = 0;
     let remainingTasks = 0;
-    
+
     for (const line of lines) {
       if (this.isTask(line)) {
         if (this.isCheckedTask(line)) {
@@ -292,13 +303,13 @@ export class TaskService {
         }
       }
     }
-    
+
     const totalTasks = completedTasks + remainingTasks;
-    
+
     return {
       total: totalTasks,
       completed: completedTasks,
-      remaining: remainingTasks
+      remaining: remainingTasks,
     };
   }
 
@@ -308,10 +319,10 @@ export class TaskService {
    * @param {{ total: number, completed: number, remaining: number }} stats - The statistics object.
    * @returns {string} A formatted summary string.
    */
-  public static getSummary(stats: { total: number, completed: number, remaining: number }): string {
+  public static getSummary(stats: { total: number; completed: number; remaining: number }): string {
     const { total, completed, remaining } = stats;
-    const completionPercentage = total > 0 ? (completed / total * 100) : 0;
-    
+    const completionPercentage = total > 0 ? (completed / total) * 100 : 0;
+
     return `Total: ${total} task(s) | Completed: ${completed} (${completionPercentage.toFixed(1)}%) | Remaining: ${remaining}`;
   }
 
@@ -328,21 +339,21 @@ export class TaskService {
     }
 
     const headers: string[] = [];
-    
+
     for (let i = taskIndex - 1; i >= 0; i--) {
       if (this.isHeader(lines[i])) {
         const match = this.HEADER_PATTERN.exec(lines[i]);
         if (match && match[2]) {
           const headerText = match[2].trim();
           headers.unshift(headerText);
-          
+
           if (headers.length === 2) {
             break;
           }
         }
       }
     }
-    
+
     return headers.join(' - ');
   }
 
@@ -353,7 +364,10 @@ export class TaskService {
    * @param {number} taskIndex - The 0-based index of the task line.
    * @returns {{ startIndex: number, endIndex: number }} An object containing the 0-based start and end indices (exclusive) for the display range.
    */
-  public static getTaskOutputRange(lines: string[], taskIndex: number): { startIndex: number, endIndex: number } {
+  public static getTaskOutputRange(
+    lines: string[],
+    taskIndex: number
+  ): { startIndex: number; endIndex: number } {
     if (taskIndex < 0 || taskIndex >= lines.length) {
       return { startIndex: 0, endIndex: 0 };
     }
@@ -377,8 +391,10 @@ export class TaskService {
 
     let endIndex = lines.length;
     for (let i = taskIndex + 1; i < lines.length; i++) {
-      if (this.isTask(lines[i]) || 
-          (this.isHeader(lines[i]) && this.getLineHeaderLevel(lines[i]) <= governingLevel)) {
+      if (
+        this.isTask(lines[i]) ||
+        (this.isHeader(lines[i]) && this.getLineHeaderLevel(lines[i]) <= governingLevel)
+      ) {
         endIndex = i;
         break;
       }
@@ -398,13 +414,15 @@ export class TaskService {
     if (!this.isUncheckedTask(line)) {
       return line;
     }
-    
+
     const hasPewPrefix = this.lineHasPewPrefix(line);
-    
+
     const lineWithoutPrefix = hasPewPrefix ? this.getLineWithoutPewPrefix(line) : line;
-    
-    const modifiedLineWithoutPrefix = lineWithoutPrefix.replace(/-\s*\[\s*\]/, (match) => match.replace('[ ]', '[x]'));
-    
+
+    const modifiedLineWithoutPrefix = lineWithoutPrefix.replace(/-\s*\[\s*\]/, (match) =>
+      match.replace('[ ]', '[x]')
+    );
+
     return hasPewPrefix ? this.PEW_PREFIX + modifiedLineWithoutPrefix : modifiedLineWithoutPrefix;
   }
 
@@ -420,28 +438,31 @@ export class TaskService {
   async writeTaskLines(filePath: string, lines: string[]): Promise<void> {
     try {
       const content = lines.join('\n');
-      
+
       const dirPath = path.dirname(filePath);
       await this.fileSystemService.ensureDirectoryExists(dirPath);
-      
+
       await this.fileSystemService.writeFile(filePath, content);
     } catch (error) {
       this.logger.error('Error writing task lines:', error);
       throw error;
     }
   }
-  
+
   /**
    * Unchecks all completed tasks (`- [x]` or `- [X]`) within an array of lines.
    * Preserves indentation and prefixes.
    * @param {string[]} lines - The array of lines to process.
    * @returns {{ modifiedLines: string[]; resetCount: number }} An object containing the modified array of lines and the number of tasks that were reset.
    */
-  public static uncheckTasksInLines(lines: string[]): { modifiedLines: string[]; resetCount: number } {
+  public static uncheckTasksInLines(lines: string[]): {
+    modifiedLines: string[];
+    resetCount: number;
+  } {
     let resetCount = 0;
     const checkedPattern = /^(\s*-\s*\[)[xX](\].*)$/i;
-    
-    const modifiedLines = lines.map(line => {
+
+    const modifiedLines = lines.map((line) => {
       const replacedLine = line.replace(checkedPattern, `$1 $2`);
       if (replacedLine !== line) {
         resetCount++;
@@ -465,9 +486,9 @@ export class TaskService {
       if (!fileExists) {
         throw new Error(`Task file not found: ${filePath}`);
       }
-      
+
       const content = await this.fileSystemService.readFile(filePath);
-      
+
       return content.split('\n');
     } catch (error) {
       this.logger.error('Error reading task lines:', error);
@@ -512,7 +533,6 @@ export class TaskService {
     let pewLines: string[] | null = null;
     const allLinesRead: Map<string, string[]> = new Map();
     let totalTasksAcrossFiles = 0;
-    let completedTasksAcrossFiles = 0;
     let readErrorOccurred = false;
 
     // 1. Read all files and find initial state
@@ -523,7 +543,6 @@ export class TaskService {
 
         const fileStats = TaskService.getTaskStatsFromLines(currentLines);
         totalTasksAcrossFiles += fileStats.total;
-        completedTasksAcrossFiles += fileStats.completed;
 
         if (firstUncheckedFilePath === null) {
           const taskIndex = TaskService.findFirstUncheckedTask(currentLines);
@@ -548,7 +567,10 @@ export class TaskService {
 
     // 2. Handle overall states (No Tasks, All Complete)
     if (totalTasksAcrossFiles === 0 && !readErrorOccurred) {
-      return { status: TaskStatus.NO_TASKS, summary: TaskService.getSummary({ total: 0, completed: 0, remaining: 0 }) };
+      return {
+        status: TaskStatus.NO_TASKS,
+        summary: TaskService.getSummary({ total: 0, completed: 0, remaining: 0 }),
+      };
     }
 
     if (firstUncheckedIndex === -1 && !readErrorOccurred) {
@@ -574,12 +596,15 @@ export class TaskService {
         displayFilePath: finalPath,
       };
     }
-    
+
     if (firstUncheckedIndex === -1 && readErrorOccurred) {
-      return { status: TaskStatus.ERROR, message: "Could not determine next task due to file read errors." };
+      return {
+        status: TaskStatus.ERROR,
+        message: 'Could not determine next task due to file read errors.',
+      };
     }
 
-    // --- From here, we know there's at least one unchecked task --- 
+    // --- From here, we know there's at least one unchecked task ---
     let displayFilePath: string | null = null;
     let displayIndex: number = -1;
     let displayLines: string[] | null = null;
@@ -589,14 +614,21 @@ export class TaskService {
       // 3. Handle prefix adjustments and task completion
 
       // [Scenario: [pew] on Wrong Task]
-      if (pewIndex !== -1 && pewFilePath !== null && pewLines !== null &&
-          (pewFilePath !== firstUncheckedFilePath || pewIndex !== firstUncheckedIndex)) {
+      if (
+        pewIndex !== -1 &&
+        pewFilePath !== null &&
+        pewLines !== null &&
+        (pewFilePath !== firstUncheckedFilePath || pewIndex !== firstUncheckedIndex)
+      ) {
         const linesWithoutOldPrefix = TaskService.removePewPrefix(pewLines, pewIndex);
         await this.writeTaskLines(pewFilePath, linesWithoutOldPrefix);
         allLinesRead.set(pewFilePath, linesWithoutOldPrefix); // Update cache
 
         if (firstUncheckedFilePath !== null && firstUncheckedLines !== null) {
-          const linesWithNewPrefix = TaskService.addPewPrefix(firstUncheckedLines, firstUncheckedIndex);
+          const linesWithNewPrefix = TaskService.addPewPrefix(
+            firstUncheckedLines,
+            firstUncheckedIndex
+          );
           await this.writeTaskLines(firstUncheckedFilePath, linesWithNewPrefix);
           displayFilePath = firstUncheckedFilePath;
           displayIndex = firstUncheckedIndex;
@@ -612,15 +644,19 @@ export class TaskService {
         displayLines = modifiedLines;
       }
       // [Scenario: Complete Task with [pew]]
-      else if (pewIndex !== -1 && pewFilePath !== null && pewLines !== null &&
-               pewFilePath === firstUncheckedFilePath && pewIndex === firstUncheckedIndex) {
-
-        let linesNoPrefix = TaskService.removePewPrefix(pewLines, pewIndex);
+      else if (
+        pewIndex !== -1 &&
+        pewFilePath !== null &&
+        pewLines !== null &&
+        pewFilePath === firstUncheckedFilePath &&
+        pewIndex === firstUncheckedIndex
+      ) {
+        const linesNoPrefix = TaskService.removePewPrefix(pewLines, pewIndex);
         const completedLine = TaskService.markTaskComplete(linesNoPrefix[pewIndex]);
         linesNoPrefix[pewIndex] = completedLine;
         await this.writeTaskLines(pewFilePath, linesNoPrefix);
         allLinesRead.set(pewFilePath, linesNoPrefix); // Update cache
-        message = "Task marked as complete";
+        message = 'Task marked as complete';
 
         // Find the *very next* unchecked task (could be in same file or wrap around)
         let nextFilePath: string | null = null;
@@ -659,19 +695,23 @@ export class TaskService {
         } else {
           // No more tasks found after completion, so now all are complete
           const finalStats = TaskService.getTaskStatsFromLines(linesNoPrefix);
-           return {
-             status: TaskStatus.ALL_COMPLETE,
-             summary: TaskService.getSummary(finalStats),
-             message: message,
-             displayFilePath: pewFilePath, // Show the file where task was completed
+          return {
+            status: TaskStatus.ALL_COMPLETE,
+            summary: TaskService.getSummary(finalStats),
+            message: message,
+            displayFilePath: pewFilePath, // Show the file where task was completed
           };
         }
       }
       // [Scenario: [pew] already on the correct task (no action needed except display)]
-      else if (pewFilePath === firstUncheckedFilePath && pewIndex === firstUncheckedIndex && pewLines !== null) {
-         displayFilePath = pewFilePath;
-         displayIndex = pewIndex;
-         displayLines = pewLines;
+      else if (
+        pewFilePath === firstUncheckedFilePath &&
+        pewIndex === firstUncheckedIndex &&
+        pewLines !== null
+      ) {
+        displayFilePath = pewFilePath;
+        displayIndex = pewIndex;
+        displayLines = pewLines;
       }
 
       // 4. Prepare result if a task is ready for display
@@ -679,9 +719,12 @@ export class TaskService {
         const fileStats = TaskService.getTaskStatsFromLines(displayLines);
         const contextHeaders = TaskService.getContextHeaders(displayLines, displayIndex);
         const range = TaskService.getTaskOutputRange(displayLines, displayIndex);
-        let taskLinesToDisplay = displayLines.slice(range.startIndex, range.endIndex);
-         // Trim trailing empty lines
-        while (taskLinesToDisplay.length > 0 && taskLinesToDisplay[taskLinesToDisplay.length - 1].trim() === '') {
+        const taskLinesToDisplay = displayLines.slice(range.startIndex, range.endIndex);
+        // Trim trailing empty lines
+        while (
+          taskLinesToDisplay.length > 0 &&
+          taskLinesToDisplay[taskLinesToDisplay.length - 1].trim() === ''
+        ) {
           taskLinesToDisplay.pop();
         }
 
@@ -694,13 +737,18 @@ export class TaskService {
           message: message, // Include completion message if applicable
         };
       } else {
-         // Should ideally not happen if firstUncheckedIndex was valid
-         return { status: TaskStatus.ERROR, message: "Could not determine next task state after processing." };
+        // Should ideally not happen if firstUncheckedIndex was valid
+        return {
+          status: TaskStatus.ERROR,
+          message: 'Could not determine next task state after processing.',
+        };
       }
-
-    } catch (error: any) {
-        this.logger.error('Error processing next task state:', error);
-        return { status: TaskStatus.ERROR, message: `Error processing next task state: ${error.message}` };
+    } catch (error: unknown) {
+      this.logger.error('Error processing next task state:', error);
+      return {
+        status: TaskStatus.ERROR,
+        message: `Error processing next task state: ${error instanceof Error ? error.message : String(error)}`,
+      };
     }
   }
 
@@ -714,7 +762,7 @@ export class TaskService {
   public async getTaskFileSummaries(filePaths: string[]): Promise<TaskFileSummary[]> {
     const summaryPromises = filePaths.map(async (filePath) => {
       const relativePath = path.relative(process.cwd(), filePath);
-      let summaryResult: TaskFileSummary = {
+      const summaryResult: TaskFileSummary = {
         filePath: filePath,
         relativePath: relativePath,
         summary: '(File not found or empty)',
@@ -734,17 +782,18 @@ export class TaskService {
 
         const lines = await this.readTaskLines(filePath);
         if (lines.length === 0) {
-           summaryResult.summary = '(Empty file)';
-           return summaryResult; // Exists but empty
+          summaryResult.summary = '(Empty file)';
+          return summaryResult; // Exists but empty
         }
 
         const stats = TaskService.getTaskStatsFromLines(lines);
         summaryResult.summary = TaskService.getSummary(stats);
-
-      } catch (readError: any) {
-        this.logger.warn(`⚠️ Could not read file ${relativePath} to generate summary: ${readError.message}`);
+      } catch (readError: unknown) {
+        this.logger.warn(
+          `⚠️ Could not read file ${relativePath} to generate summary: ${readError instanceof Error ? readError.message : String(readError)}`
+        );
         summaryResult.summary = '(Error reading file)';
-        summaryResult.error = readError.message || 'Error reading file';
+        summaryResult.error = readError instanceof Error ? readError.message : String(readError);
         summaryResult.disabled = true;
       }
       return summaryResult;
@@ -766,7 +815,7 @@ export enum TaskStatus {
   /** No tasks were found in any of the processed files. */
   NO_TASKS = 'NO_TASKS',
   /** An error occurred during processing. */
-  ERROR = 'ERROR'
+  ERROR = 'ERROR',
 }
 
 /**
@@ -806,8 +855,8 @@ export enum TaskStatus {
  * capturing the different possible outcomes: finding the next task, all tasks being complete,
  * no tasks found, or an error occurring.
  */
-export type NextTaskResult = 
-  | { 
+export type NextTaskResult =
+  | {
       status: TaskStatus.NEXT_TASK_FOUND;
       displayFilePath: string;
       displayTaskLines: string[];
@@ -815,21 +864,21 @@ export type NextTaskResult =
       summary: string;
       message?: string | null;
     }
-  | { 
+  | {
       status: TaskStatus.ALL_COMPLETE;
       summary: string;
       displayFilePath?: string;
-      message?: string | null; 
+      message?: string | null;
     }
-  | { 
+  | {
       status: TaskStatus.NO_TASKS;
       summary: string;
       message?: string | null;
     }
-  | { 
+  | {
       status: TaskStatus.ERROR;
       message: string;
-    }; 
+    };
 
 /**
  * @interface TaskFileSummary
@@ -849,4 +898,4 @@ export interface TaskFileSummary {
   exists: boolean;
   error: string | null;
   disabled: boolean;
-} 
+}

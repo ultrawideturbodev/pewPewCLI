@@ -1,5 +1,5 @@
 import clipboardy from 'clipboardy';
-import { LoggerService } from './logger.service.js';
+import { LoggerService } from '../core/logger.service.js';
 
 /**
  * @class ClipboardService
