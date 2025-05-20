@@ -496,44 +496,55 @@ export class CliService {
       // Define the templates example with detailed comments
       const templatesExample = `
 # Templates for code generation (uncomment and modify for your project)
-# Each template defines a set of files to be generated based on variables
+# Each template defines a set of files to be generated
 # -------------------------------------------------------------------
 # templates:
-#   # Example 'component' template for generating React components
-#   component:
-#     # Variables are key-value pairs that can be replaced in generated files
-#     # These can be overridden via CLI arguments: --VariableName=Value
+#   # Example 'project' template for generating new project files
+#   project:
+#     # Variables that will be replaced in content and filenames
+#     # The key is what will be replaced, the value is the question to ask the user
+#     # These can be provided via CLI arguments: --"Pew Pew CLI"="My Cool App"
 #     variables:
-#       ComponentName: "MyComponent"
-#       StyleType: "css"
-#       WithTests: "true"
+#       "Pew Pew CLI": "What is the app name?"
+#       "Project Description": "Enter a brief description:"
+#       "1.0.0": "What version would you like to start with?"
 #     
-#     # Replacements are direct string substitutions in content and filenames
+#     # Direct string replacements in file content and filenames
+#     # The key is what will be found and replaced, the value is the replacement
 #     replacements:
-#       "__COMPONENT__": "${ComponentName}"
-#       "__STYLE_EXT__": "${StyleType}"
+#       "pew-template": "user-project"
+#       "pew-package": "user-package"
+#       "PEW_CONSTANT": "USER_CONSTANT"
 #     
 #     # Root directory for output files (optional, defaults to current directory)
-#     root: "src/components/${ComponentName}"
+#     root: "generated"
 #     
 #     # Files to be processed and generated (required)
 #     # Paths relative to project root or absolute paths
 #     files:
-#       - "templates/component/__COMPONENT__.tsx"
-#       - "templates/component/__COMPONENT__.__STYLE_EXT__"
-#       - "templates/component/index.ts"
-#       - "templates/component/__COMPONENT__.test.tsx"
+#       - "templates/project/pew-template.json"
+#       - "templates/project/pew-package.js"
+#       - "templates/project/README.md"
+#       - "templates/project/LICENSE"
 #
-#   # Example 'utility' template for generating utility functions
-#   utility:
+#   # Example 'component' template for generating UI components
+#   component:
+#     # Variables that will be replaced, with questions for the user
 #     variables:
-#       UtilityName: "formatterUtil"
+#       "UserComponent": "What is the name of the component?"
+#       "HasUserStyles": "Include styles? (yes/no)"
+#       "NeedsUserTests": "Generate test files? (yes/no)"
+#     
+#     # Simple text replacements
 #     replacements:
-#       "__UTILITY__": "${UtilityName}"
-#     root: "src/utils"
+#       "pew-component": "user-component"
+#       "pew-style": "user-style"
+#     
+#     root: "src/components"
 #     files:
-#       - "templates/utility/__UTILITY__.ts"
-#       - "templates/utility/__UTILITY__.test.ts"
+#       - "templates/component/pew-component.js"
+#       - "templates/component/pew-style.css"
+#       - "templates/component/index.js"
 `;
 
       // Append the templates example to the YAML file

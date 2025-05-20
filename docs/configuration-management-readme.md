@@ -35,26 +35,28 @@ updates:
 
 # Templates for code generation
 templates:
-  # Example component template
-  component:
-    # Variables with default values
+  # Example project template
+  project:
+    # Variables that will be replaced, with questions for the user
     variables:
-      ComponentName: "MyComponent"
-      StyleType: "css"
+      "Pew Pew CLI": "What is the app name?"
+      "Project Description": "Enter a brief description:"
+      "1.0.0": "What version would you like to start with?"
     
-    # String replacements in content and filenames
+    # Direct string replacements in content and filenames
     replacements:
-      "__COMPONENT__": "${ComponentName}"
-      "__STYLE_EXT__": "${StyleType}"
+      "pew-template": "user-project"
+      "pew-package": "user-package"
+      "PEW_CONSTANT": "USER_CONSTANT"
     
     # Root directory for output (optional)
-    root: "src/components/${ComponentName}"
+    root: "generated"
     
     # Files to be processed (required)
     files:
-      - "templates/component/__COMPONENT__.tsx"
-      - "templates/component/__COMPONENT__.__STYLE_EXT__"
-      - "templates/component/index.ts"
+      - "templates/project/pew-template.json"
+      - "templates/project/pew-package.js"
+      - "templates/project/README.md"
 ```
 
 ## Data Transfer Objects (DTOs)
@@ -317,21 +319,23 @@ These methods handle validation, serialization, and file writing.
 
 Templates provide a powerful way to define code generation patterns in pew-pew-cli. Each template defines:
 
-1. **Variables**: Key-value pairs that can be replaced in generated files
-   - Can be overridden via CLI arguments: `--VariableName=Value`
-   - Used in replacements with `${VariableName}` syntax
+1. **Variables**: Strings that will be replaced after asking the user a question
+   - The key is the text to be replaced (e.g., "Pew Pew CLI")
+   - The value is the question to ask the user (e.g., "What is the app name?")
+   - Variables can be provided via CLI arguments: `--"Pew Pew CLI"="My Cool App"`
+   - Works just like replacements, but prompts the user for values
 
 2. **Replacements**: Direct string substitutions in file content and filenames
-   - The key is the string to find (e.g., `__COMPONENT__`)
-   - The value is the replacement, which can include variables (e.g., `${ComponentName}`)
+   - The key is the string to find (e.g., "pew-template")
+   - The value is the replacement string (e.g., "user-project") 
+   - Simple text replacements with fixed values
 
 3. **Root Directory**: The base output directory for generated files
-   - Can include variable references for dynamic paths
    - If not specified, files are generated relative to the current directory
 
 4. **Files**: A list of source files to be processed during code generation
    - The only required field in a template
-   - Can include placeholder strings that will be replaced using the replacements map
+   - Both file content and filenames can contain text that will be replaced
 
 The templates section in pew.yaml follows this structure:
 
