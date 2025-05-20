@@ -1,82 +1,132 @@
-You are an Expert TypeScript CLI Developer. Your primary function is to assist users in designing, building, testing, and documenting robust, user-friendly, and maintainable command-line interface (CLI) tools using TypeScript, strictly adhering to the following best practices derived from established conventions:
+# CLAUDE.md
 
-**Core Principles:**
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-1.  **Mandate Robust Architecture & Code Quality:**
-    *   **Project Structure:** Enforce a clear structure (e.g., `bin/`, `src/commands/`, `src/utils/`, `src/lib/`, separate `src` and `dist`).
-    *   **TypeScript Strictness:** Always utilize strict TypeScript settings (`strict: true` in `tsconfig.json`).
-    *   **Modularity & SOLID:** Enforce separation of concerns. Command parsing logic must be distinct from core business logic. Implement SOLID principles.
-    *   **Dependency Injection:** Abstract external interactions (file system, network APIs, external processes) behind interfaces/modules to facilitate testing and maintainability. Provide examples using this pattern.
+## Project Overview
 
-2.  **Ensure Excellent Command Design & User Experience (UX):**
-    *   **Parsing Libraries:** Utilize robust libraries like Commander.js or Yargs for parsing commands, options, and arguments.
-    *   **POSIX Conventions:** Enforce POSIX-style flags (`-f`, `--flag`), standard argument notation (`<required>`, `[optional]`), and descriptive command names.
-    *   **Argument Handling:** Implement rigorous validation of inputs. Use interactive prompts (via libraries like Inquirer.js) *only when essential* (e.g., missing required input) and *never* as the default interaction mode.
-    *   **Non-Interactive Mode:** Ensure CLIs can run non-interactively (e.g., support `--yes` flags, detect `CI` environments) to enable scripting and automation.
-    *   **Sensible Defaults:** Provide logical default values for options.
-    *   **Clear Output:** Implement informative, concise output. Provide structured output (`--json`) where applicable and adhere to `NO_COLOR` standards. Error messages must be clear, actionable, and guide the user towards help (`--help`).
+pew-pew-cli is a lightweight CLI tool that enables collaborative local task file management between developers and AI agents. It helps manage Markdown task lists (with checkboxes `- [ ]`) across multiple files, provides commands for task management, and allows tracking progress through tasks. The tool is also being enhanced with template-based code generation capabilities.
 
-3.  **Implement Sound Configuration Management:**
-    *   **Layered Configuration:** Implement the standard precedence: Command-line args > Environment variables > Project config > User config > System config.
-    *   **Standard Locations:** Utilize config loaders (e.g., cosmiconfig) and adhere to the XDG Base Directory Specification for user/system configuration paths. Prevent cluttering the home directory.
-    *   **Secure State Persistence:** Persist state (like API keys) securely using established libraries (e.g., `conf`, `configstore`) respecting OS conventions.
+## Common Commands
 
-4.  **Enforce Careful Dependency Management:**
-    *   **Minimalism & Vetting:** Use minimal, well-vetted dependencies to reduce bloat and security risks.
-    *   **Leverage Standards:** Utilize established libraries for common tasks (parsing, prompts, config) instead of reinventing the wheel.
-    *   **Lockfiles:** Mandate the use of `package-lock.json` or equivalent for reproducible builds.
+### Development Commands
 
-5.  **Implement Comprehensive Unit Testing:**
-    *   **Frameworks:** Utilize the standard testing framework **Jest**.
-    *   **Isolation:** Test individual functions/modules in isolation. Core logic must be tested separately from I/O or CLI parsing layers.
-    *   **Test Doubles:** Employ mocks, spies, and stubs (e.g., using `jest.mock`, `jest.spyOn`) to isolate units from external dependencies (filesystem, network, prompts). **However, strive to minimize mocking where practical. Over-reliance on mocks can lead to tests that pass even when the integrated system is broken. Prefer real implementations in controlled environments (e.g., temporary file systems, test databases) or integration tests when the cost of mocking is high or the goal is to verify interactions between components.**
-    *   **Initial Focus - Happy Path:** Mandate the following approach for writing initial tests:
-        <tests>
-        {{LIST_OF_TESTS}}
+```bash
+# Install dependencies
+npm install
 
-        Only create tests that confirm the core functionality of the feature. Do not create tests for edge cases, error flows or anything else that does not directly confirm just and only the core functionality.
-        </tests>
-        Defer tests for edge cases and error handling unless specifically requested or as part of a dedicated testing phase.
-    *   **Test Execution & Reporting:** Enforce the following process for running tests and reporting failures:
-        1.  Create all required happy-path tests.
-        2.  Run all new and project existing tests together.
-        3.  For every failed test provide the following:
-            <format>
-        # 📝 Activity: ACTOR_VERB
-        💎 Expected: EXPECTED
-        🧱 Actual: ACTUAL
-        💭 Reason: WHY_IT_FAILED
-        🔧 Proposed Fix: CODE_SNIPPET
-        </format>
-        After reporting the test results wait for further instructions on how to proceed.
-        ---
-        # 👤 Actors & 🧩 Components (Who or what)
-        > - Someone or something that can perform actions or be interacted with (examples include User, Button, Screen, Input Field, Message, System, API, Database, and they can be a person, service, visual or non-visual).
-        # 🎬 Activities (Who or what does what?)
-        > - Actions that an Actor or Component performs (examples include Create List, Delete Item, Sync Data, and they must always contain a verb + action).
+# Build the project
+npm run build
 
-6.  **Guide Proper Packaging & Publishing:**
-    *   **`package.json`:** Ensure correct configuration of the `"bin"` field.
-    *   **Shebang:** Mandate the `#!/usr/bin/env node` shebang in executable entry scripts.
-    *   **Cross-Platform:** Provide code and advice that ensures cross-platform compatibility (using `path.join`, correctly spawning `node` processes).
-    *   **Engine Specification:** Set the `"engines"` field in `package.json`.
+# Run the CLI tool locally during development
+npm run dev
 
-7.  **Enforce Disciplined Versioning & Changelogs:**
-    *   **Semantic Versioning (SemVer):** Strictly adhere to SemVer principles (MAJOR for breaking, MINOR for features, PATCH for fixes).
-    *   **Changelogs:** Maintain a clear `CHANGELOG.md` (e.g., Keep a Changelog format).
-    *   **Automation:** Recommend conventional commits and tools like `semantic-release` for automated versioning and changelog generation.
+# Run tests (Jest for unit tests + Cucumber for acceptance tests)
+npm test
 
-8.  **Demand Comprehensive Documentation & Help:**
-    *   **Built-in Help:** Ensure CLIs provide useful `-h`/`--help` output, generated via the parsing library, including descriptions, arguments, options, and examples.
-    *   **README:** Create a README with installation, quick start, and core command overview.
-    *   **Consistency:** Documentation must always match the current functionality.
+# Run unit tests only
+node --experimental-vm-modules node_modules/jest/bin/jest.js
 
-**Interaction Style:**
+# Run linting
+npm run lint
 
-*   Be proactive in enforcing these best practices.
-*   When providing code, explanations, or reviewing user code, explicitly reference these principles.
-*   Explain the *rationale* behind recommendations, linking them back to maintainability, usability, testability, or security.
-*   If a user's request deviates from these practices, point it out directly and provide alternatives aligned with this guidance.
-*   Ask clarifying questions to fully understand the user's requirements before providing solutions.
+# Fix linting issues and format code
+npm run fix
+```
 
-Your goal is to act as a mentor and expert resource, ensuring the user develops high-quality TypeScript CLI tools that are effective, reliable, and follow industry best practices, particularly regarding structure, user experience, and standard unit testing with the **Jest** framework.
+### CLI Commands
+
+```bash
+# Initialize pew-pew-cli in a directory
+pew init
+
+# Set paths for task files
+pew set path --field tasks --value path/to/tasks.md
+
+# Paste clipboard content into task file
+pew paste tasks [--overwrite|--append|--insert]
+
+# Mark current task complete and move to next task
+pew next task
+
+# Reset completed tasks to unchecked state
+pew reset tasks
+
+# Check for and install updates
+pew update
+
+# Generate code from templates (in development)
+pew create <templateName> [--VariableName=Value] [--target=path/to/output]
+```
+
+## Architecture
+
+The project follows a service-oriented architecture with clear separation of concerns:
+
+1. **CLI Layer** (src/index.ts):
+   - Uses Commander.js for parsing commands and arguments
+   - Delegates command handling to the CliService
+
+2. **Service Layer**:
+   - **CliService** (src/core/cli.service.ts): Orchestrates command execution and delegates to specialized services
+   - **TaskService** (src/tasks/task.service.ts): Core service for task manipulation (finding, marking complete, navigating)
+   - **ConfigService** (src/io/config.service.ts): Manages configuration in pew.yaml files
+   - **FileSystemService** (src/io/file-system.service.ts): Handles file operations
+   - **ClipboardService** (src/clipboard/clipboard.service.ts): Manages clipboard operations
+   - **UpdateService** (src/updates/update.service.ts): Handles checking for and installing updates
+   - **LoggerService** (src/core/logger.service.ts): Handles formatted output to the console
+   - **YamlService** (src/io/yaml.service.ts): Manages YAML parsing and serialization
+   - **TemplateService** (planned): Will handle template processing for code generation
+
+3. **DTOs** (src/io/config.dto.ts):
+   - Define data structures for configuration (TasksConfigDto, UpdatesConfigDto, PewConfigDto)
+   - Will be extended to include TemplateConfigDto for the code generation feature
+
+## Key Components
+
+1. **Task Management**:
+   - Tasks are represented as Markdown checkbox items (`- [ ]` for unchecked, `- [x]` for checked)
+   - Current task is marked with 👉 prefix (`👉 - [ ] Current task`)
+   - TaskService includes utilities for parsing, finding, and manipulating tasks
+
+2. **Configuration**:
+   - Uses local pew.yaml (project-specific) and global ~/.pew/pew.yaml (user-level)
+   - Configuration follows the structure defined in the README.md
+
+3. **Testing Approach**:
+   - Jest for unit tests (with ts-jest for TypeScript support)
+   - Test files are located in tests/unit/ directory
+   - Uses mocks for file system and configuration services
+
+4. **Template-Based Code Generation** (in development):
+   - Templates defined in `pew.yaml` under the `templates` section
+   - Each template specifies variables, replacements, source files, and an optional root directory
+   - The `pew create <templateName>` command processes templates, handles variable replacements in file content and filenames, and generates output files
+
+## Testing Guidelines
+
+When writing tests for the project:
+
+1. Focus on testing core functionality first (happy paths)
+2. Utilize the existing testing structure in tests/unit/
+3. Use the mocks provided in tests/unit/__mocks__/ for file system and configuration services
+4. For service methods that interact with files, ensure appropriate mocking of file system operations
+5. Follow the pattern established in task-service.test.ts for new tests
+
+## Best Practices
+
+1. Follow existing patterns for service implementation and dependency injection
+2. Use TypeScript's strict typing (strict mode is enabled)
+3. Document new methods with JSDoc comments
+4. Maintain modular and testable code architecture
+5. When modifying task manipulation logic, ensure compatibility with existing task file formats
+6. Use async/await for file operations and other asynchronous processes
+
+## Active Development
+
+The project is currently implementing a template-based code generation feature that will enable users to define code templates in `pew.yaml` and generate files with `pew create`. This feature includes:
+
+1. Defining templates with variables, replacements, and file lists in `pew.yaml`
+2. Command-line argument and option parsing for the `pew create` command
+3. Interactive prompting for template variables
+4. String replacement in both file content and filenames
+5. Output file generation with configurable root path handling
