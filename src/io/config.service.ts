@@ -2,7 +2,7 @@ import * as path from 'path';
 import { FileSystemService } from './file-system.service.js';
 import { YamlService } from './yaml.service.js';
 import { LoggerService } from '../core/logger.service.js';
-import { PewConfigDto, TasksConfigDto, UpdatesConfigDto } from './config.dto.js';
+import { PewConfigDto, TasksConfigDto, UpdatesConfigDto, TemplateConfigDto } from './config.dto.js';
 
 /**
  * Configuration Service for pew CLI.
@@ -36,6 +36,13 @@ export class ConfigService {
   private static readonly kDefaultUpdatesConfig: UpdatesConfigDto = {
     lastUpdateCheckTimestamp: 0,
   };
+  
+  /**
+   * Default configuration for templates
+   * @private
+   * @static
+   */
+  private static readonly kDefaultTemplatesConfig: Record<string, TemplateConfigDto> = {};
 
   /**
    * Returns a new PewConfigDTO instance with all default values
@@ -47,6 +54,7 @@ export class ConfigService {
     return {
       tasks: { ...ConfigService.kDefaultTasksConfig },
       updates: { ...ConfigService.kDefaultUpdatesConfig },
+      templates: { ...ConfigService.kDefaultTemplatesConfig },
     };
   }
 
@@ -68,6 +76,11 @@ export class ConfigService {
     // Ensure updates property exists
     if (!mergedConfig.updates) {
       mergedConfig.updates = { ...ConfigService.kDefaultUpdatesConfig };
+    }
+    
+    // Ensure templates property exists
+    if (!mergedConfig.templates) {
+      mergedConfig.templates = { ...ConfigService.kDefaultTemplatesConfig };
     }
 
     // Process tasks configuration if it exists
@@ -101,6 +114,100 @@ export class ConfigService {
       ) {
         mergedConfig.updates.lastUpdateCheckTimestamp = (rawData.updates as Record<string, unknown>)
           .lastUpdateCheckTimestamp as number;
+      }
+    }
+    
+    // Process templates configuration if it exists
+    if (rawData.templates && typeof rawData.templates === 'object') {
+      // Clear the default templates to prepare for incoming ones
+      mergedConfig.templates = {};
+      
+      // Process each template in the templates object
+      const templatesObj = rawData.templates as Record<string, unknown>;
+      
+      for (const [templateName, templateValue] of Object.entries(templatesObj)) {
+        if (typeof templateValue === 'object' && templateValue !== null) {
+          const templateObj = templateValue as Record<string, unknown>;
+          
+          // Validate files field - required array of strings
+          if (
+            Array.isArray(templateObj.files) && 
+            (templateObj.files as unknown[]).every(item => typeof item === 'string')
+          ) {
+            // Initialize a valid template with the required files property
+            const validTemplate: TemplateConfigDto = {
+              files: [...(templateObj.files as string[])]
+            };
+            
+            // Handle optional variables field - must be an object with string values
+            if (
+              templateObj.variables && 
+              typeof templateObj.variables === 'object' && 
+              templateObj.variables !== null
+            ) {
+              const variablesObj = templateObj.variables as Record<string, unknown>;
+              const validVariables: Record<string, string> = {};
+              
+              let allVariablesValid = true;
+              for (const [varName, varValue] of Object.entries(variablesObj)) {
+                if (typeof varValue === 'string') {
+                  validVariables[varName] = varValue;
+                } else {
+                  allVariablesValid = false;
+                  this.logger.warn(
+                    `Variable "${varName}" in template "${templateName}" has non-string value. Using defaults.`
+                  );
+                  break;
+                }
+              }
+              
+              if (allVariablesValid && Object.keys(validVariables).length > 0) {
+                validTemplate.variables = validVariables;
+              }
+            }
+            
+            // Handle optional replacements field - must be an object with string values
+            if (
+              templateObj.replacements && 
+              typeof templateObj.replacements === 'object' && 
+              templateObj.replacements !== null
+            ) {
+              const replacementsObj = templateObj.replacements as Record<string, unknown>;
+              const validReplacements: Record<string, string> = {};
+              
+              let allReplacementsValid = true;
+              for (const [findStr, replaceStr] of Object.entries(replacementsObj)) {
+                if (typeof replaceStr === 'string') {
+                  validReplacements[findStr] = replaceStr;
+                } else {
+                  allReplacementsValid = false;
+                  this.logger.warn(
+                    `Replacement value for "${findStr}" in template "${templateName}" is not a string. Using defaults.`
+                  );
+                  break;
+                }
+              }
+              
+              if (allReplacementsValid && Object.keys(validReplacements).length > 0) {
+                validTemplate.replacements = validReplacements;
+              }
+            }
+            
+            // Handle optional root field - must be a string
+            if (typeof templateObj.root === 'string') {
+              validTemplate.root = templateObj.root;
+            }
+            
+            // Add the validated template to the merged config
+            mergedConfig.templates[templateName] = validTemplate;
+          } else {
+            this.logger.warn(
+              `Template "${templateName}" missing required 'files' array or contains non-string values. Skipping.`
+            );
+          }
+        } else {
+          this.logger.warn(`Template "${templateName}" is not a valid object. Skipping.`);
+        }
       }
     }
 

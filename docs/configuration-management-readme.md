@@ -32,6 +32,29 @@ tasks:
 updates:
   # Timestamp for last update check
   lastUpdateCheckTimestamp: 1634567890123
+
+# Templates for code generation
+templates:
+  # Example component template
+  component:
+    # Variables with default values
+    variables:
+      ComponentName: "MyComponent"
+      StyleType: "css"
+    
+    # String replacements in content and filenames
+    replacements:
+      "__COMPONENT__": "${ComponentName}"
+      "__STYLE_EXT__": "${StyleType}"
+    
+    # Root directory for output (optional)
+    root: "src/components/${ComponentName}"
+    
+    # Files to be processed (required)
+    files:
+      - "templates/component/__COMPONENT__.tsx"
+      - "templates/component/__COMPONENT__.__STYLE_EXT__"
+      - "templates/component/index.ts"
 ```
 
 ## Data Transfer Objects (DTOs)
@@ -43,6 +66,7 @@ The configuration structure is defined by TypeScript interfaces in `src/io/confi
 export interface PewConfigDto {
   tasks?: Partial<TasksConfigDto>;
   updates?: Partial<UpdatesConfigDto>;
+  templates?: Record<string, TemplateConfigDto>;
 }
 
 // Task-related configuration
@@ -55,6 +79,21 @@ export interface TasksConfigDto {
 // Update-related configuration
 export interface UpdatesConfigDto {
   lastUpdateCheckTimestamp: number;
+}
+
+// Template configuration for code generation
+export interface TemplateConfigDto {
+  // Variables to be replaced in the template (optional)
+  variables?: Record<string, string>;
+  
+  // String replacements to apply to content and filenames (optional)
+  replacements?: Record<string, string>;
+  
+  // Root directory for output files (optional)
+  root?: string;
+  
+  // List of files to be processed (required)
+  files: string[];
 }
 ```
 
@@ -274,6 +313,46 @@ public async setGlobalUpdateValue(key: keyof UpdatesConfigDto, value: unknown): 
 
 These methods handle validation, serialization, and file writing.
 
+### Understanding Template Configuration
+
+Templates provide a powerful way to define code generation patterns in pew-pew-cli. Each template defines:
+
+1. **Variables**: Key-value pairs that can be replaced in generated files
+   - Can be overridden via CLI arguments: `--VariableName=Value`
+   - Used in replacements with `${VariableName}` syntax
+
+2. **Replacements**: Direct string substitutions in file content and filenames
+   - The key is the string to find (e.g., `__COMPONENT__`)
+   - The value is the replacement, which can include variables (e.g., `${ComponentName}`)
+
+3. **Root Directory**: The base output directory for generated files
+   - Can include variable references for dynamic paths
+   - If not specified, files are generated relative to the current directory
+
+4. **Files**: A list of source files to be processed during code generation
+   - The only required field in a template
+   - Can include placeholder strings that will be replaced using the replacements map
+
+The templates section in pew.yaml follows this structure:
+
+```yaml
+templates:
+  component:
+    variables:
+      ComponentName: "MyComponent"
+    replacements:
+      "__COMPONENT__": "${ComponentName}"
+    root: "src/components/${ComponentName}"
+    files:
+      - "templates/component/__COMPONENT__.tsx"
+```
+
+This configuration is parsed and validated by the ConfigService, which ensures that:
+- All variables are string values
+- All replacements are string values
+- The root is a string value
+- The files property exists and is an array of strings
+
 ## Best Practices for Working with Configuration
 
 1. **Always Initialize First**: Before accessing any configuration values, ensure `ConfigService.initialize()` has been called and awaited.
@@ -400,6 +479,89 @@ To add a new configuration section:
      // Implementation
    }
    ```
+
+### Example: Template Configuration Implementation
+
+The templates feature is a concrete example of adding a new configuration section. Here's how it was implemented:
+
+1. Define the DTO interface in `config.dto.ts`:
+
+   ```typescript
+   export interface TemplateConfigDto {
+     variables?: Record<string, string>;
+     replacements?: Record<string, string>;
+     root?: string;
+     files: string[];
+   }
+   ```
+
+2. Update the root PewConfigDto interface:
+
+   ```typescript
+   export interface PewConfigDto {
+     tasks?: Partial<TasksConfigDto>;
+     updates?: Partial<UpdatesConfigDto>;
+     templates?: Record<string, TemplateConfigDto>;
+   }
+   ```
+
+3. Add default values in ConfigService:
+
+   ```typescript
+   private static readonly kDefaultTemplatesConfig: Record<string, TemplateConfigDto> = {};
+   
+   public static getDefaultConfigDTO(): PewConfigDto {
+     return {
+       tasks: { ...ConfigService.kDefaultTasksConfig },
+       updates: { ...ConfigService.kDefaultUpdatesConfig },
+       templates: { ...ConfigService.kDefaultTemplatesConfig },
+     };
+   }
+   ```
+
+4. Update the deserialize method:
+
+   ```typescript
+   private deserializeAndMergeWithDefaults(rawData: Record<string, unknown>): PewConfigDto {
+     // ...existing code...
+     
+     // Process templates configuration if it exists
+     if (rawData.templates && typeof rawData.templates === 'object') {
+       // Clear default templates
+       mergedConfig.templates = {};
+       
+       // Process each template
+       const templatesObj = rawData.templates as Record<string, unknown>;
+       
+       for (const [templateName, templateValue] of Object.entries(templatesObj)) {
+         if (typeof templateValue === 'object' && templateValue !== null) {
+           const templateObj = templateValue as Record<string, unknown>;
+           
+           // Validate the required files field - must be an array of strings
+           if (
+             Array.isArray(templateObj.files) && 
+             (templateObj.files as unknown[]).every(item => typeof item === 'string')
+           ) {
+             // Initialize a valid template
+             const validTemplate: TemplateConfigDto = {
+               files: [...(templateObj.files as string[])]
+             };
+             
+             // Process optional fields (variables, replacements, root)
+             // ...
+             
+             // Add validated template to config
+             mergedConfig.templates[templateName] = validTemplate;
+           }
+         }
+       }
+     }
+     
+     return mergedConfig;
+   }
+   ```
+
+This pattern can be followed for adding any new section to the configuration system.
 
 ## Conclusion
 

@@ -33,6 +33,35 @@ export interface UpdatesConfigDto {
 }
 
 /**
+ * Template configuration for code generation
+ */
+export interface TemplateConfigDto {
+  /**
+   * Variables to be replaced in the template
+   * These are key-value pairs where the key is the variable name and the value is the default value
+   */
+  variables?: Record<string, string>;
+  
+  /**
+   * String replacements to apply to file content and filenames
+   * These are key-value pairs where the key is the string to find and the value is the replacement
+   */
+  replacements?: Record<string, string>;
+  
+  /**
+   * Root directory for the template output
+   * If not specified, output will be relative to the current directory
+   */
+  root?: string;
+  
+  /**
+   * List of files to be included in the template
+   * These are relative file paths that will be processed during code generation
+   */
+  files: string[];
+}
+
+/**
  * Root configuration DTO for pew.yaml
  */
 export interface PewConfigDto {
@@ -45,4 +74,10 @@ export interface PewConfigDto {
    * Update-related configuration
    */
   updates?: Partial<UpdatesConfigDto>;
+  
+  /**
+   * Template configurations for code generation
+   * Each key is a template name and the value is the template configuration
+   */
+  templates?: Record<string, TemplateConfigDto>;
 }

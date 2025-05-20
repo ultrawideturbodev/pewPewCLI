@@ -113,6 +113,10 @@ export class CliService {
 
     // Write the initial configuration to a new pew.yaml file
     await yamlService.writeYamlFile(localPewYamlPath, initialConfig);
+    
+    // Add a commented-out templates example to the pew.yaml file
+    await this.appendTemplatesExampleToYaml(localPewYamlPath);
+    
     this.logger.log(`Created pew.yaml in ${process.cwd()}`);
 
     // Get the default task path from the config we just wrote
@@ -472,6 +476,71 @@ export class CliService {
     } catch (error) {
       this.logger.error('An unexpected error occurred during the update command:', error);
       process.exit(1);
+    }
+  }
+  
+  /**
+   * Appends a commented-out templates example to the pew.yaml file.
+   * This example helps users understand how to define code generation templates.
+   * 
+   * @private
+   * @async
+   * @param {string} yamlPath - The absolute path to the pew.yaml file
+   * @returns {Promise<void>} A promise that resolves when the example has been appended
+   */
+  private async appendTemplatesExampleToYaml(yamlPath: string): Promise<void> {
+    try {
+      // Read the existing YAML file
+      const existingContent = await this.fileSystemService.readFile(yamlPath);
+      
+      // Define the templates example with detailed comments
+      const templatesExample = `
+# Templates for code generation (uncomment and modify for your project)
+# Each template defines a set of files to be generated based on variables
+# -------------------------------------------------------------------
+# templates:
+#   # Example 'component' template for generating React components
+#   component:
+#     # Variables are key-value pairs that can be replaced in generated files
+#     # These can be overridden via CLI arguments: --VariableName=Value
+#     variables:
+#       ComponentName: "MyComponent"
+#       StyleType: "css"
+#       WithTests: "true"
+#     
+#     # Replacements are direct string substitutions in content and filenames
+#     replacements:
+#       "__COMPONENT__": "${ComponentName}"
+#       "__STYLE_EXT__": "${StyleType}"
+#     
+#     # Root directory for output files (optional, defaults to current directory)
+#     root: "src/components/${ComponentName}"
+#     
+#     # Files to be processed and generated (required)
+#     # Paths relative to project root or absolute paths
+#     files:
+#       - "templates/component/__COMPONENT__.tsx"
+#       - "templates/component/__COMPONENT__.__STYLE_EXT__"
+#       - "templates/component/index.ts"
+#       - "templates/component/__COMPONENT__.test.tsx"
+#
+#   # Example 'utility' template for generating utility functions
+#   utility:
+#     variables:
+#       UtilityName: "formatterUtil"
+#     replacements:
+#       "__UTILITY__": "${UtilityName}"
+#     root: "src/utils"
+#     files:
+#       - "templates/utility/__UTILITY__.ts"
+#       - "templates/utility/__UTILITY__.test.ts"
+`;
+
+      // Append the templates example to the YAML file
+      await this.fileSystemService.writeFile(yamlPath, existingContent + templatesExample);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to append templates example to ${yamlPath}:`, error);
+      // Don't throw error - this is an enhancement, not critical functionality
     }
   }
 }

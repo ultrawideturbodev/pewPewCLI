@@ -28,15 +28,15 @@ labels: 📒 story
 > 💡 *Specific conditions that must be met for the story to be considered complete. Each criterion should be testable and unambiguous.*
 ---
 
-* [ ] Criterion 1: `ConfigService` can correctly parse and validate the new `templates` map from `pew.yaml`.
-* [ ] Criterion 2: The `templates` key in `pew.yaml` is a map where each key is a template name (string).
-* [ ] Criterion 3: Each template object within the `templates` map must support:
+* [x] Criterion 1: `ConfigService` can correctly parse and validate the new `templates` map from `pew.yaml`.
+* [x] Criterion 2: The `templates` key in `pew.yaml` is a map where each key is a template name (string).
+* [x] Criterion 3: Each template object within the `templates` map must support:
     *   `variables`: An optional map (string keys, string values).
     *   `replacements`: An optional map (string keys, string values).
     *   `root`: An optional string representing a single path.
     *   `files`: A required list of strings (file paths).
-* [ ] Criterion 4: When `pew init` is run, the generated `pew.yaml` (or the default global config if no local one is created) includes a commented-out section demonstrating the `templates` structure with clear descriptions for each field and sub-field. The example must be valid YAML if uncommented.
-* [ ] Criterion 5: Project documentation (e.g., README.md or a dedicated config doc) is updated to reflect the new `templates` structure in `pew.yaml`.
+* [x] Criterion 4: When `pew init` is run, the generated `pew.yaml` (or the default global config if no local one is created) includes a commented-out section demonstrating the `templates` structure with clear descriptions for each field and sub-field. The example must be valid YAML if uncommented.
+* [x] Criterion 5: Project documentation (e.g., README.md or a dedicated config doc) is updated to reflect the new `templates` structure in `pew.yaml`.
 
 # 💾 Data Model
 > 💡 *Old and new data models that will be created and/or altered when this feature is added.*
