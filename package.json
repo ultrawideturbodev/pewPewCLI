@@ -14,8 +14,13 @@
     "build": "tsc",
     "start": "node --loader ts-node/esm src/index.ts",
     "dev": "node --loader ts-node/esm src/index.ts",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js && npm run test:cucumber",
-    "test:cucumber": "node --loader ts-node/esm ./node_modules/.bin/cucumber-js --import 'features/step_definitions/**/*.ts' --import 'features/support/**/*.ts' 'features/**/*.feature'",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:verbose": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
+    "test:debug": "node --experimental-vm-modules --inspect-brk node_modules/jest/bin/jest.js --runInBand",
+    "test:tasks": "node --experimental-vm-modules node_modules/jest/bin/jest.js src/tasks/__tests__",
+    "test:core": "node --experimental-vm-modules node_modules/jest/bin/jest.js src/core/__tests__",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,js,json,md}\"",
@@ -54,7 +59,6 @@
     "latest-version": "^9.0.0"
   },
   "devDependencies": {
-    "@cucumber/cucumber": "^11.2.0",
     "@eslint/js": "^9.26.0",
     "@types/inquirer": "^9.0.7",
     "@types/jest": "^29.5.11",
