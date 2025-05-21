@@ -20,12 +20,6 @@ npm run build
 # Run the CLI tool locally during development
 npm run dev
 
-# Run tests (Jest for unit tests + Cucumber for acceptance tests)
-npm test
-
-# Run unit tests only
-node --experimental-vm-modules node_modules/jest/bin/jest.js
-
 # Run linting
 npm run lint
 
@@ -92,32 +86,22 @@ The project follows a service-oriented architecture with clear separation of con
    - Uses local pew.yaml (project-specific) and global ~/.pew/pew.yaml (user-level)
    - Configuration follows the structure defined in the README.md
 
-3. **Testing Approach**:
-   - Jest for unit tests (with ts-jest for TypeScript support)
-   - Test files are located in tests/unit/ directory
-   - Uses mocks for file system and configuration services
+3. **Code Quality**:
+   - ESLint for code linting and formatting
+   - Prettier for consistent code formatting
+   - TypeScript for type safety
 
 4. **Template-Based Code Generation** (in development):
    - Templates defined in `pew.yaml` under the `templates` section
    - Each template specifies variables, replacements, source files, and an optional root directory
    - The `pew create <templateName>` command processes templates, handles variable replacements in file content and filenames, and generates output files
 
-## Testing Guidelines
-
-When writing tests for the project:
-
-1. Focus on testing core functionality first (happy paths)
-2. Utilize the existing testing structure in tests/unit/
-3. Use the mocks provided in tests/unit/__mocks__/ for file system and configuration services
-4. For service methods that interact with files, ensure appropriate mocking of file system operations
-5. Follow the pattern established in task-service.test.ts for new tests
-
 ## Best Practices
 
 1. Follow existing patterns for service implementation and dependency injection
 2. Use TypeScript's strict typing (strict mode is enabled)
 3. Document new methods with JSDoc comments
-4. Maintain modular and testable code architecture
+4. Maintain modular and clean code architecture
 5. When modifying task manipulation logic, ensure compatibility with existing task file formats
 6. Use async/await for file operations and other asynchronous processes
 
