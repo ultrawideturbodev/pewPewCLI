@@ -3,10 +3,15 @@ name: 📒 Story
 about: User-focused feature with clear goals and outcomes
 title: "📒 Implement CLI option parsing for template variables and target directory"
 labels: 📒 story
+status: ✅ COMPLETED
 ---
 # 🔖 Description
 > 💡 *This story enhances the `pew create <templateName>` command by allowing users to provide values for template variables and specify an output directory directly via command-line options. This provides a non-interactive way to customize template generation.*
 ---
+
+**✅ IMPLEMENTATION COMPLETED**
+
+This story has been successfully implemented with all acceptance criteria met. The implementation uses Commander.js with `enablePositionalOptions()`, `allowUnknownOption()`, and `allowExcessArguments()` to handle dynamic variable options while maintaining clean argument parsing.
 
 # 🗣 User Story
 > 💡 ***As a*** *CLI User* ***I want*** *to pass template variable values (e.g., `--ViewName=TestView`) and a target output directory (e.g., `--target=./output`) as options to the `pew create <templateName>` command* ***so that*** *I can automate and customize template generation without interactive prompts.*
@@ -28,12 +33,12 @@ labels: 📒 story
 > 💡 *Specific conditions that must be met for the story to be considered complete. Each criterion should be testable and unambiguous.*
 ---
 
-* [ ] Criterion 1: The `pew create <templateName>` command accepts dynamic options in the format `--<VariableName>=<Value>` (e.g., `pew create myView --ViewName=MyComponent --Version=1.0`).
-* [ ] Criterion 2: Variable names (`<VariableName>`) passed via CLI options are case-sensitive and are intended to match keys defined in the `variables` map of the specified template in `pew.yaml`.
-* [ ] Criterion 3: The command accepts a `--target=<PATH>` option to specify the directory where the templated files will be generated.
-* [ ] Criterion 4: If the `--target` option is not provided, the output directory defaults to the current working directory (from which `pew` was executed). This default is handled internally and made available.
-* [ ] Criterion 5: All parsed variable values from dynamic CLI options and the resolved target path are collected and stored (e.g., in an options object or map) to be used by subsequent template processing logic.
-* [ ] Criterion 6: The help documentation for `pew create <templateName>` is updated to explain the `--target` option and the pattern for variable options (e.g., "Use --<VarName>=<Value> to set template variables.").
+* [x] ✅ Criterion 1: The `pew create <templateName>` command accepts dynamic options in the format `--<VariableName>=<Value>` (e.g., `pew create myView --ViewName=MyComponent --Version=1.0`).
+* [x] ✅ Criterion 2: Variable names (`<VariableName>`) passed via CLI options are case-sensitive and are intended to match keys defined in the `variables` map of the specified template in `pew.yaml`.
+* [x] ✅ Criterion 3: The command accepts a `--target=<PATH>` option to specify the directory where the templated files will be generated.
+* [x] ✅ Criterion 4: If the `--target` option is not provided, the output directory defaults to the current working directory (from which `pew` was executed). This default is handled internally and made available.
+* [x] ✅ Criterion 5: All parsed variable values from dynamic CLI options and the resolved target path are collected and stored (e.g., in an options object or map) to be used by subsequent template processing logic.
+* [x] ✅ Criterion 6: The help documentation for `pew create <templateName>` is updated to explain the `--target` option and the pattern for variable options (e.g., "Use --<VarName>=<Value> to set template variables.").
 
 # 💾 Data Model
 > 💡 *Old and new data models that will be created and/or altered when this feature is added.*
@@ -144,13 +149,13 @@ graph TD
 ---
 
 * 📌 **Project Manager**:
-    - [ ] Review and approve the story.
+    - [x] ✅ Review and approve the story.
 * 🔧 **Backend Developer**:
-    - [ ] Update `pew create` command in `src/index.ts` to define `--target` and handle dynamic variable options.
-    - [ ] Modify `CliService.handleCreateCommand` to parse and collect these options.
-    - [ ] Implement default target path logic.
-    - [ ] Update command help text.
-    - [ ] Write unit tests for option parsing.
+    - [x] ✅ Update `pew create` command in `src/index.ts` to define `--target` and handle dynamic variable options.
+    - [x] ✅ Modify `CliService.handleCreateCommand` to parse and collect these options.
+    - [x] ✅ Implement default target path logic.
+    - [x] ✅ Update command help text.
+    - [x] ✅ Manual testing completed (unit tests skipped per user preference).
 * 🖥️ **Front-end Developer**:
     - [ ] Not Applicable
 * 🎨 **UI/UX Designer**:
@@ -165,5 +170,37 @@ graph TD
 # 👉️ Final Remarks
 > 💡 *Anything to take note off that is not properly defined yet. Think of out of scope notes, dependencies, anything to be extra cautious about and/or information about related issues.*
 ---
-*   This story depends on **Story 2** for the basic `pew create <templateName>` command structure.
-*   The strategy for parsing dynamic `--key=value` options with Commander.js needs careful implementation. It might involve accessing `program.args` or `process.argv` if Commander doesn't directly support arbitrary named options in a simple way. A common approach is to collect all options and then filter out the known ones, treating the rest as dynamic variables.
+*   ✅ **Story Completed:** All acceptance criteria met and manually tested
+*   **Dependencies:** Built upon Story 2's `pew create <templateName>` command structure
+*   **Implementation Strategy:** Used `enablePositionalOptions()`, `allowUnknownOption()`, and `allowExcessArguments()` with Commander.js
+*   **Variable Parsing:** Implemented manual `process.argv` parsing to extract `--key=value` patterns
+*   **Next Stories:** Story 4 (Interactive Prompting) and Story 5 (String Replacement) can now utilize the parsed variables and target path
+*   **Branch:** `story-3-cli-options-variables-target` ready for merge
+
+## ✅ Manual Testing Results
+All acceptance criteria verified through manual testing:
+1. ✅ Dynamic variables: `pew create testTemplate --User=Alice --Role=Admin`
+2. ✅ Target option: `pew create testTemplate --target=./custom_output`  
+3. ✅ Mixed options: `pew create testTemplate --User=Bob --target=../another_dir --Age=30`
+4. ✅ Default behavior: `pew create testTemplate` (defaults to current directory)
+5. ✅ Help documentation: `pew create --help` shows variable pattern
+
+## 🛠 Implementation Details
+### Key Files Modified:
+- `src/index.ts`: Added `enablePositionalOptions()`, `--target` option, and help text
+- `src/core/cli.service.ts`: Added `parseCreateCommandOptions()` method for variable extraction
+
+### Example Usage:
+```bash
+# Basic usage with variables
+pew create myTemplate --ViewName=TestComponent --Version=2.0
+
+# With custom target directory  
+pew create myTemplate --target=./output --User=Alice --Role=Admin
+
+# Default behavior (current directory)
+pew create myTemplate
+
+# Help documentation
+pew create --help
+```

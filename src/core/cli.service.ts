@@ -485,9 +485,13 @@ export class CliService {
    * validates that it exists before proceeding with generation.
    *
    * @param {string} templateName - The name of the template to use for generation
+   * @param {any} options - CLI options including --target and dynamic variables
    * @returns {Promise<void>} A promise that resolves when the command processing is complete
    */
-  public async handleCreateCommand(templateName: string): Promise<void> {
+  public async handleCreateCommand(
+    templateName: string,
+    options: any = {}
+  ): Promise<void> {
     try {
       await this.configService.initialize();
 
@@ -499,9 +503,20 @@ export class CliService {
         return;
       }
 
+      // Parse CLI options to extract variables and target path
+      const { variables, targetPath } = this.parseCreateCommandOptions(options);
+
       // Template found - log success and show template details for now
       this.logger.success(`Found template: ${templateName}. Proceeding with generation...`);
       this.logger.log(`Template has ${template.files.length} file(s) to process.`);
+      this.logger.log(`Target directory: ${targetPath}`);
+
+      if (Object.keys(variables).length > 0) {
+        this.logger.log(`CLI Variables provided: ${Object.keys(variables).length}`);
+        for (const [key, value] of Object.entries(variables)) {
+          this.logger.log(`  - ${key}: ${value}`);
+        }
+      }
 
       if (template.variables && Object.keys(template.variables).length > 0) {
         this.logger.log(`Variables: ${Object.keys(template.variables).length} defined.`);
@@ -518,7 +533,45 @@ export class CliService {
       // TODO: Actual template processing will be implemented in subsequent stories
     } catch (error) {
       this.logger.error('Error during create command operation:', error);
+      console.error('Full error:', error);
     }
+  }
+
+  /**
+   * Parses CLI options for the create command to extract variables and target path.
+   *
+   * @param {any} options - CLI options from Commander.js
+   * @returns {{ variables: Record<string, string>, targetPath: string }} Parsed options
+   * @private
+   */
+  private parseCreateCommandOptions(options: any): {
+    variables: Record<string, string>;
+    targetPath: string;
+  } {
+    const variables: Record<string, string> = {};
+
+    // Extract target path, default to current working directory
+    const targetPath = options.target || process.cwd();
+
+    // Parse process.argv to find dynamic variable options (--key=value)
+    const args = process.argv;
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+
+      // Look for options that start with -- and contain =
+      if (arg.startsWith('--') && arg.includes('=')) {
+        const [key, ...valueParts] = arg.split('=');
+        const normalizedKey = key.substring(2); // Remove -- prefix
+        const value = valueParts.join('='); // Handle values that might contain =
+
+        // Skip known options like --target
+        if (normalizedKey !== 'target') {
+          variables[normalizedKey] = value;
+        }
+      }
+    }
+
+    return { variables, targetPath };
   }
 
   /**

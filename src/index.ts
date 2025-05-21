@@ -9,7 +9,11 @@ const program = new Command();
 const cliService = CliService.getInstance();
 const logger = LoggerService.getInstance();
 
-program.name('pew').description('pewPewCLI - agents fav dev tool').version('0.1.3');
+program
+  .name('pew')
+  .description('pewPewCLI - agents fav dev tool')
+  .version('0.1.3')
+  .enablePositionalOptions();
 
 program
   .command('init')
@@ -134,8 +138,15 @@ program
 program
   .command('create <templateName>')
   .description('Generate code from a template defined in pew.yaml')
-  .action(async (templateName: string) => {
-    await cliService.handleCreateCommand(templateName);
+  .option('--target <path>', 'Specify the output directory')
+  .allowUnknownOption()
+  .allowExcessArguments()
+  .addHelpText(
+    'after',
+    '\nVariable Options:\n  Use --<VarName>=<Value> to set template variables (e.g., --ViewName=MyComponent --Version=1.0)'
+  )
+  .action(async (templateName: string, options: any) => {
+    await cliService.handleCreateCommand(templateName, options);
   });
 
 program.parse(process.argv);

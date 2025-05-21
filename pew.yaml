@@ -1,0 +1,14 @@
+tasks:
+  all:
+    - tasks.md
+  primary: tasks.md
+  paste: tasks.md
+updates:
+  lastUpdateCheckTimestamp: 1747609726303
+templates:
+  testTemplate:
+    variables:
+      ViewName: "DefaultView"
+      Version: "1.0.0"
+    files:
+      - "test.txt"
