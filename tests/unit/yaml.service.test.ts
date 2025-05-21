@@ -2,10 +2,10 @@
  * YamlService Unit Tests
  */
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { YamlService } from '../yaml.service.js';
+import { YamlService } from '@/io/yaml.service.js';
 
 // Mock the required dependencies
-jest.mock('../../core/logger.service', () => ({
+jest.mock('@/core/logger.service', () => ({
   LoggerService: {
     getInstance: jest.fn(() => ({
       log: jest.fn(),

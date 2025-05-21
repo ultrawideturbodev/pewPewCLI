@@ -2,28 +2,28 @@
  * CliService Unit Tests
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
-import { CliService } from '../cli.service.js';
-import { TaskStatus } from '../../tasks/task.service.js';
+import { CliService } from '@/core/cli.service.js';
+import { TaskStatus } from '@/tasks/task.service.js';
 
 // Mock all dependencies
-jest.mock('../../io/file-system.service.js');
-jest.mock('../../io/config.service.js');
-jest.mock('../../io/user-input.service.js');
-jest.mock('../../clipboard/clipboard.service.js');
-jest.mock('../../tasks/task.service.js');
-jest.mock('../../updates/update.service.js');
-jest.mock('../logger.service.js');
-jest.mock('../../io/yaml.service.js');
+jest.mock('@/io/file-system.service.js');
+jest.mock('@/io/config.service.js');
+jest.mock('@/io/user-input.service.js');
+jest.mock('@/clipboard/clipboard.service.js');
+jest.mock('@/tasks/task.service.js');
+jest.mock('@/updates/update.service.js');
+jest.mock('@/core/logger.service.js');
+jest.mock('@/io/yaml.service.js');
 jest.mock('path');
 
 // Import the mocked modules to set behaviors
-import { ConfigService } from '../../io/config.service.js';
-import { FileSystemService } from '../../io/file-system.service.js';
-import { TaskService } from '../../tasks/task.service.js';
-import { UserInputService } from '../../io/user-input.service.js';
-import { ClipboardService } from '../../clipboard/clipboard.service.js';
-import { UpdateService } from '../../updates/update.service.js';
-import { LoggerService } from '../logger.service.js';
+import { ConfigService } from '@/io/config.service.js';
+import { FileSystemService } from '@/io/file-system.service.js';
+import { TaskService } from '@/tasks/task.service.js';
+import { UserInputService } from '@/io/user-input.service.js';
+import { ClipboardService } from '@/clipboard/clipboard.service.js';
+import { UpdateService } from '@/updates/update.service.js';
+import { LoggerService } from '@/core/logger.service.js';
 import * as path from 'path';
 
 describe('CliService', () => {

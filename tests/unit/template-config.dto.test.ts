@@ -4,7 +4,7 @@
  * Tests specifically for the TemplateConfigDto interface
  */
 import { describe, test, expect } from '@jest/globals';
-import { TemplateConfigDto } from '../config.dto.js';
+import { TemplateConfigDto } from '@/io/config.dto.js';
 
 describe('TemplateConfigDto', () => {
   test('should define the required interface properties', () => {

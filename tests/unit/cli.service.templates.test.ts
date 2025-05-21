@@ -4,26 +4,26 @@
  * Tests specifically for templates functionality in CliService (pew init template example)
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
-import { CliService } from '../cli.service.js';
-import { createMockFileSystemService, createMockLoggerService, createMockConfigService, createMockUserInputService, mockFixtures } from '../../__tests__/mocks/service-factory.js';
-import { ConfigService } from '../../io/config.service.js';
-import { YamlService } from '../../io/yaml.service.js';
-import { FileSystemService } from '../../io/file-system.service.js';
-import { UserInputService } from '../../io/user-input.service.js';
-import { ClipboardService } from '../../clipboard/clipboard.service.js';
-import { TaskService } from '../../tasks/task.service.js';
-import { UpdateService } from '../../updates/update.service.js';
+import { CliService } from '@/core/cli.service.js';
+import { createMockFileSystemService, createMockLoggerService, createMockConfigService, createMockUserInputService, mockFixtures } from '@tests/mocks/service-factory.js';
+import { ConfigService } from '@/io/config.service.js';
+import { YamlService } from '@/io/yaml.service.js';
+import { FileSystemService } from '@/io/file-system.service.js';
+import { UserInputService } from '@/io/user-input.service.js';
+import { ClipboardService } from '@/clipboard/clipboard.service.js';
+import { TaskService } from '@/tasks/task.service.js';
+import { UpdateService } from '@/updates/update.service.js';
 import * as path from 'path';
 
 // Mock all dependencies
-jest.mock('../../io/file-system.service.js');
-jest.mock('../../io/config.service.js');
-jest.mock('../../io/user-input.service.js');
-jest.mock('../../clipboard/clipboard.service.js');
-jest.mock('../../tasks/task.service.js');
-jest.mock('../../updates/update.service.js');
-jest.mock('../logger.service.js');
-jest.mock('../../io/yaml.service.js');
+jest.mock('@/io/file-system.service.js');
+jest.mock('@/io/config.service.js');
+jest.mock('@/io/user-input.service.js');
+jest.mock('@/clipboard/clipboard.service.js');
+jest.mock('@/tasks/task.service.js');
+jest.mock('@/updates/update.service.js');
+jest.mock('@/core/logger.service.js');
+jest.mock('@/io/yaml.service.js');
 jest.mock('path');
 
 describe('CliService Templates', () => {

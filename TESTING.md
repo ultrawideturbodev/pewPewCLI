@@ -36,23 +36,24 @@ npm run test:core     # Core service tests only
 
 ## Test Structure
 
-Tests are organized alongside the source code:
+Tests are organized in a dedicated tests/ folder separate from source code:
 
 ```
-src/
-├── core/
-│   ├── __tests__/
-│   │   └── logger.service.test.ts
-│   └── logger.service.ts
-├── tasks/
-│   ├── __tests__/
-│   │   └── task.service.test.ts
-│   └── task.service.ts
-└── __tests__/
-    ├── mocks/
-    │   └── service-factory.ts
-    └── utils/
-        └── test-helpers.ts
+tests/
+├── unit/
+│   ├── task.service.test.ts
+│   ├── logger.service.test.ts
+│   ├── config.service.templates.test.ts
+│   ├── cli.service.test.ts
+│   ├── cli.service.templates.test.ts
+│   ├── file-system.service.test.ts
+│   ├── yaml.service.test.ts
+│   ├── template-config.dto.test.ts
+│   └── default-config.test.ts
+├── mocks/
+│   └── service-factory.ts
+└── utils/
+    └── test-helpers.ts
 ```
 
 ## Writing Tests
@@ -61,7 +62,7 @@ src/
 
 ```typescript
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { ServiceToTest } from '../service-to-test.js';
+import { ServiceToTest } from '@/service-to-test.js'; // Absolute import
 
 describe('ServiceToTest', () => {
   let service: ServiceToTest;
@@ -89,12 +90,30 @@ describe('ServiceToTest', () => {
 ### Using Mock Factories
 
 ```typescript
-import { createMockFileSystemService, createMockConfigService } from '../../__tests__/mocks/service-factory.js';
+import { createMockFileSystemService, createMockConfigService } from '@tests/mocks/service-factory.js';
 
 const fileSystemService = createMockFileSystemService();
 const configService = createMockConfigService();
 const taskService = new TaskService(configService, fileSystemService);
 ```
+
+### Import System
+
+The project uses **absolute imports** (like Flutter) instead of relative paths:
+
+```typescript
+// ✅ Use absolute imports
+import { TaskService } from '@/tasks/task.service.js';           // Source code
+import { mockFactory } from '@tests/mocks/service-factory.js';   // Test utilities
+
+// ❌ Don't use relative imports  
+import { TaskService } from '../../src/tasks/task.service.js';   // Harder to maintain
+import { mockFactory } from '../mocks/service-factory.js';       // Path depends on location
+```
+
+**Available import aliases:**
+- `@/*` → `src/*` (all source code)
+- `@tests/*` → `tests/*` (test utilities, mocks, helpers)
 
 ### Testing Patterns
 
@@ -130,11 +149,12 @@ The project uses ESM modules which causes some Jest compatibility issues:
 
 ## Adding New Tests
 
-1. Create test file in `__tests__` directory next to source file
+1. Create test file in `tests/unit/` directory 
 2. Name it `serviceName.test.ts`
 3. Follow the existing test patterns
-4. Add to jest.config.js `testMatch` array if it works
-5. Use mock factories from `service-factory.ts`
+4. **Tests are automatically discovered** - no configuration needed!
+5. Use absolute imports like `@/service.js` for source code and `@tests/mocks/service-factory.js` for test utilities
+6. If your test has ESM import issues, add it to `testPathIgnorePatterns` in jest.config.js temporarily
 
 ## Troubleshooting
 
@@ -171,7 +191,7 @@ beforeEach(() => {
 
 ## Mock Strategy
 
-- Use centralized mock factory (`service-factory.ts`)
+- Use centralized mock factory (`tests/mocks/service-factory.ts`)
 - Mock external modules (fs, path, etc.) at file level
 - Mock service dependencies via constructor injection
 - Reset mocks between tests

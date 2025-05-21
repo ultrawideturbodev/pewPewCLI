@@ -14,7 +14,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 // Mock the logger service 
-jest.mock('../../core/logger.service', () => {
+jest.mock('@/core/logger.service', () => {
   return {
     LoggerService: {
       getInstance: jest.fn(() => ({
@@ -32,8 +32,8 @@ jest.mock('../../core/logger.service', () => {
 });
 
 // Import the class under test
-import { FileSystemService } from '../file-system.service.js';
-import { LoggerService } from '../../core/logger.service.js';
+import { FileSystemService } from '@/io/file-system.service.js';
+import { LoggerService } from '@/core/logger.service.js';
 
 describe('FileSystemService', () => {
   let fileSystemService: FileSystemService;

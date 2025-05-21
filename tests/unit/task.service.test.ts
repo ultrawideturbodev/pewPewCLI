@@ -2,8 +2,8 @@
  * TaskService Unit Tests
  */
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { TaskService, TaskStatus } from '../task.service.js';
-import { createMockFileSystemService, createMockConfigService, mockFixtures } from '../../__tests__/mocks/service-factory.js';
+import { TaskService, TaskStatus } from '@/tasks/task.service.js';
+import { createMockFileSystemService, createMockConfigService, mockFixtures } from '@tests/mocks/service-factory.js';
 
 describe('TaskService', () => {
   let fileSystemService: any;

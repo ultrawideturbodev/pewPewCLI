@@ -6,14 +6,14 @@
  */
 
 import { jest } from '@jest/globals';
-import { FileSystemService } from '../../io/file-system.service.js';
-import { ConfigService } from '../../io/config.service.js';
-import { LoggerService } from '../../core/logger.service.js';
-import { YamlService } from '../../io/yaml.service.js';
-import { UserInputService } from '../../io/user-input.service.js';
-import { ClipboardService } from '../../clipboard/clipboard.service.js';
-import { TaskService } from '../../tasks/task.service.js';
-import { UpdateService } from '../../updates/update.service.js';
+import { FileSystemService } from '@/io/file-system.service.js';
+import { ConfigService } from '@/io/config.service.js';
+import { LoggerService } from '@/core/logger.service.js';
+import { YamlService } from '@/io/yaml.service.js';
+import { UserInputService } from '@/io/user-input.service.js';
+import { ClipboardService } from '@/clipboard/clipboard.service.js';
+import { TaskService } from '@/tasks/task.service.js';
+import { UpdateService } from '@/updates/update.service.js';
 
 /**
  * Creates a mock FileSystemService

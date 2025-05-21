@@ -2,7 +2,7 @@
  * LoggerService Unit Tests
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
-import { LoggerService } from '../logger.service.js';
+import { LoggerService } from '@/core/logger.service.js';
 
 // Mock the entire chalk module
 jest.mock('chalk', () => {

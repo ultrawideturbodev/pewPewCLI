@@ -4,13 +4,13 @@
  * Tests specifically for templates functionality in ConfigService
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
-import { ConfigService } from '../config.service.js';
-import { FileSystemService } from '../file-system.service.js';
-import { YamlService } from '../yaml.service.js';
-import { createMockFileSystemService, mockFixtures } from '../../__tests__/mocks/service-factory.js';
+import { ConfigService } from '@/io/config.service.js';
+import { FileSystemService } from '@/io/file-system.service.js';
+import { YamlService } from '@/io/yaml.service.js';
+import { createMockFileSystemService, mockFixtures } from '@tests/mocks/service-factory.js';
 
 // Mock the required dependencies
-jest.mock('../../core/logger.service', () => ({
+jest.mock('@/core/logger.service', () => ({
   LoggerService: {
     getInstance: jest.fn(() => ({
       log: jest.fn(),
@@ -25,7 +25,7 @@ jest.mock('../../core/logger.service', () => ({
   }
 }));
 
-jest.mock('../yaml.service.js');
+jest.mock('@/io/yaml.service.js');
 
 describe('ConfigService Templates', () => {
   let configService: ConfigService;
