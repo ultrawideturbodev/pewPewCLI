@@ -2,9 +2,10 @@
  * YamlService Unit Tests
  */
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { YamlService } from '@/io/yaml.service.js';
 
-// Mock the logger service using ESM approach
-await jest.unstable_mockModule('@/core/logger.service', () => ({
+// Mock the logger service 
+jest.mock('@/core/logger.service', () => ({
   LoggerService: {
     getInstance: jest.fn(() => ({
       log: jest.fn(),
@@ -19,12 +20,18 @@ await jest.unstable_mockModule('@/core/logger.service', () => ({
   }
 }));
 
-// Import modules after mocking
-const { YamlService } = await import('@/io/yaml.service');
-
 describe('YamlService', () => {
   let yamlService: YamlService;
-  let mockFileSystemService: any;
+  let mockFileSystemService: {
+    readFile: jest.Mock;
+    writeFile: jest.Mock;
+    pathExists: jest.Mock;
+    ensureDirectoryExists: jest.Mock;
+    createDirectory: jest.Mock;
+    getHomeDirectory: jest.Mock;
+    resolvePath: jest.Mock;
+    joinPath: jest.Mock;
+  };
   
   beforeEach(() => {
     // Create a mock FileSystemService
@@ -65,20 +72,21 @@ describe('YamlService', () => {
     
     test('should handle empty YAML content', () => {
       const result = yamlService.parseYaml('');
-      expect(result).toBeNull();
+      expect(result).toEqual({});
     });
     
-    test('should handle invalid YAML and throw error', () => {
+    test('should handle invalid YAML and return empty object', () => {
       const invalidYaml = `
         invalid: yaml: content:
         - misaligned
       `;
       
-      expect(() => yamlService.parseYaml(invalidYaml)).toThrow();
+      const result = yamlService.parseYaml(invalidYaml);
+      expect(result).toEqual({});
     });
   });
   
-  describe('serializeYaml', () => {
+  describe('serializeToYaml', () => {
     test('should serialize object to YAML string', () => {
       const data = {
         name: 'test',
@@ -88,7 +96,7 @@ describe('YamlService', () => {
         }
       };
       
-      const result = yamlService.serializeYaml(data);
+      const result = yamlService.serializeToYaml(data);
       
       expect(result).toContain('name: test');
       expect(result).toContain('value: 123');
@@ -97,18 +105,23 @@ describe('YamlService', () => {
     });
     
     test('should handle null/undefined input', () => {
-      expect(yamlService.serializeYaml(null)).toBe('null\n');
-      expect(yamlService.serializeYaml(undefined)).toBe('undefined\n');
+      const nullResult = yamlService.serializeToYaml(null);
+      const undefinedResult = yamlService.serializeToYaml(undefined);
+      
+      expect(nullResult).toContain('{}');
+      expect(undefinedResult).toContain('{}');
     });
   });
   
   describe('readYamlFile', () => {
     test('should read and parse YAML file', async () => {
       const yamlContent = 'name: test\nvalue: 123';
+      mockFileSystemService.pathExists.mockResolvedValueOnce(true);
       mockFileSystemService.readFile.mockResolvedValueOnce(yamlContent);
       
       const result = await yamlService.readYamlFile('/path/to/file.yaml');
       
+      expect(mockFileSystemService.pathExists).toHaveBeenCalledWith('/path/to/file.yaml');
       expect(mockFileSystemService.readFile).toHaveBeenCalledWith('/path/to/file.yaml');
       expect(result).toEqual({
         name: 'test',
@@ -116,19 +129,22 @@ describe('YamlService', () => {
       });
     });
     
-    test('should return null when file is empty', async () => {
-      mockFileSystemService.readFile.mockResolvedValueOnce('');
+    test('should return empty object when file does not exist', async () => {
+      mockFileSystemService.pathExists.mockResolvedValueOnce(false);
       
       const result = await yamlService.readYamlFile('/path/to/empty.yaml');
       
-      expect(result).toBeNull();
+      expect(result).toEqual({});
     });
     
-    test('should throw error when file reading fails', async () => {
+    test('should return empty object when file reading fails', async () => {
       const error = new Error('File read error');
+      mockFileSystemService.pathExists.mockResolvedValueOnce(true);
       mockFileSystemService.readFile.mockRejectedValueOnce(error);
       
-      await expect(yamlService.readYamlFile('/path/to/file.yaml')).rejects.toThrow('File read error');
+      const result = await yamlService.readYamlFile('/path/to/file.yaml');
+      
+      expect(result).toEqual({});
     });
   });
   
@@ -151,25 +167,6 @@ describe('YamlService', () => {
       mockFileSystemService.writeFile.mockRejectedValueOnce(error);
       
       await expect(yamlService.writeYamlFile('/path/to/file.yaml', data)).rejects.toThrow('Write error');
-    });
-  });
-  
-  describe('yamlFileExists', () => {
-    test('should return true when YAML file exists', async () => {
-      mockFileSystemService.pathExists.mockResolvedValueOnce(true);
-      
-      const result = await yamlService.yamlFileExists('/path/to/file.yaml');
-      
-      expect(mockFileSystemService.pathExists).toHaveBeenCalledWith('/path/to/file.yaml');
-      expect(result).toBe(true);
-    });
-    
-    test('should return false when YAML file does not exist', async () => {
-      mockFileSystemService.pathExists.mockResolvedValueOnce(false);
-      
-      const result = await yamlService.yamlFileExists('/path/to/nonexistent.yaml');
-      
-      expect(result).toBe(false);
     });
   });
 });

@@ -4,9 +4,13 @@
  * Tests specifically for templates functionality in ConfigService
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
+import { ConfigService } from '@/io/config.service.js';
+import { FileSystemService } from '@/io/file-system.service.js';
+import { YamlService } from '@/io/yaml.service.js';
+import { createMockFileSystemService, createMockLoggerService, mockFixtures } from '@tests/mocks/service-factory.js';
 
-// Mock the logger service using ESM approach
-await jest.unstable_mockModule('@/core/logger.service', () => ({
+// Mock the required dependencies
+jest.mock('@/core/logger.service.js', () => ({
   LoggerService: {
     getInstance: jest.fn(() => ({
       log: jest.fn(),
@@ -21,23 +25,16 @@ await jest.unstable_mockModule('@/core/logger.service', () => ({
   }
 }));
 
-await jest.unstable_mockModule('@/io/yaml.service', () => ({
-  YamlService: jest.fn()
-}));
-
-// Import modules after mocking
-const { ConfigService } = await import('@/io/config.service');
-const { YamlService } = await import('@/io/yaml.service');
-const { createMockFileSystemService, mockFixtures } = await import('@tests/mocks/service-factory');
+jest.mock('@/io/yaml.service.js');
 
 describe('ConfigService Templates', () => {
   let configService: ConfigService;
-  let mockFileSystemService: any;
-  let mockYamlService: any;
+  let mockFileSystemService: ReturnType<typeof createMockFileSystemService>;
+  let mockYamlService: { readYamlFile: jest.Mock; writeYamlFile: jest.Mock };
   
   beforeEach(() => {
     // Clear the ConfigService singleton instance for each test
-    // @ts-ignore - Accessing private static field for testing
+    // @ts-expect-error - Accessing private static field for testing
     ConfigService.instance = null;
     
     // Create a mock FileSystemService

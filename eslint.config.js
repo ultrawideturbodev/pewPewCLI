@@ -3,10 +3,13 @@ import tseslint from 'typescript-eslint';
 import prettierConfig from 'eslint-config-prettier';
 
 export default [
+  // Ignore dist directory globally
+  {
+    ignores: ['dist/**', 'node_modules/**', '*.d.ts'],
+  },
   // Config for JavaScript files
   {
     files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
-    ignores: ['dist/**', 'node_modules/**'],
     ...eslint.configs.recommended,
     rules: {
       'no-console': 'off',
@@ -14,27 +17,24 @@ export default [
     },
   },
   // Config for TypeScript files
-  {
+  ...tseslint.configs.recommended.map(config => ({
+    ...config,
     files: ['**/*.ts', '**/*.tsx'],
-    ignores: [
-      'dist/**', 
-      'node_modules/**'
-    ],
-    ...tseslint.configs.recommended[0],
     rules: {
+      ...config.rules,
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'warn', // Changed to warning
       '@typescript-eslint/no-unused-vars': 'warn', // Changed to warning
       'no-case-declarations': 'warn', // Changed to warning
     },
-  },
+  })),
   // Config specific for test files
   {
     files: ['tests/**/*.ts', 'tests/**/*.js'],
-    ...eslint.configs.recommended,
     rules: {
       'no-undef': 'off',
+      '@typescript-eslint/no-unused-vars': 'warn', // Allow unused vars in tests
     },
   },
   prettierConfig,
-]; 
+];

@@ -1,8 +1,7 @@
 /**
  * Jest configuration for TypeScript ESM project
  * 
- * This configuration is designed for testing TypeScript code that uses ESM modules
- * with proper ESM module mocking support.
+ * This configuration is designed for testing TypeScript code that uses ESM modules.
  */
 
 export default {
@@ -19,6 +18,8 @@ export default {
   // Handle both .js extensions (which TypeScript outputs) and direct imports
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@/(.*)\.js$': '<rootDir>/src/$1',
+    '^@tests/(.*)\.js$': '<rootDir>/tests/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@tests/(.*)$': '<rootDir>/tests/$1',
   },
@@ -42,7 +43,7 @@ export default {
   ],
   
   // Setup files to run before tests
-  setupFilesAfterEnv: ['./jest.setup.js'],
+  // setupFilesAfterEnv: ['./jest.setup.js'],
   
   // Configure coverage collection
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],

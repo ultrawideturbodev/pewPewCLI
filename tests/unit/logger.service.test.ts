@@ -22,7 +22,7 @@ describe('LoggerService', () => {
   
   beforeEach(() => {
     // Clear the singleton instance for each test
-    // @ts-ignore - Accessing private static field for testing
+    // @ts-expect-error - Accessing private static field for testing
     LoggerService.instance = null;
     
     // Mock console methods

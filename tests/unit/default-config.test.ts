@@ -3,7 +3,7 @@
  * 
  * Tests for default configuration values in ConfigService
  */
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { describe, test, expect } from '@jest/globals';
 import { ConfigService } from '@/io/config.service.js';
 
 // No need to mock dependencies for testing static properties

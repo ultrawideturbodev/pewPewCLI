@@ -3,25 +3,18 @@
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
 
-// Mock fs, path, and os modules using ESM approach
-await jest.unstable_mockModule('fs/promises', () => ({
-  readFile: jest.fn(),
-  writeFile: jest.fn(),
-  access: jest.fn(),
-  mkdir: jest.fn(),
-}));
+// Mock fs, path, and os modules
+jest.mock('fs/promises');
+jest.mock('path');
+jest.mock('os');
 
-await jest.unstable_mockModule('path', () => ({
-  resolve: jest.fn(),
-  join: jest.fn(),
-  dirname: jest.fn(),
-}));
+// Import fs, path, and os modules after mocking
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as os from 'os';
 
-await jest.unstable_mockModule('os', () => ({
-  homedir: jest.fn(),
-}));
-
-await jest.unstable_mockModule('@/core/logger.service', () => ({
+// Mock the logger service 
+jest.mock('@/core/logger.service.js', () => ({
   LoggerService: {
     getInstance: jest.fn(() => ({
       log: jest.fn(),
@@ -36,27 +29,24 @@ await jest.unstable_mockModule('@/core/logger.service', () => ({
   }
 }));
 
-// Import all modules after mocking
-const fs = await import('fs/promises');
-const path = await import('path');
-const os = await import('os');
-const { FileSystemService } = await import('@/io/file-system.service');
-const { LoggerService } = await import('@/core/logger.service');
+// Import the class under test
+import { FileSystemService } from '@/io/file-system.service.js';
+import { LoggerService } from '@/core/logger.service.js';
 
 describe('FileSystemService', () => {
   let fileSystemService: FileSystemService;
-  let mockReadFile: jest.Mock;
-  let mockWriteFile: jest.Mock;
-  let mockAccess: jest.Mock;
-  let mockMkdir: jest.Mock;
-  let mockLogger: any;
+  let mockReadFile: jest.MockedFunction<typeof fs.readFile>;
+  let mockWriteFile: jest.MockedFunction<typeof fs.writeFile>;
+  let mockAccess: jest.MockedFunction<typeof fs.access>;
+  let mockMkdir: jest.MockedFunction<typeof fs.mkdir>;
+  let mockLogger: ReturnType<typeof LoggerService.getInstance>;
   
   beforeEach(() => {
     // Set up mock implementations
-    mockReadFile = fs.readFile as jest.Mock;
-    mockWriteFile = fs.writeFile as jest.Mock;
-    mockAccess = fs.access as jest.Mock;
-    mockMkdir = fs.mkdir as jest.Mock;
+    mockReadFile = jest.mocked(fs.readFile);
+    mockWriteFile = jest.mocked(fs.writeFile);
+    mockAccess = jest.mocked(fs.access);
+    mockMkdir = jest.mocked(fs.mkdir);
     
     mockReadFile.mockResolvedValue('file content');
     mockWriteFile.mockResolvedValue(undefined);
@@ -64,10 +54,10 @@ describe('FileSystemService', () => {
     mockMkdir.mockResolvedValue(undefined);
     
     // Mock path and os methods
-    (path.resolve as jest.Mock).mockImplementation((...paths) => paths.join('/'));
-    (path.join as jest.Mock).mockImplementation((...paths) => paths.join('/'));
-    (path.dirname as jest.Mock).mockImplementation((p) => p.split('/').slice(0, -1).join('/') || '/');
-    (os.homedir as jest.Mock).mockReturnValue('/home/user');
+    jest.mocked(path.resolve).mockImplementation((...paths) => paths.join('/'));
+    jest.mocked(path.join).mockImplementation((...paths) => paths.join('/'));
+    jest.mocked(path.dirname).mockImplementation((p) => p.split('/').slice(0, -1).join('/') || '/');
+    jest.mocked(os.homedir).mockReturnValue('/home/user');
     
     // Get logger mock
     mockLogger = LoggerService.getInstance();
@@ -159,7 +149,7 @@ describe('FileSystemService', () => {
   
   describe('getHomeDirectory', () => {
     test('should return the user home directory', () => {
-      (os.homedir as jest.Mock).mockReturnValueOnce('/home/testuser');
+      jest.mocked(os.homedir).mockReturnValueOnce('/home/testuser');
       
       const result = fileSystemService.getHomeDirectory();
       
@@ -170,7 +160,7 @@ describe('FileSystemService', () => {
   
   describe('resolvePath', () => {
     test('should resolve paths to absolute path', () => {
-      (path.resolve as jest.Mock).mockReturnValueOnce('/absolute/path/to/file.txt');
+      jest.mocked(path.resolve).mockReturnValueOnce('/absolute/path/to/file.txt');
       
       const result = fileSystemService.resolvePath('path', 'to', 'file.txt');
       
@@ -181,7 +171,7 @@ describe('FileSystemService', () => {
   
   describe('joinPath', () => {
     test('should join path segments', () => {
-      (path.join as jest.Mock).mockReturnValueOnce('/joined/path/to/file.txt');
+      jest.mocked(path.join).mockReturnValueOnce('/joined/path/to/file.txt');
       
       const result = fileSystemService.joinPath('/joined', 'path', 'to', 'file.txt');
       

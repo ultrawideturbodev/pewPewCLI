@@ -187,4 +187,74 @@ export const mockFixtures = {
       },
     },
   },
+  // Config fixtures for templates tests
+  localConfigWithTemplates: {
+    tasks: {
+      all: ['tasks.md'],
+      primary: 'tasks.md',
+      paste: 'tasks.md',
+    },
+    templates: {
+      component: {
+        variables: {
+          'ComponentName': 'What is the component name?',
+        },
+        replacements: {
+          'template-component': 'user-component',
+        },
+        root: 'src/components',
+        files: [
+          'templates/component/component.ts',
+          'templates/component/index.ts',
+        ],
+      },
+      service: {
+        variables: {
+          'ServiceName': 'What is the service name?',
+        },
+        replacements: {
+          'template-service': 'user-service',
+        },
+        root: 'src/services',
+        files: [
+          'templates/service/service.ts',
+        ],
+      },
+    },
+  },
+  localConfigWithoutTemplates: {
+    tasks: {
+      all: ['tasks.md'],
+      primary: 'tasks.md',
+      paste: 'tasks.md',
+    },
+  },
+  globalConfigWithTemplates: {
+    tasks: {
+      all: ['global-tasks.md'],
+      primary: 'global-tasks.md',
+      paste: 'global-tasks.md',
+    },
+    templates: {
+      globalComponent: {
+        variables: {
+          'ComponentName': 'What is the global component name?',
+        },
+        replacements: {
+          'template-global-component': 'user-global-component',
+        },
+        root: 'src/global-components',
+        files: [
+          'templates/global/component.ts',
+        ],
+      },
+    },
+  },
+  globalConfigWithoutTemplates: {
+    tasks: {
+      all: ['global-tasks.md'],
+      primary: 'global-tasks.md',
+      paste: 'global-tasks.md',
+    },
+  },
 };

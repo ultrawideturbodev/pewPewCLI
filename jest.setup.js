@@ -4,11 +4,8 @@
  * This file runs before each test suite and configures the test environment.
  */
 
-// Make jest available globally
-import { jest } from '@jest/globals';
-
-// Extend expect with additional matchers if needed
-// import 'jest-extended';
+// Make jest available globally - use CommonJS for setup files
+const { jest } = require('@jest/globals');
 
 // Configure the global jest object
 globalThis.jest = jest;

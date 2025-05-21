@@ -4,61 +4,26 @@
  * Tests specifically for templates functionality in CliService (pew init template example)
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
+import { CliService } from '@/core/cli.service.js';
+import { ConfigService } from '@/io/config.service.js';
+import { YamlService } from '@/io/yaml.service.js';
+import { FileSystemService } from '@/io/file-system.service.js';
+import { UserInputService } from '@/io/user-input.service.js';
+import { ClipboardService } from '@/clipboard/clipboard.service.js';
+import { TaskService } from '@/tasks/task.service.js';
+import { UpdateService } from '@/updates/update.service.js';
+import * as path from 'path';
 
-// Mock all dependencies using ESM approach
-await jest.unstable_mockModule('@/io/file-system.service', () => ({
-  FileSystemService: jest.fn()
-}));
-
-await jest.unstable_mockModule('@/io/config.service', () => ({
-  ConfigService: {
-    getInstance: jest.fn()
-  }
-}));
-
-await jest.unstable_mockModule('@/io/user-input.service', () => ({
-  UserInputService: jest.fn()
-}));
-
-await jest.unstable_mockModule('@/clipboard/clipboard.service', () => ({
-  ClipboardService: jest.fn()
-}));
-
-await jest.unstable_mockModule('@/tasks/task.service', () => ({
-  TaskService: jest.fn()
-}));
-
-await jest.unstable_mockModule('@/updates/update.service', () => ({
-  UpdateService: jest.fn()
-}));
-
-await jest.unstable_mockModule('@/core/logger.service', () => ({
-  LoggerService: {
-    getInstance: jest.fn()
-  }
-}));
-
-await jest.unstable_mockModule('@/io/yaml.service', () => ({
-  YamlService: jest.fn()
-}));
-
-await jest.unstable_mockModule('path', () => ({
-  resolve: jest.fn(),
-  join: jest.fn(),
-  dirname: jest.fn(),
-}));
-
-// Import modules after mocking
-const { CliService } = await import('@/core/cli.service');
-const { createMockFileSystemService, createMockLoggerService, createMockConfigService, createMockUserInputService, mockFixtures } = await import('@tests/mocks/service-factory');
-const { ConfigService } = await import('@/io/config.service');
-const { YamlService } = await import('@/io/yaml.service');
-const { FileSystemService } = await import('@/io/file-system.service');
-const { UserInputService } = await import('@/io/user-input.service');
-const { ClipboardService } = await import('@/clipboard/clipboard.service');
-const { TaskService } = await import('@/tasks/task.service');
-const { UpdateService } = await import('@/updates/update.service');
-const path = await import('path');
+// Mock all dependencies
+jest.mock('@/io/file-system.service.js');
+jest.mock('@/io/config.service.js');
+jest.mock('@/io/user-input.service.js');
+jest.mock('@/clipboard/clipboard.service.js');
+jest.mock('@/tasks/task.service.js');
+jest.mock('@/updates/update.service.js');
+jest.mock('@/core/logger.service.js');
+jest.mock('@/io/yaml.service.js');
+jest.mock('path');
 
 describe('CliService Templates', () => {
   let cliService: CliService;
@@ -70,44 +35,86 @@ describe('CliService Templates', () => {
   
   beforeEach(() => {
     // Clear the CliService singleton instance
-    // @ts-ignore - Accessing private static field for testing
+    // @ts-expect-error - Accessing private static field for testing
     CliService.instance = null;
     
-    // Setup specific mock behaviors
-    mockFileSystemService = createMockFileSystemService();
-    mockConfigService = createMockConfigService();
-    mockLoggerService = createMockLoggerService();
-    mockUserInputService = createMockUserInputService();
-    
-    // Mock FileSystemService constructor
+    // Setup FileSystemService mock
+    mockFileSystemService = {
+      readFile: jest.fn().mockResolvedValue(''),
+      writeFile: jest.fn().mockResolvedValue(undefined),
+      pathExists: jest.fn().mockResolvedValue(true),
+      ensureDirectoryExists: jest.fn().mockResolvedValue(undefined),
+      createDirectory: jest.fn().mockResolvedValue(undefined),
+      getHomeDirectory: jest.fn().mockReturnValue('/mock/home'),
+      resolvePath: jest.fn().mockImplementation((...paths) => paths.join('/')),
+      joinPath: jest.fn().mockImplementation((...paths) => paths.join('/')),
+    };
     (FileSystemService as jest.MockedClass<typeof FileSystemService>).mockImplementation(() => mockFileSystemService);
     
-    // Mock ConfigService singleton
+    // Setup ConfigService mock
+    mockConfigService = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      getTasksPaths: jest.fn().mockResolvedValue(['/path/to/tasks.md']),
+      getAllTasksPaths: jest.fn().mockResolvedValue(['/path/to/tasks.md']),
+      setTasksPaths: jest.fn().mockResolvedValue(undefined),
+      getProjectRootPath: jest.fn().mockReturnValue('/mock/project'),
+      getLocalPewYamlPath: jest.fn().mockReturnValue('/mock/project/pew.yaml'),
+      getGlobalPewYamlPath: jest.fn().mockReturnValue('/mock/home/.pew/pew.yaml'),
+      getPasteTasksPath: jest.fn().mockResolvedValue('/mock/project/tasks.md'),
+      getGlobalUpdateValue: jest.fn().mockResolvedValue(0),
+      setGlobalUpdateValue: jest.fn().mockResolvedValue(undefined),
+      getGlobalConfigDataInternal: jest.fn().mockReturnValue({ tasks: { all: ['tasks.md'] } }),
+    };
     (ConfigService.getInstance as jest.Mock).mockReturnValue(mockConfigService);
     
-    // Mock LoggerService singleton
-    const { LoggerService } = require('@/core/logger.service');
+    // Setup LoggerService mock
+    mockLoggerService = {
+      log: jest.fn(),
+      success: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      header: jest.fn(),
+      divider: jest.fn(),
+      taskLines: jest.fn(),
+    };
+    const { LoggerService } = require('@/core/logger.service.js');
     LoggerService.getInstance.mockReturnValue(mockLoggerService);
     
-    // Mock YamlService
+    // Setup YamlService mock
     mockYamlService = {
       readYamlFile: jest.fn(),
       writeYamlFile: jest.fn(),
       parseYaml: jest.fn(),
-      serializeYaml: jest.fn(),
+      serializeToYaml: jest.fn(),
     };
     (YamlService as jest.MockedClass<typeof YamlService>).mockImplementation(() => mockYamlService);
     
-    // Mock other services
+    // Setup UserInputService mock
+    mockUserInputService = {
+      askForText: jest.fn().mockResolvedValue('mock-input'),
+      askForConfirmation: jest.fn().mockResolvedValue(true),
+      askForSelection: jest.fn().mockResolvedValue('option1'),
+      askForMultipleSelections: jest.fn().mockResolvedValue(['option1', 'option2']),
+    };
     (UserInputService as jest.MockedClass<typeof UserInputService>).mockImplementation(() => mockUserInputService);
-    (ClipboardService as jest.MockedClass<typeof ClipboardService>).mockImplementation(() => ({ read: jest.fn(), write: jest.fn() }));
-    (TaskService as jest.MockedClass<typeof TaskService>).mockImplementation(() => ({ markCurrentTaskComplete: jest.fn() }));
-    (UpdateService as jest.MockedClass<typeof UpdateService>).mockImplementation(() => ({ checkForUpdates: jest.fn() }));
+    
+    // Mock other services
+    (ClipboardService as jest.MockedClass<typeof ClipboardService>).mockImplementation(() => ({ 
+      readFromClipboard: jest.fn(), 
+      writeToClipboard: jest.fn() 
+    }));
+    (TaskService as jest.MockedClass<typeof TaskService>).mockImplementation(() => ({ 
+      markCurrentTaskComplete: jest.fn() 
+    }));
+    (UpdateService as jest.MockedClass<typeof UpdateService>).mockImplementation(() => ({ 
+      checkForUpdates: jest.fn() 
+    }));
     
     // Mock path functions
-    (path.resolve as jest.Mock).mockImplementation((...paths) => paths.join('/'));
-    (path.join as jest.Mock).mockImplementation((...paths) => paths.join('/'));
-    (path.dirname as jest.Mock).mockImplementation((p) => p.split('/').slice(0, -1).join('/') || '/');
+    jest.mocked(path.resolve).mockImplementation((...paths) => paths.join('/'));
+    jest.mocked(path.join).mockImplementation((...paths) => paths.join('/'));
+    jest.mocked(path.dirname).mockImplementation((p) => p.split('/').slice(0, -1).join('/') || '/');
     
     // Get an instance of CliService with mocked dependencies  
     cliService = CliService.getInstance();
