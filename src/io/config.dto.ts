@@ -10,12 +10,12 @@ export interface TasksConfigDto {
    * All task files to be managed (default: ["tasks.md"])
    */
   all: string[];
-  
+
   /**
    * Primary task file (default: "tasks.md")
    */
   primary: string;
-  
+
   /**
    * Task file for paste operations (default: "tasks.md")
    */
@@ -41,19 +41,19 @@ export interface TemplateConfigDto {
    * These are key-value pairs where the key is the variable name and the value is the default value
    */
   variables?: Record<string, string>;
-  
+
   /**
    * String replacements to apply to file content and filenames
    * These are key-value pairs where the key is the string to find and the value is the replacement
    */
   replacements?: Record<string, string>;
-  
+
   /**
    * Root directory for the template output
    * If not specified, output will be relative to the current directory
    */
   root?: string;
-  
+
   /**
    * List of files to be included in the template
    * These are relative file paths that will be processed during code generation
@@ -74,7 +74,7 @@ export interface PewConfigDto {
    * Update-related configuration
    */
   updates?: Partial<UpdatesConfigDto>;
-  
+
   /**
    * Template configurations for code generation
    * Each key is a template name and the value is the template configuration

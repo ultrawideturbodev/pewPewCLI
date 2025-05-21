@@ -113,10 +113,10 @@ export class CliService {
 
     // Write the initial configuration to a new pew.yaml file
     await yamlService.writeYamlFile(localPewYamlPath, initialConfig);
-    
+
     // Add a commented-out templates example to the pew.yaml file
     await this.appendTemplatesExampleToYaml(localPewYamlPath);
-    
+
     this.logger.log(`Created pew.yaml in ${process.cwd()}`);
 
     // Get the default task path from the config we just wrote
@@ -478,11 +478,53 @@ export class CliService {
       process.exit(1);
     }
   }
-  
+
+  /**
+   * Handles the 'create <templateName>' command for template-based code generation.
+   * Looks up the specified template name in the pew.yaml configuration and
+   * validates that it exists before proceeding with generation.
+   *
+   * @param {string} templateName - The name of the template to use for generation
+   * @returns {Promise<void>} A promise that resolves when the command processing is complete
+   */
+  public async handleCreateCommand(templateName: string): Promise<void> {
+    try {
+      await this.configService.initialize();
+
+      // Look up the template in the configuration
+      const template = await this.configService.getTemplate(templateName);
+
+      if (!template) {
+        this.logger.warn(`Warning: Template '${templateName}' not found in pew.yaml.`);
+        return;
+      }
+
+      // Template found - log success and show template details for now
+      this.logger.success(`Found template: ${templateName}. Proceeding with generation...`);
+      this.logger.log(`Template has ${template.files.length} file(s) to process.`);
+
+      if (template.variables && Object.keys(template.variables).length > 0) {
+        this.logger.log(`Variables: ${Object.keys(template.variables).length} defined.`);
+      }
+
+      if (template.replacements && Object.keys(template.replacements).length > 0) {
+        this.logger.log(`Replacements: ${Object.keys(template.replacements).length} defined.`);
+      }
+
+      if (template.root) {
+        this.logger.log(`Output root: ${template.root}`);
+      }
+
+      // TODO: Actual template processing will be implemented in subsequent stories
+    } catch (error) {
+      this.logger.error('Error during create command operation:', error);
+    }
+  }
+
   /**
    * Appends a commented-out templates example to the pew.yaml file.
    * This example helps users understand how to define code generation templates.
-   * 
+   *
    * @private
    * @async
    * @param {string} yamlPath - The absolute path to the pew.yaml file
@@ -492,7 +534,7 @@ export class CliService {
     try {
       // Read the existing YAML file
       const existingContent = await this.fileSystemService.readFile(yamlPath);
-      
+
       // Define the templates example with detailed comments
       const templatesExample = `
 # Templates for code generation (uncomment and modify for your project)

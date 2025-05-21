@@ -131,6 +131,13 @@ program
     }
   });
 
+program
+  .command('create <templateName>')
+  .description('Generate code from a template defined in pew.yaml')
+  .action(async (templateName: string) => {
+    await cliService.handleCreateCommand(templateName);
+  });
+
 program.parse(process.argv);
 
 if (!process.argv.slice(2).length) {

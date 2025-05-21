@@ -36,7 +36,7 @@ export class ConfigService {
   private static readonly kDefaultUpdatesConfig: UpdatesConfigDto = {
     lastUpdateCheckTimestamp: 0,
   };
-  
+
   /**
    * Default configuration for templates
    * @private
@@ -77,7 +77,7 @@ export class ConfigService {
     if (!mergedConfig.updates) {
       mergedConfig.updates = { ...ConfigService.kDefaultUpdatesConfig };
     }
-    
+
     // Ensure templates property exists
     if (!mergedConfig.templates) {
       mergedConfig.templates = { ...ConfigService.kDefaultTemplatesConfig };
@@ -116,38 +116,38 @@ export class ConfigService {
           .lastUpdateCheckTimestamp as number;
       }
     }
-    
+
     // Process templates configuration if it exists
     if (rawData.templates && typeof rawData.templates === 'object') {
       // Clear the default templates to prepare for incoming ones
       mergedConfig.templates = {};
-      
+
       // Process each template in the templates object
       const templatesObj = rawData.templates as Record<string, unknown>;
-      
+
       for (const [templateName, templateValue] of Object.entries(templatesObj)) {
         if (typeof templateValue === 'object' && templateValue !== null) {
           const templateObj = templateValue as Record<string, unknown>;
-          
+
           // Validate files field - required array of strings
           if (
-            Array.isArray(templateObj.files) && 
-            (templateObj.files as unknown[]).every(item => typeof item === 'string')
+            Array.isArray(templateObj.files) &&
+            (templateObj.files as unknown[]).every((item) => typeof item === 'string')
           ) {
             // Initialize a valid template with the required files property
             const validTemplate: TemplateConfigDto = {
-              files: [...(templateObj.files as string[])]
+              files: [...(templateObj.files as string[])],
             };
-            
+
             // Handle optional variables field - must be an object with string values
             if (
-              templateObj.variables && 
-              typeof templateObj.variables === 'object' && 
+              templateObj.variables &&
+              typeof templateObj.variables === 'object' &&
               templateObj.variables !== null
             ) {
               const variablesObj = templateObj.variables as Record<string, unknown>;
               const validVariables: Record<string, string> = {};
-              
+
               let allVariablesValid = true;
               for (const [varName, varValue] of Object.entries(variablesObj)) {
                 if (typeof varValue === 'string') {
@@ -160,21 +160,21 @@ export class ConfigService {
                   break;
                 }
               }
-              
+
               if (allVariablesValid && Object.keys(validVariables).length > 0) {
                 validTemplate.variables = validVariables;
               }
             }
-            
+
             // Handle optional replacements field - must be an object with string values
             if (
-              templateObj.replacements && 
-              typeof templateObj.replacements === 'object' && 
+              templateObj.replacements &&
+              typeof templateObj.replacements === 'object' &&
               templateObj.replacements !== null
             ) {
               const replacementsObj = templateObj.replacements as Record<string, unknown>;
               const validReplacements: Record<string, string> = {};
-              
+
               let allReplacementsValid = true;
               for (const [findStr, replaceStr] of Object.entries(replacementsObj)) {
                 if (typeof replaceStr === 'string') {
@@ -187,17 +187,17 @@ export class ConfigService {
                   break;
                 }
               }
-              
+
               if (allReplacementsValid && Object.keys(validReplacements).length > 0) {
                 validTemplate.replacements = validReplacements;
               }
             }
-            
+
             // Handle optional root field - must be a string
             if (typeof templateObj.root === 'string') {
               validTemplate.root = templateObj.root;
             }
-            
+
             // Add the validated template to the merged config
             mergedConfig.templates[templateName] = validTemplate;
           } else {
@@ -742,5 +742,32 @@ export class ConfigService {
       );
       return defaultValue;
     }
+  }
+
+  /**
+   * Gets all template configurations from the effective configuration.
+   * Returns templates from local configuration if available, otherwise global configuration.
+   *
+   * @public
+   * @async
+   * @returns {Promise<Record<string, TemplateConfigDto>>} A promise that resolves with all template configurations
+   */
+  public async getTemplatesMap(): Promise<Record<string, TemplateConfigDto>> {
+    await this.initialize();
+    return this.effectiveConfigData.templates || {};
+  }
+
+  /**
+   * Gets a specific template configuration by name.
+   *
+   * @public
+   * @async
+   * @param {string} templateName - The name of the template to retrieve
+   * @returns {Promise<TemplateConfigDto | null>} A promise that resolves with the template configuration or null if not found
+   */
+  public async getTemplate(templateName: string): Promise<TemplateConfigDto | null> {
+    await this.initialize();
+    const templates = this.effectiveConfigData.templates || {};
+    return templates[templateName] || null;
   }
 }
