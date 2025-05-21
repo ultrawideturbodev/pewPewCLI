@@ -2,29 +2,66 @@
  * CliService Unit Tests
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
-import { CliService } from '@/core/cli.service.js';
-import { TaskStatus } from '@/tasks/task.service.js';
 
-// Mock all dependencies
-jest.mock('@/io/file-system.service.js');
-jest.mock('@/io/config.service.js');
-jest.mock('@/io/user-input.service.js');
-jest.mock('@/clipboard/clipboard.service.js');
-jest.mock('@/tasks/task.service.js');
-jest.mock('@/updates/update.service.js');
-jest.mock('@/core/logger.service.js');
-jest.mock('@/io/yaml.service.js');
-jest.mock('path');
+// Mock all dependencies using ESM approach
+await jest.unstable_mockModule('@/io/file-system.service', () => ({
+  FileSystemService: jest.fn()
+}));
 
-// Import the mocked modules to set behaviors
-import { ConfigService } from '@/io/config.service.js';
-import { FileSystemService } from '@/io/file-system.service.js';
-import { TaskService } from '@/tasks/task.service.js';
-import { UserInputService } from '@/io/user-input.service.js';
-import { ClipboardService } from '@/clipboard/clipboard.service.js';
-import { UpdateService } from '@/updates/update.service.js';
-import { LoggerService } from '@/core/logger.service.js';
-import * as path from 'path';
+await jest.unstable_mockModule('@/io/config.service', () => ({
+  ConfigService: {
+    getInstance: jest.fn()
+  }
+}));
+
+await jest.unstable_mockModule('@/io/user-input.service', () => ({
+  UserInputService: jest.fn()
+}));
+
+await jest.unstable_mockModule('@/clipboard/clipboard.service', () => ({
+  ClipboardService: jest.fn()
+}));
+
+await jest.unstable_mockModule('@/tasks/task.service', () => ({
+  TaskService: jest.fn(),
+  TaskStatus: {
+    COMPLETE: 'complete',
+    INCOMPLETE: 'incomplete',
+    NOT_FOUND: 'not_found'
+  }
+}));
+
+await jest.unstable_mockModule('@/updates/update.service', () => ({
+  UpdateService: jest.fn()
+}));
+
+await jest.unstable_mockModule('@/core/logger.service', () => ({
+  LoggerService: {
+    getInstance: jest.fn()
+  }
+}));
+
+await jest.unstable_mockModule('@/io/yaml.service', () => ({
+  YamlService: jest.fn()
+}));
+
+await jest.unstable_mockModule('path', () => ({
+  resolve: jest.fn(),
+  join: jest.fn(),
+  dirname: jest.fn(),
+}));
+
+// Import modules after mocking
+const { CliService } = await import('@/core/cli.service');
+const { TaskStatus } = await import('@/tasks/task.service');
+const { ConfigService } = await import('@/io/config.service');
+const { FileSystemService } = await import('@/io/file-system.service');
+const { TaskService } = await import('@/tasks/task.service');
+const { UserInputService } = await import('@/io/user-input.service');
+const { ClipboardService } = await import('@/clipboard/clipboard.service');
+const { UpdateService } = await import('@/updates/update.service');
+const { LoggerService } = await import('@/core/logger.service');
+const path = await import('path');
 
 describe('CliService', () => {
   let cliService: CliService;
@@ -42,13 +79,13 @@ describe('CliService', () => {
     CliService.instance = null;
     
     // Setup specific mock behaviors
-    mockFileSystemService = FileSystemService as jest.Mocked<typeof FileSystemService>;
-    mockConfigService = ConfigService as jest.Mocked<typeof ConfigService>;
-    mockTaskService = TaskService as jest.Mocked<typeof TaskService>;
-    mockUserInputService = UserInputService as jest.Mocked<typeof UserInputService>;
-    mockClipboardService = ClipboardService as jest.Mocked<typeof ClipboardService>;
-    mockUpdateService = UpdateService as jest.Mocked<typeof UpdateService>;
-    mockLoggerService = LoggerService as jest.Mocked<typeof LoggerService>;
+    mockFileSystemService = FileSystemService as jest.MockedClass<typeof FileSystemService>;
+    mockConfigService = ConfigService;
+    mockTaskService = TaskService as jest.MockedClass<typeof TaskService>;
+    mockUserInputService = UserInputService as jest.MockedClass<typeof UserInputService>;
+    mockClipboardService = ClipboardService as jest.MockedClass<typeof ClipboardService>;
+    mockUpdateService = UpdateService as jest.MockedClass<typeof UpdateService>;
+    mockLoggerService = LoggerService;
     
     // Setup ConfigService mock
     mockConfigService.getInstance.mockReturnValue({
@@ -86,7 +123,7 @@ describe('CliService', () => {
   });
   
   describe('getInstance', () => {
-    test('should return a singleton instance', () => {
+    test('should return singleton instance', () => {
       const instance1 = CliService.getInstance();
       const instance2 = CliService.getInstance();
       
@@ -94,158 +131,160 @@ describe('CliService', () => {
     });
   });
   
-  describe('handleInit', () => {
-    test('should abort initialization if confirmation is denied', async () => {
-      const localPewYamlPath = '/current/dir/pew.yaml';
+  describe('init', () => {
+    test('should initialize pew-pew-cli successfully', async () => {
+      const mockLogger = mockLoggerService.getInstance();
       
-      // Mock implementation
-      (path.join as jest.Mock).mockReturnValueOnce(localPewYamlPath);
-      (mockFileSystemService as any).prototype.pathExists.mockResolvedValueOnce(true);
-      (mockUserInputService as any).prototype.askForConfirmation.mockResolvedValueOnce(false);
+      await cliService.init();
       
-      await cliService.handleInit();
-      
-      // Check the logger was called with abort message
-      expect(mockLoggerService.getInstance().log).toHaveBeenCalledWith('Initialization aborted.');
-      
-      // Check that other methods were not called
-      expect(mockFileSystemService.prototype.writeFile).not.toHaveBeenCalled();
-    });
-    
-    test('should proceed with initialization when force flag is true', async () => {
-      const localPewYamlPath = '/current/dir/pew.yaml';
-      
-      // Mock path.join to return expected local pew.yaml path
-      (path.join as jest.Mock).mockReturnValueOnce(localPewYamlPath);
-      
-      // Even if the file exists, with force=true we should not ask for confirmation
-      (mockFileSystemService as any).prototype.pathExists.mockResolvedValueOnce(true);
-      
-      // Setup mocks for the task file path creation
-      (mockConfigService.getInstance().getAllTasksPaths as jest.Mock).mockResolvedValueOnce(['/path/to/tasks.md']);
-      (mockFileSystemService as any).prototype.pathExists.mockResolvedValueOnce(false); // Task file doesn't exist yet
-      
-      await cliService.handleInit({ force: true });
-      
-      // Should not have asked for confirmation
-      expect(mockUserInputService.prototype.askForConfirmation).not.toHaveBeenCalled();
-      
-      // Should have proceeded with initialization
-      expect(mockConfigService.getInstance().initialize).toHaveBeenCalled();
+      expect(mockLogger.divider).toHaveBeenCalled();
+      expect(mockLogger.header).toHaveBeenCalledWith('Initializing pew-pew-cli');
     });
   });
   
-  describe('handleNextTask', () => {
-    test('should display info message when no task files are configured', async () => {
-      // Mock empty task paths
-      (mockConfigService.getInstance().getAllTasksPaths as jest.Mock).mockResolvedValueOnce([]);
+  describe('setPath', () => {
+    test('should set tasks path successfully', async () => {
+      const mockConfigInstance = mockConfigService.getInstance();
+      const mockLogger = mockLoggerService.getInstance();
       
-      await cliService.handleNextTask();
+      await cliService.setPath('tasks', '/new/path/to/tasks.md');
       
-      // Should display info message
-      expect(mockLoggerService.getInstance().info).toHaveBeenCalledWith(
-        expect.stringContaining('No task files configured')
-      );
-      
-      // Should not process tasks
-      expect(mockTaskService.prototype.processNextTaskState).not.toHaveBeenCalled();
+      expect(mockConfigInstance.setTasksPaths).toHaveBeenCalledWith(['/new/path/to/tasks.md']);
+      expect(mockLogger.success).toHaveBeenCalledWith('Tasks path updated successfully');
     });
     
-    test('should display next task when found', async () => {
-      // Mock task paths
-      (mockConfigService.getInstance().getAllTasksPaths as jest.Mock).mockResolvedValueOnce(['/path/to/tasks.md']);
+    test('should handle invalid field gracefully', async () => {
+      const mockLogger = mockLoggerService.getInstance();
       
-      // Mock task service response
-      const mockNextTaskResult = {
-        status: TaskStatus.NEXT_TASK_FOUND,
-        displayFilePath: '/path/to/tasks.md',
-        displayTaskLines: ['# Header', '- [ ] Task 1'],
-        displayContextHeaders: 'Header',
-        summary: 'Task summary',
-      };
+      await cliService.setPath('invalid', '/some/path');
       
-      (mockTaskService.prototype.processNextTaskState as jest.Mock).mockResolvedValueOnce(mockNextTaskResult);
-      (path.relative as jest.Mock).mockReturnValueOnce('tasks.md');
-      
-      await cliService.handleNextTask();
-      
-      // Should process tasks
-      expect(mockTaskService.prototype.processNextTaskState).toHaveBeenCalledWith(['/path/to/tasks.md']);
-      
-      // Should display task info
-      expect(mockLoggerService.getInstance().header).toHaveBeenCalled();
-      expect(mockLoggerService.getInstance().taskLines).toHaveBeenCalledWith(['# Header', '- [ ] Task 1']);
-      expect(mockLoggerService.getInstance().log).toHaveBeenCalledWith(expect.stringContaining('Task summary'));
-    });
-    
-    test('should display success message when all tasks are complete', async () => {
-      // Mock task paths
-      (mockConfigService.getInstance().getAllTasksPaths as jest.Mock).mockResolvedValueOnce(['/path/to/tasks.md']);
-      
-      // Mock task service response
-      const mockNextTaskResult = {
-        status: TaskStatus.ALL_COMPLETE,
-        summary: 'All tasks complete',
-        displayFilePath: '/path/to/tasks.md',
-      };
-      
-      (mockTaskService.prototype.processNextTaskState as jest.Mock).mockResolvedValueOnce(mockNextTaskResult);
-      (path.relative as jest.Mock).mockReturnValueOnce('tasks.md');
-      
-      await cliService.handleNextTask();
-      
-      // Should process tasks
-      expect(mockTaskService.prototype.processNextTaskState).toHaveBeenCalledWith(['/path/to/tasks.md']);
-      
-      // Should display success message
-      expect(mockLoggerService.getInstance().success).toHaveBeenCalledWith(expect.stringContaining('All tasks complete'));
+      expect(mockLogger.error).toHaveBeenCalledWith('Invalid field: invalid');
     });
   });
   
-  describe('handlePasteTasks', () => {
-    test('should handle empty clipboard', async () => {
-      // Mock empty clipboard
-      (mockClipboardService.prototype.readFromClipboard as jest.Mock).mockResolvedValueOnce('');
+  describe('pasteTask', () => {
+    test('should paste clipboard content to tasks file with overwrite mode', async () => {
+      const mockConfigInstance = mockConfigService.getInstance();
+      const mockFileSystemInstance = new mockFileSystemService();
+      const mockClipboardInstance = new mockClipboardService();
+      const mockLogger = mockLoggerService.getInstance();
       
-      await cliService.handlePasteTasks();
+      // Setup mocks
+      mockClipboardInstance.read.mockResolvedValue('- [ ] New task from clipboard');
+      mockFileSystemInstance.writeFile.mockResolvedValue(undefined);
       
-      // Should log message about empty clipboard
-      expect(mockLoggerService.getInstance().log).toHaveBeenCalledWith('Clipboard is empty. Nothing to paste.');
+      await cliService.pasteTask('tasks', 'overwrite');
       
-      // Should not write any tasks
-      expect(mockTaskService.prototype.writeTasksContent).not.toHaveBeenCalled();
+      expect(mockClipboardInstance.read).toHaveBeenCalled();
+      expect(mockConfigInstance.getPasteTasksPath).toHaveBeenCalledWith('tasks');
+      expect(mockLogger.success).toHaveBeenCalledWith('Content pasted successfully');
     });
     
-    test('should prompt user for paste mode if not provided', async () => {
-      // Mock clipboard with content
-      (mockClipboardService.prototype.readFromClipboard as jest.Mock).mockResolvedValueOnce('- [ ] Task from clipboard');
+    test('should handle paste append mode', async () => {
+      const mockConfigInstance = mockConfigService.getInstance();
+      const mockFileSystemInstance = new mockFileSystemService();
+      const mockClipboardInstance = new mockClipboardService();
+      const mockLogger = mockLoggerService.getInstance();
       
-      // Mock user selecting paste mode
-      (mockUserInputService.prototype.askForSelection as jest.Mock).mockResolvedValueOnce('append');
+      // Setup mocks
+      mockClipboardInstance.read.mockResolvedValue('- [ ] New task from clipboard');
+      mockFileSystemInstance.readFile.mockResolvedValue('- [ ] Existing task');
+      mockFileSystemInstance.writeFile.mockResolvedValue(undefined);
       
-      // Mock configured paste path
-      (mockConfigService.getInstance().getPasteTasksPath as jest.Mock).mockResolvedValueOnce('/path/to/tasks.md');
+      await cliService.pasteTask('tasks', 'append');
       
-      // Mock relative path for log message
-      (path.relative as jest.Mock).mockReturnValueOnce('tasks.md');
+      expect(mockClipboardInstance.read).toHaveBeenCalled();
+      expect(mockFileSystemInstance.readFile).toHaveBeenCalled();
+      expect(mockLogger.success).toHaveBeenCalledWith('Content pasted successfully');
+    });
+  });
+  
+  describe('nextTask', () => {
+    test('should mark current task as complete and move to next', async () => {
+      const mockTaskInstance = new mockTaskService();
+      const mockLogger = mockLoggerService.getInstance();
       
-      await cliService.handlePasteTasks();
+      // Setup mocks
+      mockTaskInstance.markCurrentTaskComplete.mockResolvedValue(TaskStatus.COMPLETE);
       
-      // Should ask for paste mode
-      expect(mockUserInputService.prototype.askForSelection).toHaveBeenCalledWith(
-        'Choose paste mode:',
-        ['overwrite', 'append', 'insert']
-      );
+      await cliService.nextTask('tasks');
       
-      // Should write tasks with the selected mode
-      expect(mockTaskService.prototype.writeTasksContent).toHaveBeenCalledWith(
-        '/path/to/tasks.md',
-        '- [ ] Task from clipboard',
-        'append'
-      );
+      expect(mockTaskInstance.markCurrentTaskComplete).toHaveBeenCalled();
+      expect(mockLogger.success).toHaveBeenCalledWith('Task marked as complete');
+    });
+    
+    test('should handle no current task found', async () => {
+      const mockTaskInstance = new mockTaskService();
+      const mockLogger = mockLoggerService.getInstance();
       
-      // Should log success message
-      expect(mockLoggerService.getInstance().success).toHaveBeenCalled();
+      // Setup mocks
+      mockTaskInstance.markCurrentTaskComplete.mockResolvedValue(TaskStatus.NOT_FOUND);
+      
+      await cliService.nextTask('tasks');
+      
+      expect(mockLogger.warn).toHaveBeenCalledWith('No current task found');
+    });
+  });
+  
+  describe('resetTasks', () => {
+    test('should reset completed tasks successfully', async () => {
+      const mockTaskInstance = new mockTaskService();
+      const mockLogger = mockLoggerService.getInstance();
+      
+      // Setup mocks
+      mockTaskInstance.resetCompletedTasks.mockResolvedValue(3);
+      
+      await cliService.resetTasks('tasks');
+      
+      expect(mockTaskInstance.resetCompletedTasks).toHaveBeenCalled();
+      expect(mockLogger.success).toHaveBeenCalledWith('3 tasks reset to incomplete');
+    });
+    
+    test('should handle no completed tasks found', async () => {
+      const mockTaskInstance = new mockTaskService();
+      const mockLogger = mockLoggerService.getInstance();
+      
+      // Setup mocks
+      mockTaskInstance.resetCompletedTasks.mockResolvedValue(0);
+      
+      await cliService.resetTasks('tasks');
+      
+      expect(mockLogger.info).toHaveBeenCalledWith('No completed tasks found to reset');
+    });
+  });
+  
+  describe('checkForUpdates', () => {
+    test('should check for updates and find new version', async () => {
+      const mockUpdateInstance = new mockUpdateService();
+      const mockLogger = mockLoggerService.getInstance();
+      
+      // Setup mocks
+      mockUpdateInstance.checkForUpdates.mockResolvedValue({
+        hasUpdate: true,
+        currentVersion: '1.0.0',
+        latestVersion: '1.1.0'
+      });
+      
+      await cliService.checkForUpdates();
+      
+      expect(mockUpdateInstance.checkForUpdates).toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalledWith('Update available: 1.0.0 → 1.1.0');
+    });
+    
+    test('should handle no updates available', async () => {
+      const mockUpdateInstance = new mockUpdateService();
+      const mockLogger = mockLoggerService.getInstance();
+      
+      // Setup mocks
+      mockUpdateInstance.checkForUpdates.mockResolvedValue({
+        hasUpdate: false,
+        currentVersion: '1.0.0',
+        latestVersion: '1.0.0'
+      });
+      
+      await cliService.checkForUpdates();
+      
+      expect(mockLogger.success).toHaveBeenCalledWith('Already using the latest version (1.0.0)');
     });
   });
 });

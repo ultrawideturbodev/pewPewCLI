@@ -1,13 +1,13 @@
 /**
  * Jest configuration for TypeScript ESM project
  * 
- * This configuration is designed for testing TypeScript code that uses ESM modules.
- * It includes settings for handling ESM imports, managing module paths, and setting up ts-jest.
+ * This configuration is designed for testing TypeScript code that uses ESM modules
+ * with proper ESM module mocking support.
  */
 
 export default {
   // Use ts-jest preset for TypeScript support
-  preset: 'ts-jest',
+  preset: 'ts-jest/presets/default-esm',
 
   // Use Node.js environment
   testEnvironment: 'node',
@@ -16,24 +16,18 @@ export default {
   extensionsToTreatAsEsm: ['.ts'],
   
   // Map import paths - this is crucial for ESM with TypeScript
-  // This transforms import paths like '../foo.js' to '../foo'
-  // Also maps absolute imports to their actual locations
+  // Handle both .js extensions (which TypeScript outputs) and direct imports
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^@/(.*)\.js$': '<rootDir>/src/$1',
-    '^@tests/(.*)\.js$': '<rootDir>/tests/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@tests/(.*)$': '<rootDir>/tests/$1',
   },
   
-  // Configure ts-jest to handle ESM
+  // Configure ts-jest using the new transform syntax
   transform: {
-    '^.+\\.tsx?$': [
-      'ts-jest',
-      {
-        useESM: true,
-      },
-    ],
+    '^.+\\.tsx?$': ['ts-jest', {
+      useESM: true,
+    }],
   },
 
   // Set test match patterns - all tests in tests/ directory
@@ -41,15 +35,10 @@ export default {
     '**/tests/unit/*.test.ts',
   ],
   
-  // Skip specific tests with ESM module resolution issues
+  // Ignore node_modules and examples
   testPathIgnorePatterns: [
     '/node_modules/',
-    // Temporarily disabled due to ESM import issues:
-    'tests/unit/cli.service.test.ts',
-    'tests/unit/cli.service.templates.test.ts', 
-    'tests/unit/config.service.templates.test.ts',
-    'tests/unit/file-system.service.test.ts',
-    'tests/unit/yaml.service.test.ts',
+    '/examples/',
   ],
   
   // Setup files to run before tests

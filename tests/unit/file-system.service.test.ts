@@ -3,37 +3,45 @@
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
 
-// Mock fs, path, and os modules
-jest.mock('fs/promises');
-jest.mock('path');
-jest.mock('os');
+// Mock fs, path, and os modules using ESM approach
+await jest.unstable_mockModule('fs/promises', () => ({
+  readFile: jest.fn(),
+  writeFile: jest.fn(),
+  access: jest.fn(),
+  mkdir: jest.fn(),
+}));
 
-// Import fs, path, and os modules after mocking
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import * as os from 'os';
+await jest.unstable_mockModule('path', () => ({
+  resolve: jest.fn(),
+  join: jest.fn(),
+  dirname: jest.fn(),
+}));
 
-// Mock the logger service 
-jest.mock('@/core/logger.service', () => {
-  return {
-    LoggerService: {
-      getInstance: jest.fn(() => ({
-        log: jest.fn(),
-        success: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        header: jest.fn(),
-        divider: jest.fn(),
-        taskLines: jest.fn()
-      }))
-    }
-  };
-});
+await jest.unstable_mockModule('os', () => ({
+  homedir: jest.fn(),
+}));
 
-// Import the class under test
-import { FileSystemService } from '@/io/file-system.service.js';
-import { LoggerService } from '@/core/logger.service.js';
+await jest.unstable_mockModule('@/core/logger.service', () => ({
+  LoggerService: {
+    getInstance: jest.fn(() => ({
+      log: jest.fn(),
+      success: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      header: jest.fn(),
+      divider: jest.fn(),
+      taskLines: jest.fn()
+    }))
+  }
+}));
+
+// Import all modules after mocking
+const fs = await import('fs/promises');
+const path = await import('path');
+const os = await import('os');
+const { FileSystemService } = await import('@/io/file-system.service');
+const { LoggerService } = await import('@/core/logger.service');
 
 describe('FileSystemService', () => {
   let fileSystemService: FileSystemService;
@@ -45,16 +53,15 @@ describe('FileSystemService', () => {
   
   beforeEach(() => {
     // Set up mock implementations
-    mockReadFile = jest.fn().mockResolvedValue('file content');
-    mockWriteFile = jest.fn().mockResolvedValue(undefined);
-    mockAccess = jest.fn().mockResolvedValue(undefined);
-    mockMkdir = jest.fn().mockResolvedValue(undefined);
+    mockReadFile = fs.readFile as jest.Mock;
+    mockWriteFile = fs.writeFile as jest.Mock;
+    mockAccess = fs.access as jest.Mock;
+    mockMkdir = fs.mkdir as jest.Mock;
     
-    // Apply mocks to imported modules
-    (fs.readFile as unknown) = mockReadFile;
-    (fs.writeFile as unknown) = mockWriteFile;
-    (fs.access as unknown) = mockAccess;
-    (fs.mkdir as unknown) = mockMkdir;
+    mockReadFile.mockResolvedValue('file content');
+    mockWriteFile.mockResolvedValue(undefined);
+    mockAccess.mockResolvedValue(undefined);
+    mockMkdir.mockResolvedValue(undefined);
     
     // Mock path and os methods
     (path.resolve as jest.Mock).mockImplementation((...paths) => paths.join('/'));

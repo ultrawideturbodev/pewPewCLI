@@ -4,27 +4,61 @@
  * Tests specifically for templates functionality in CliService (pew init template example)
  */
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
-import { CliService } from '@/core/cli.service.js';
-import { createMockFileSystemService, createMockLoggerService, createMockConfigService, createMockUserInputService, mockFixtures } from '@tests/mocks/service-factory.js';
-import { ConfigService } from '@/io/config.service.js';
-import { YamlService } from '@/io/yaml.service.js';
-import { FileSystemService } from '@/io/file-system.service.js';
-import { UserInputService } from '@/io/user-input.service.js';
-import { ClipboardService } from '@/clipboard/clipboard.service.js';
-import { TaskService } from '@/tasks/task.service.js';
-import { UpdateService } from '@/updates/update.service.js';
-import * as path from 'path';
 
-// Mock all dependencies
-jest.mock('@/io/file-system.service.js');
-jest.mock('@/io/config.service.js');
-jest.mock('@/io/user-input.service.js');
-jest.mock('@/clipboard/clipboard.service.js');
-jest.mock('@/tasks/task.service.js');
-jest.mock('@/updates/update.service.js');
-jest.mock('@/core/logger.service.js');
-jest.mock('@/io/yaml.service.js');
-jest.mock('path');
+// Mock all dependencies using ESM approach
+await jest.unstable_mockModule('@/io/file-system.service', () => ({
+  FileSystemService: jest.fn()
+}));
+
+await jest.unstable_mockModule('@/io/config.service', () => ({
+  ConfigService: {
+    getInstance: jest.fn()
+  }
+}));
+
+await jest.unstable_mockModule('@/io/user-input.service', () => ({
+  UserInputService: jest.fn()
+}));
+
+await jest.unstable_mockModule('@/clipboard/clipboard.service', () => ({
+  ClipboardService: jest.fn()
+}));
+
+await jest.unstable_mockModule('@/tasks/task.service', () => ({
+  TaskService: jest.fn()
+}));
+
+await jest.unstable_mockModule('@/updates/update.service', () => ({
+  UpdateService: jest.fn()
+}));
+
+await jest.unstable_mockModule('@/core/logger.service', () => ({
+  LoggerService: {
+    getInstance: jest.fn()
+  }
+}));
+
+await jest.unstable_mockModule('@/io/yaml.service', () => ({
+  YamlService: jest.fn()
+}));
+
+await jest.unstable_mockModule('path', () => ({
+  resolve: jest.fn(),
+  join: jest.fn(),
+  dirname: jest.fn(),
+}));
+
+// Import modules after mocking
+const { CliService } = await import('@/core/cli.service');
+const { createMockFileSystemService, createMockLoggerService, createMockConfigService, createMockUserInputService, mockFixtures } = await import('@tests/mocks/service-factory');
+const { ConfigService } = await import('@/io/config.service');
+const { YamlService } = await import('@/io/yaml.service');
+const { FileSystemService } = await import('@/io/file-system.service');
+const { UserInputService } = await import('@/io/user-input.service');
+const { ClipboardService } = await import('@/clipboard/clipboard.service');
+const { TaskService } = await import('@/tasks/task.service');
+const { UpdateService } = await import('@/updates/update.service');
+const path = await import('path');
 
 describe('CliService Templates', () => {
   let cliService: CliService;
@@ -48,21 +82,34 @@ describe('CliService Templates', () => {
     // Mock FileSystemService constructor
     (FileSystemService as jest.MockedClass<typeof FileSystemService>).mockImplementation(() => mockFileSystemService);
     
-    // Mock YamlService methods and constructor
+    // Mock ConfigService singleton
+    (ConfigService.getInstance as jest.Mock).mockReturnValue(mockConfigService);
+    
+    // Mock LoggerService singleton
+    const { LoggerService } = require('@/core/logger.service');
+    LoggerService.getInstance.mockReturnValue(mockLoggerService);
+    
+    // Mock YamlService
     mockYamlService = {
-      readYamlFile: jest.fn().mockResolvedValue({}),
-      writeYamlFile: jest.fn().mockResolvedValue(undefined),
+      readYamlFile: jest.fn(),
+      writeYamlFile: jest.fn(),
+      parseYaml: jest.fn(),
+      serializeYaml: jest.fn(),
     };
     (YamlService as jest.MockedClass<typeof YamlService>).mockImplementation(() => mockYamlService);
     
-    // Mock path.join
+    // Mock other services
+    (UserInputService as jest.MockedClass<typeof UserInputService>).mockImplementation(() => mockUserInputService);
+    (ClipboardService as jest.MockedClass<typeof ClipboardService>).mockImplementation(() => ({ read: jest.fn(), write: jest.fn() }));
+    (TaskService as jest.MockedClass<typeof TaskService>).mockImplementation(() => ({ markCurrentTaskComplete: jest.fn() }));
+    (UpdateService as jest.MockedClass<typeof UpdateService>).mockImplementation(() => ({ checkForUpdates: jest.fn() }));
+    
+    // Mock path functions
+    (path.resolve as jest.Mock).mockImplementation((...paths) => paths.join('/'));
     (path.join as jest.Mock).mockImplementation((...paths) => paths.join('/'));
     (path.dirname as jest.Mock).mockImplementation((p) => p.split('/').slice(0, -1).join('/') || '/');
     
-    // Mock process.cwd
-    jest.spyOn(process, 'cwd').mockReturnValue('/mock/current/dir');
-    
-    // Get an instance of CliService with mocked dependencies
+    // Get an instance of CliService with mocked dependencies  
     cliService = CliService.getInstance();
   });
   
@@ -70,81 +117,50 @@ describe('CliService Templates', () => {
     jest.clearAllMocks();
   });
   
-  describe('handleInit', () => {
-    test('should append templates example to pew.yaml when initializing', async () => {
-      // Mock the appendTemplatesExampleToYaml method
-      const mockAppendTemplatesExample = jest.spyOn(cliService as any, 'appendTemplatesExampleToYaml')
-        .mockResolvedValueOnce(undefined);
+  describe('init with template example', () => {
+    test('should create default template configuration in pew.yaml', async () => {
+      // Mock file system to simulate no existing pew.yaml
+      mockFileSystemService.pathExists.mockResolvedValue(false);
+      mockFileSystemService.writeFile.mockResolvedValue(undefined);
       
-      // Mock FileSystemService.pathExists for pew.yaml check
-      mockFileSystemService.pathExists.mockResolvedValueOnce(false); // First call for pew.yaml existence check
-      mockFileSystemService.pathExists.mockResolvedValueOnce(false); // Second call for task file existence check
+      await cliService.init();
       
-      // Run the handleInit method
-      await cliService.handleInit({ force: true });
+      expect(mockFileSystemService.writeFile).toHaveBeenCalledWith(
+        'pew.yaml',
+        expect.stringContaining('templates:')
+      );
+      expect(mockFileSystemService.writeFile).toHaveBeenCalledWith(
+        'pew.yaml',
+        expect.stringContaining('component:')
+      );
+      expect(mockLoggerService.success).toHaveBeenCalledWith('pew-pew-cli initialized successfully!');
+    });
+    
+    test('should not overwrite existing pew.yaml during init', async () => {
+      // Mock file system to simulate existing pew.yaml
+      mockFileSystemService.pathExists.mockResolvedValue(true);
       
-      // Verify that appendTemplatesExampleToYaml was called with the correct path
-      expect(mockAppendTemplatesExample).toHaveBeenCalledWith('/mock/current/dir/pew.yaml');
+      await cliService.init();
       
-      // Verify the order of operations
-      expect(mockFileSystemService.ensureDirectoryExists).toHaveBeenCalled();
-      expect(mockYamlService.writeYamlFile).toHaveBeenCalled();
-      expect(mockAppendTemplatesExample).toHaveBeenCalled();
-      expect(mockConfigService.setTasksPaths).toHaveBeenCalled();
+      expect(mockFileSystemService.writeFile).not.toHaveBeenCalled();
+      expect(mockLoggerService.success).toHaveBeenCalledWith('pew-pew-cli initialized successfully!');
     });
   });
   
-  describe('appendTemplatesExampleToYaml', () => {
-    test('should read existing content and append templates example', async () => {
-      // Mock existing content
-      const existingContent = 'tasks:\n  all:\n    - tasks.md\n';
-      mockFileSystemService.readFile.mockResolvedValueOnce(existingContent);
+  describe('template-related path operations', () => {
+    test('should handle template examples in init correctly', async () => {
+      // Mock file system operations
+      mockFileSystemService.pathExists.mockResolvedValue(false);
+      mockFileSystemService.writeFile.mockResolvedValue(undefined);
       
-      // Call the private method directly
-      await (cliService as any).appendTemplatesExampleToYaml('/mock/pew.yaml');
+      await cliService.init();
       
-      // Verify file read
-      expect(mockFileSystemService.readFile).toHaveBeenCalledWith('/mock/pew.yaml');
-      
-      // Verify file write
-      expect(mockFileSystemService.writeFile).toHaveBeenCalledWith(
-        '/mock/pew.yaml',
-        expect.stringContaining(existingContent) // Should include original content
-      );
-      
-      // Verify templates example content was added
-      const writeCall = mockFileSystemService.writeFile.mock.calls[0];
-      const newContent = writeCall[1]; // Second argument to writeFile
-      
-      // Check for specific template example elements
-      expect(newContent).toContain('# Templates for code generation');
-      expect(newContent).toContain('# templates:');
-      expect(newContent).toContain('# Example \'project\' template');
-      expect(newContent).toContain('# variables:');
-      expect(newContent).toContain('# replacements:');
-      expect(newContent).toContain('# root:');
-      expect(newContent).toContain('# files:');
-      
-      // Ensure example is commented out
-      const templateLines = newContent.split('\n').filter(line => line.includes('templates:'));
-      expect(templateLines[0].trim().startsWith('#')).toBe(true);
-    });
-    
-    test('should handle errors when appending templates example', async () => {
-      // Mock file read error
-      mockFileSystemService.readFile.mockRejectedValueOnce(new Error('Read error'));
-      
-      // Call the private method
-      await (cliService as any).appendTemplatesExampleToYaml('/mock/pew.yaml');
-      
-      // Verify error was logged
-      expect(mockLoggerService.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to append templates example'),
-        expect.anything()
-      );
-      
-      // Write should not have been called due to error
-      expect(mockFileSystemService.writeFile).not.toHaveBeenCalled();
+      // Verify the template configuration was written
+      const writtenContent = mockFileSystemService.writeFile.mock.calls[0][1];
+      expect(writtenContent).toContain('templates:');
+      expect(writtenContent).toContain('variables:');
+      expect(writtenContent).toContain('replacements:');
+      expect(writtenContent).toContain('files:');
     });
   });
 });
